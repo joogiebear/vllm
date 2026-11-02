@@ -204,14 +204,23 @@ function simulateHeat(state, seconds) {
     if (dt <= 1e-12) {
       const before = heatSig(state);
       applyHeatBoundary(state);
-      if (heatSig(state) === before) break; // no transition: nothing left to do
+      if (heatSig(state) === before) {
+        // No transition left: heat is pinned (0, or holding with netRise <= 0),
+        // so the factor stays constant for the rest of the step.
+        const factor =
+          state.throttled ? THROTTLE_FACTOR : effectiveOverclock(state) ? OVERCLOCK_FACTOR : 1;
+        factorTime += factor * remaining;
+        break;
+      }
       continue;
     }
     const factor = state.throttled ? THROTTLE_FACTOR : effOn ? OVERCLOCK_FACTOR : 1;
     factorTime += factor * dt;
     state.heat = Math.min(HEAT_MAX, Math.max(0, state.heat + rate * dt));
     remaining -= dt;
-    if (dt === dtToBoundary && dtToBoundary < Infinity && remaining > 0) {
+    // Apply the transition at the exact moment, even if that is the end of the
+    // tick, so heat 100/40/95 never lingers across a step boundary.
+    if (dt === dtToBoundary && dtToBoundary < Infinity) {
       applyHeatBoundary(state);
     }
   }
