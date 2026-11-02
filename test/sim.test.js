@@ -655,3 +655,29 @@ test('game over via dropped arrival', () => {
   assert.equal(s.reputation, 0);
   assert.equal(s.phase, 'over');
 });
+
+test('game over during the patience loop: GPUs do not advance that tick', () => {
+  const s = createGame(41);
+  s.reputation = 1;
+  s.gpus[0].active = 'A';
+  s.queue.push(makeReq(1, 'A', 100000));
+  step(s, [{ type: 'assign', requestId: 1, gpu: 0, slot: 0 }]);
+  assert.equal(s.gpus[0].slots[0].cacheHit, true); // no stall: it will progress
+  const doneBefore = s.gpus[0].slots[0].done;
+  s.gpus[0].heat = 50;
+  s.gpus[0].boostActive = true;
+  s.gpus[0].boostTimer = 2;
+  s.gpus[0].boostCooldown = 5;
+  // VIP with exactly one tick of patience: it times out this tick, costs 2
+  // reputation -> 0 -> game over, before the GPU loop would run.
+  s.queue.push(makeReq(2, 'B', 100, { patience: TICK_SECONDS, maxPatience: TICK_SECONDS, vip: true }));
+  step(s, []);
+  assert.equal(s.phase, 'over');
+  assert.equal(s.reputation, 0);
+  assert.ok(s.events.some((e) => e.type === 'gameOver'));
+  // GPU state must be frozen for the game-over tick
+  assert.equal(s.gpus[0].slots[0].done, doneBefore, 'no progress on the game-over tick');
+  assert.equal(s.gpus[0].heat, 50, 'heat untouched on the game-over tick');
+  assert.equal(s.gpus[0].boostTimer, 2, 'boost timer untouched on the game-over tick');
+  assert.equal(s.gpus[0].boostCooldown, 5, 'boost cooldown untouched on the game-over tick');
+});

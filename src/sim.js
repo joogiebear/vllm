@@ -304,6 +304,10 @@ function simulateTick(state) {
     }
   }
 
+  // A timeout (or a dropped arrival) may have ended the game: freeze the GPUs
+  // for this tick.
+  if (state.phase !== 'playing') return;
+
   for (let gi = 0; gi < state.gpus.length; gi++) {
     stepGpu(state, state.gpus[gi], gi, dt);
   }

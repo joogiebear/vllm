@@ -49,3 +49,23 @@ Choices for things the design leaves unspecified. All are the simplest option.
 
 - In addition to the design's examples (`served`, `dropped`, `timeout`), the sim emits
   `assign`, `evict`, `boost`, `throttle`, `upgrade`, `gameOver`.
+
+## UI (M2)
+
+- The game starts in `playing` immediately on load (no title screen until M3); the seed
+  is a fixed constant (1337) in main.js so a run is reproducible.
+- Pause is view-level (`ui.paused`): the step loop stops and the world freezes; queued
+  actions apply on the first tick after resume. `P` toggles pause, `M` toggles mute
+  (audio itself is M3).
+- The canvas is sized to the largest 960x600 rectangle that fits the window (letterboxed
+  by the page background); pointer coordinates map from the canvas bounding box straight
+  into logical space.
+- Queue card keys: `1`-`9` select cards 1-9 and `0` selects card 10 (the design's
+  `1`-`8` extended for queue upgrades).
+- Slot keys on a filled slot evict, mirroring the tap behavior; on an empty slot they
+  assign the selected card.
+- The `upgrade` phase draws the three offers as clickable cards over the frozen scene;
+  the `over` phase draws "GAME OVER" and the score (full screens are M3).
+- main.js exposes `window.__overclock = { state, ui }` only when the page is
+  loaded with a `?debug` query parameter (browser testing hook; inert in
+  normal play).
