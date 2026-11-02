@@ -83,8 +83,8 @@ test('CONFIG carries the design numbers', () => {
   assert.equal(CONFIG.boostCooldownMin, 4);
   assert.equal(CONFIG.startReputation, 10);
   assert.equal(CONFIG.maxReputation, 10);
-  assert.equal(CONFIG.maxPatience, 14);
-  assert.equal(CONFIG.vipPatience, 8);
+  assert.equal(CONFIG.maxPatience, 11);
+  assert.equal(CONFIG.vipPatience, 6);
   assert.equal(CONFIG.vipChance, 0.1);
   assert.equal(CONFIG.tokenMin, 40);
   assert.equal(CONFIG.tokenMax, 160);
@@ -575,7 +575,7 @@ test('patience upgrade: new requests get +3s maxPatience', () => {
   step(s, []);
   assert.equal(s.queue.length, 1);
   const r = s.queue[0];
-  assert.equal(r.maxPatience, (r.vip ? 8 : 14) + 3);
+  assert.equal(r.maxPatience, (r.vip ? 6 : 11) + 3);
 });
 
 test('arrivals: first arrival after one interval, tokens 40-160', () => {

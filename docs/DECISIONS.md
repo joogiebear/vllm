@@ -69,3 +69,59 @@ Choices for things the design leaves unspecified. All are the simplest option.
 - main.js exposes `window.__overclock = { state, ui }` only when the page is
   loaded with a `?debug` query parameter (browser testing hook; inert in
   normal play).
+
+## UI (M3)
+
+- The page opens on a title screen (name, how-to-play, best score); any tap or
+  key starts a run, and any tap or key on the game-over screen restarts.
+- The seed is a fresh 32-bit random value generated in main.js per run;
+  `?seed=N` forces a seed. `?debug` now also exposes `ui` and `best`.
+- The sim now emits the `assign` event the Events section above already states
+  (it was documented but missing); invalid assigns emit nothing. No rule
+  changed.
+- Best score is stored in `localStorage` under `overclock-best` (the only
+  localStorage use), wrapped in try/catch so private mode degrades to no
+  persistence.
+- The page auto-pauses when hidden (visibilitychange); on becoming visible the
+  frame clock is reset so a backgrounded run neither loses nor gains time.
+- Effects (floating score numbers, finish particles, timeout shake and red
+  flash, throttled panel flicker and red pulse, scanlines) are renderer view
+  state fed from `state.events` via `ingestEvents()`; they never write back to
+  the sim.
+- Audio (WebAudio, synthesised) unlocks on the first pointer or key gesture;
+  `M` mutes by checking `ui.muted` on every play.
+
+## Balance (M3)
+
+`tools/balance.js` plays the sim headlessly with two bots over 200 seeds each:
+`idle` (never acts; freezes in the upgrade phase after level 1) and `greedy`
+(each tick: most-urgent queued request to a free slot, preferring a GPU whose
+active prefix matches, otherwise the coolest GPU; avoids throttled or >85-heat
+GPUs when another option exists; takes the first offered upgrade; runs to game
+over or level 30).
+
+Targets: idle loses in level 1–2; greedy median between level 5 and 9 with the
+game clearly getting harder. Before tuning, the greedy bot reached level 30
+(the cap) in all 200 seeds, so the difficulty curve was flattened by the
+0.7 s arrival floor. CONFIG-only changes (no rule changes):
+
+| CONFIG key | before | after |
+| --- | --- | --- |
+| `arrivalIntervalStep` | 0.25 | 0.4 |
+| `minArrivalInterval` | 0.7 | 0.3 |
+| `maxPatience` | 14 | 11 |
+| `vipPatience` | 8 | 6 |
+
+Results (200 seeds, `node tools/balance.js`):
+
+| bot | level median | level p90 | score median | score p90 |
+| --- | --- | --- | --- | --- |
+| idle (before) | 1 | 1 | 0 | 0 |
+| idle (after) | 1 | 1 | 0 | 0 |
+| greedy (before) | 30 | 30 | 519549.8 | 527327.6 |
+| greedy (after) | 7 | 7 | 71939.9 | 82182.7 |
+
+Arrival interval now falls 2.6 s → 0.3 s over levels 1–7, so the game clearly
+gets harder; the prefix pool growth (C at level 2, D at level 3) and VIPs add
+pressure on top. The `patience` upgrade test and the CONFIG test were updated
+for the new 11/6 values; no other test hard-coded a changed number.

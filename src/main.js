@@ -1,9 +1,10 @@
 // OVERCLOCK main: canvas sizing, the fixed-step loop, and the wiring of
-// sim, render and input.
+// sim, render, input and audio.
 
 import { createGame, step, TICK_SECONDS } from './sim.js';
-import { render } from './render.js';
+import { render, ingestEvents, resetFx } from './render.js';
 import { createInput } from './input.js';
+import { createAudio } from './audio.js';
 
 const W = 960;
 const H = 600;
@@ -11,18 +12,62 @@ const H = 600;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// The game starts in `playing` immediately (no title screen until M3). A
-// fixed seed keeps a run reproducible; the design leaves the seed open.
-const state = createGame(1337);
+// --- seed -------------------------------------------------------------------
+// A fresh random seed per run, generated here (not in sim.js). `?seed=N`
+// forces a specific seed for reproducible runs.
+function pickSeed() {
+  const p = new URLSearchParams(location.search);
+  const forced = p.get('seed');
+  if (forced !== null && /^\d+$/.test(forced)) return Number(forced) >>> 0;
+  return (Math.random() * 0x100000000) >>> 0;
+}
 
-// View-only data shared with render and input.
+// --- best score (the only localStorage use) ----------------------------------
+const BEST_KEY = 'overclock-best';
+function loadBest() {
+  try {
+    const v = Number(localStorage.getItem(BEST_KEY));
+    return Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+function saveBest(v) {
+  try {
+    localStorage.setItem(BEST_KEY, String(v));
+  } catch (err) {
+    // private mode etc.: the best score just does not persist
+  }
+}
+
+// --- game + view state --------------------------------------------------------
+// The state object keeps one identity for the page's lifetime; starting a new
+// run reassigns its fields in place, so closures (input, debug hook) stay
+// valid across restarts.
+let currentSeed = pickSeed();
+const state = createGame(currentSeed);
+
 const ui = {
+  screen: 'title', // 'title' | 'playing' | 'over'
   selectedId: null,
   drag: null,
   hover: null,
   paused: false,
   muted: false,
+  best: loadBest(),
 };
+
+// requestId -> { vip, prefix } for the current run; rebuilt from the queue and
+// the slots before each step, so a request that finishes in a tick is still
+// known to the audio and effect handlers.
+const reqInfo = new Map();
+function trackRequests() {
+  reqInfo.clear();
+  for (const r of state.queue) reqInfo.set(r.id, { vip: r.vip, prefix: r.prefix });
+  for (const g of state.gpus) {
+    for (const r of g.slots) if (r) reqInfo.set(r.id, { vip: r.vip, prefix: r.prefix });
+  }
+}
 
 // Actions collected since the last tick; they are consumed by the first step
 // of the next tick (and only that one).
@@ -31,47 +76,101 @@ function queueAction(a) {
   queuedActions.push(a);
 }
 
-// Debug hook for browser testing: with ?debug in the URL, expose the live
-// state and ui. Inert otherwise.
-if (new URLSearchParams(location.search).has('debug')) {
-  window.__overclock = { state, ui };
+const audio = createAudio(ui);
+
+function startGame() {
+  currentSeed = pickSeed();
+  Object.assign(state, createGame(currentSeed));
+  ui.screen = 'playing';
+  ui.paused = false;
+  ui.selectedId = null;
+  ui.drag = null;
+  ui.hover = null;
+  queuedActions.length = 0;
+  trackRequests();
+  resetFx();
+  resetClock();
 }
 
-createInput(canvas, state, ui, queueAction);
+// Debug hook for browser testing: with ?debug in the URL, expose the live
+// state, ui, best score and the current run's seed. Inert otherwise.
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__overclock = {
+    state,
+    ui,
+    audio,
+    get best() { return ui.best; },
+    get seed() { return currentSeed; },
+  };
+}
 
-// Size the canvas to the largest 960x600 rectangle that fits the window
-// (letterboxed by the page background), corrected for device pixel ratio.
+createInput(canvas, state, ui, queueAction, { startGame });
+
+// Audio starts only after the first user gesture.
+window.addEventListener('pointerdown', () => audio.unlock());
+window.addEventListener('keydown', () => audio.unlock());
+
+// Auto-pause while the page is hidden, so a backgrounded run does not lose
+// time; on resume the frame clock is reset.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (ui.screen === 'playing' && !ui.paused) ui.paused = true;
+  } else {
+    resetClock();
+  }
+});
+
+// Size the canvas to the window (CSS pixels), keeping the fixed 960x600
+// logical space.
 function resize() {
   const dpr = window.devicePixelRatio || 1;
-  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
-  const cssW = Math.max(1, Math.floor(W * scale));
-  const cssH = Math.max(1, Math.floor(H * scale));
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
-  canvas.width = Math.max(1, Math.round(cssW * dpr));
-  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.width = Math.round(window.innerWidth * dpr);
+  canvas.height = Math.round(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
 }
 window.addEventListener('resize', resize);
 resize();
 
 let last = performance.now();
 let acc = 0;
+function resetClock() {
+  last = performance.now();
+  acc = 0;
+}
+
+function handleEvents(events) {
+  for (const e of events) {
+    if (e.type === 'gameOver' && ui.screen === 'playing') {
+      ui.screen = 'over';
+      const s = Math.floor(state.score);
+      if (s > ui.best) {
+        ui.best = s;
+        saveBest(s);
+      }
+    }
+  }
+  audio.playEvents(events, reqInfo);
+  ingestEvents(events, reqInfo);
+}
 
 function frame(now) {
   const dt = (now - last) / 1000;
   last = now;
 
-  if (ui.paused) {
-    acc = 0;
-  } else {
+  if (ui.screen === 'playing' && !ui.paused) {
+    trackRequests();
     acc += dt;
     if (acc > 5 * TICK_SECONDS) acc = 5 * TICK_SECONDS; // at most 5 steps per frame
     let steps = 0;
     while (acc >= TICK_SECONDS && steps < 5) {
       step(state, steps === 0 ? queuedActions.splice(0) : []);
+      handleEvents(state.events);
       acc -= TICK_SECONDS;
       steps += 1;
     }
+  } else {
+    acc = 0;
   }
 
   const scale = canvas.width / W;

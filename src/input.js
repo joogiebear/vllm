@@ -1,126 +1,73 @@
-// OVERCLOCK input.
+// OVERCLOCK input: pointer (click / drag) and keyboard, mapped onto the
+// sim's actions.
 //
-// Turns pointer and key events into sim actions (queued for the first step of
-// the next tick) and ui changes (selected card, drag position, hover).
-// Pointer Events are used so mouse and touch share one code path. Client
-// coordinates are converted to the 960x600 logical space from the canvas
-// bounding box (the canvas is letterboxed, so the box is the game area).
+// The sim is a pure function of (state, actions); input only translates
+// gestures into those actions and into the view-only `ui` state (selected
+// card, drag position, hover, pause, mute). It never mutates the game state
+// directly.
 
 import { layout, hitRect } from './render.js';
 
-const W = 960;
-const H = 600;
+const KEY_SLOTS = { q: [0, 0], w: [0, 1], e: [0, 2], r: [0, 3], a: [1, 0], s: [1, 1], d: [1, 2], f: [1, 3] };
+const KEY_BOOST = { z: 0, x: 1 };
 
-// key -> [gpu, slot]
-const SLOT_KEYS = {
-  q: [0, 0],
-  w: [0, 1],
-  e: [0, 2],
-  r: [0, 3],
-  a: [1, 0],
-  s: [1, 1],
-  d: [1, 2],
-  f: [1, 3],
-};
-
-export function createInput(canvas, state, ui, queueAction) {
+export function createInput(canvas, state, ui, queueAction, callbacks) {
   function toLogical(e) {
-    const r = canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     return {
-      x: ((e.clientX - r.left) / r.width) * W,
-      y: ((e.clientY - r.top) / r.height) * H,
+      x: ((e.clientX - rect.left) / rect.width) * 960,
+      y: ((e.clientY - rect.top) / rect.height) * 600,
     };
   }
 
-  function findCard(p) {
-    const L = layout(state);
-    for (let i = 0; i < L.cards.length; i++) {
-      if (hitRect(p, L.cards[i])) return i;
-    }
-    return -1;
-  }
-
-  function findSlot(p) {
-    const L = layout(state);
-    for (let gi = 0; gi < L.gpus.length; gi++) {
-      for (let si = 0; si < L.gpus[gi].slots.length; si++) {
-        if (hitRect(p, L.gpus[gi].slots[si])) return { gpu: gi, slot: si };
-      }
-    }
-    return null;
-  }
-
-  function findBoost(p) {
-    const L = layout(state);
-    for (let gi = 0; gi < L.gpus.length; gi++) {
-      if (hitRect(p, L.gpus[gi].boost)) return gi;
-    }
-    return -1;
-  }
-
-  function findOffer(p) {
-    const L = layout(state);
-    for (let i = 0; i < L.offer.length; i++) {
-      if (hitRect(p, L.offer[i])) return i;
-    }
-    return -1;
-  }
-
-  function selectedInQueue() {
-    return ui.selectedId != null && state.queue.some((r) => r.id === ui.selectedId);
-  }
-
-  function assignSelected(gpu, slot) {
-    if (!selectedInQueue()) return false;
-    const g = state.gpus[gpu];
-    if (!g || g.slots[slot] !== null) return false;
-    queueAction({ type: 'assign', requestId: ui.selectedId, gpu, slot });
-    ui.selectedId = null;
-    return true;
-  }
-
   function onPointerDown(e) {
-    e.preventDefault();
-    try {
-      canvas.setPointerCapture(e.pointerId);
-    } catch (err) {
-      // capture is best-effort
-    }
     const p = toLogical(e);
-
+    const L = layout(state);
+    canvas.setPointerCapture(e.pointerId);
+    if (ui.screen === 'title' || ui.screen === 'over') {
+      callbacks.startGame();
+      return;
+    }
     if (ui.paused) {
       ui.hover = null;
       return;
     }
-
     if (state.phase === 'upgrade') {
-      const i = findOffer(p);
-      if (i >= 0) queueAction({ type: 'upgrade', choice: i });
+      for (let i = 0; i < 3; i++) {
+        if (hitRect(p, L.offer[i])) {
+          queueAction({ type: 'upgrade', choice: i });
+          return;
+        }
+      }
       return;
     }
     if (state.phase !== 'playing') return;
 
-    const boost = findBoost(p);
-    if (boost >= 0) {
-      queueAction({ type: 'boost', gpu: boost });
-      return;
+    // queue card?
+    for (let i = 0; i < state.queue.length; i++) {
+      if (hitRect(p, L.queue[i])) {
+        ui.selectedId = state.queue[i].id;
+        ui.drag = { reqId: state.queue[i].id, x: p.x, y: p.y };
+        return;
+      }
     }
-
-    const ci = findCard(p);
-    if (ci >= 0) {
-      ui.selectedId = state.queue[ci].id;
-      ui.drag = { id: ui.selectedId, x: p.x, y: p.y };
-      return;
+    // boost buttons?
+    for (let gi = 0; gi < state.gpus.length; gi++) {
+      if (hitRect(p, L.gpus[gi].boost)) {
+        queueAction({ type: 'boost', gpu: gi });
+        return;
+      }
     }
-
-    const s = findSlot(p);
-    if (s) {
-      if (state.gpus[s.gpu].slots[s.slot] !== null) {
-        // tap a filled slot to evict
-        queueAction({ type: 'evict', gpu: s.gpu, slot: s.slot });
-      } else if (selectedInQueue()) {
-        // tap a card, then tap an empty slot
-        assignSelected(s.gpu, s.slot);
+    // a slot: assign the selected card there
+    if (ui.selectedId !== null) {
+      for (let gi = 0; gi < state.gpus.length; gi++) {
+        for (let si = 0; si < state.gpus[gi].slots.length; si++) {
+          if (hitRect(p, L.gpus[gi].slots[si])) {
+            queueAction({ type: 'assign', requestId: ui.selectedId, gpu: gi, slot: si });
+            ui.selectedId = null;
+            return;
+          }
+        }
       }
     }
   }
@@ -130,91 +77,89 @@ export function createInput(canvas, state, ui, queueAction) {
     if (ui.drag) {
       ui.drag.x = p.x;
       ui.drag.y = p.y;
+      return;
     }
     if (ui.paused || state.phase === 'over') {
       ui.hover = null;
       return;
     }
-    if (state.phase === 'upgrade') {
-      const i = findOffer(p);
-      ui.hover = i >= 0 ? { type: 'offer', index: i } : null;
-      return;
-    }
-    const boost = findBoost(p);
-    if (boost >= 0) {
-      ui.hover = { type: 'boost', gpu: boost };
-      return;
-    }
-    const s = findSlot(p);
-    if (s) {
-      ui.hover = { type: 'slot', gpu: s.gpu, slot: s.slot };
-      return;
-    }
-    const ci = findCard(p);
-    if (ci >= 0) {
-      ui.hover = { type: 'card', index: ci };
-      return;
-    }
+    const L = layout(state);
     ui.hover = null;
+    if (state.phase === 'upgrade') {
+      for (let i = 0; i < 3; i++) {
+        if (hitRect(p, L.offer[i])) ui.hover = { type: 'offer', index: i };
+      }
+      return;
+    }
+    for (let i = 0; i < state.queue.length; i++) {
+      if (hitRect(p, L.queue[i])) ui.hover = { type: 'queue', index: i };
+    }
+    for (let gi = 0; gi < state.gpus.length; gi++) {
+      if (hitRect(p, L.gpus[gi].boost)) ui.hover = { type: 'boost', index: gi };
+    }
   }
 
   function onPointerUp(e) {
+    if (!ui.drag) return;
     const p = toLogical(e);
-    if (ui.drag) {
-      const s = findSlot(p);
-      if (s && state.gpus[s.gpu].slots[s.slot] === null && selectedInQueue()) {
-        assignSelected(s.gpu, s.slot);
+    const L = layout(state);
+    const reqId = ui.drag.reqId;
+    ui.drag = null;
+    if (state.phase !== 'playing') return;
+    // drop on a slot?
+    for (let gi = 0; gi < state.gpus.length; gi++) {
+      for (let si = 0; si < state.gpus[gi].slots.length; si++) {
+        if (hitRect(p, L.gpus[gi].slots[si])) {
+          queueAction({ type: 'assign', requestId: reqId, gpu: gi, slot: si });
+          ui.selectedId = null;
+          return;
+        }
       }
-      ui.drag = null;
     }
-  }
-
-  function onPointerLeave() {
-    ui.hover = null;
+    // dropped outside: keep the card selected
+    ui.selectedId = reqId;
   }
 
   function onKeyDown(e) {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
-
+    if (k === 'm') {
+      ui.muted = !ui.muted;
+      return;
+    }
+    if (ui.screen === 'title' || ui.screen === 'over') {
+      callbacks.startGame();
+      return;
+    }
     if (k === 'p') {
       ui.paused = !ui.paused;
       return;
     }
-    if (k === 'm') {
-      ui.muted = !ui.muted; // audio itself is M3
-      return;
-    }
-    if (ui.paused || state.phase === 'over') return;
-
+    if (ui.paused) return;
     if (state.phase === 'upgrade') {
-      if (k >= '1' && k <= '3') queueAction({ type: 'upgrade', choice: Number(k) - 1 });
+      if (k >= '1' && k <= '3') {
+        queueAction({ type: 'upgrade', choice: Number(k) - 1 });
+      }
       return;
     }
-
-    // phase: playing
-    if (k >= '1' && k <= '9') {
-      const idx = Number(k) - 1;
-      if (idx < state.queue.length) ui.selectedId = state.queue[idx].id;
+    if (state.phase !== 'playing') return;
+    // select a queue card
+    if (k >= '1' && k <= '8') {
+      const i = Number(k) - 1;
+      if (i < state.queue.length) ui.selectedId = state.queue[i].id;
       return;
     }
-    if (k === '0') {
-      if (9 < state.queue.length) ui.selectedId = state.queue[9].id;
+    // boost
+    if (KEY_BOOST[k] !== undefined) {
+      queueAction({ type: 'boost', gpu: KEY_BOOST[k] });
       return;
     }
-    if (k === 'z' || k === 'x') {
-      queueAction({ type: 'boost', gpu: k === 'z' ? 0 : 1 });
-      return;
-    }
-    const sk = SLOT_KEYS[k];
-    if (sk) {
-      const [gpu, slot] = sk;
-      const g = state.gpus[gpu];
-      if (!g || slot >= g.slots.length) return;
-      if (g.slots[slot] !== null) {
-        queueAction({ type: 'evict', gpu, slot });
-      } else if (selectedInQueue()) {
-        assignSelected(gpu, slot);
+    // slot: assign the selected card
+    if (ui.selectedId !== null && KEY_SLOTS[k]) {
+      const [gpu, slot] = KEY_SLOTS[k];
+      if (gpu < state.gpus.length && slot < state.gpus[gpu].slots.length) {
+        queueAction({ type: 'assign', requestId: ui.selectedId, gpu, slot });
+        ui.selectedId = null;
       }
     }
   }
@@ -222,15 +167,12 @@ export function createInput(canvas, state, ui, queueAction) {
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointerleave', onPointerLeave);
   window.addEventListener('keydown', onKeyDown);
-
   return {
     destroy() {
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerLeave);
       window.removeEventListener('keydown', onKeyDown);
     },
   };

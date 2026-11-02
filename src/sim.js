@@ -12,12 +12,12 @@ export const CONFIG = {
   tickSeconds: TICK_SECONDS,
   levelDuration: 45,
   baseArrivalInterval: 2.6,
-  arrivalIntervalStep: 0.25,
-  minArrivalInterval: 0.7,
+  arrivalIntervalStep: 0.4,
+  minArrivalInterval: 0.3,
   tokenMin: 40,
   tokenMax: 160,
-  maxPatience: 14,
-  vipPatience: 8,
+  maxPatience: 11,
+  vipPatience: 6,
   vipChance: 0.1,
   vipLevelStart: 2,
   queueCap: 8,
@@ -189,6 +189,7 @@ function assign(state, a) {
     gpu.active = req.prefix;
   }
   gpu.slots[a.slot] = req;
+  state.events.push({ type: 'assign', requestId: req.id, gpu: a.gpu, slot: a.slot });
 }
 
 function evict(state, a) {

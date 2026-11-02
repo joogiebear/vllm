@@ -58,7 +58,7 @@ Each request has `id`, `prefix`, `tokens`, `done` (starts at 0), `patience`, `ma
 
 - `prefix` is one of `A B C D`. In level 1 only `A` and `B` occur, level 2 adds `C`, level 3 adds `D`.
 - `tokens` is a uniform integer from 40 to 160.
-- `maxPatience` is 14 seconds, or 8 seconds for a VIP.
+- `maxPatience` is 11 seconds, or 6 seconds for a VIP.
 - Each arrival has a 10% chance of being a VIP, starting at level 2.
 - The queue holds at most 8 requests. An arrival that finds the queue full is dropped and costs
   1 reputation, with event `dropped`.
@@ -68,7 +68,7 @@ Each request has `id`, `prefix`, `tokens`, `done` (starts at 0), `patience`, `ma
 ### Arrivals and levels
 
 - A level lasts 45 seconds.
-- Seconds between arrivals: `max(0.7, 2.6 - 0.25 * (level - 1))`, the same for both GPUs' queue.
+- Seconds between arrivals: `max(0.3, 2.6 - 0.4 * (level - 1))`, the same for both GPUs' queue.
 - When a level's timer ends the game pauses in phase `upgrade` until an `upgrade` action arrives.
   While in that phase, ticks change nothing except that invalid actions are ignored.
 
