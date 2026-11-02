@@ -120,14 +120,17 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// Size the canvas to the window (CSS pixels), keeping the fixed 960x600
-// logical space.
+// Size the canvas to the largest 960x600 rectangle that fits the window
+// (letterboxed by the page background), corrected for device pixel ratio.
 function resize() {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(window.innerWidth * dpr);
-  canvas.height = Math.round(window.innerHeight * dpr);
-  canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
+  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const cssW = Math.max(1, Math.floor(W * scale));
+  const cssH = Math.max(1, Math.floor(H * scale));
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
+  canvas.width = Math.max(1, Math.round(cssW * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
 }
 window.addEventListener('resize', resize);
 resize();

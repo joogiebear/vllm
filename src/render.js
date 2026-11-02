@@ -16,10 +16,10 @@ const W = 960;
 const H = 600;
 
 const PREFIX_COLORS = {
-  chat: '#00e5ff',
-  code: '#a8ff3e',
-  rag: '#ff4fd8',
-  vision: '#ffb02e',
+  A: '#00e5ff',
+  B: '#ff4fd8',
+  C: '#a8ff3e',
+  D: '#ffb300',
 };
 
 const UPGRADE_NAMES = {
@@ -32,74 +32,71 @@ const UPGRADE_NAMES = {
   boost: 'BOOST',
 };
 
+// The effect text must match the Upgrades table in docs/DESIGN.md.
 const UPGRADE_TEXT = {
-  slots: '+1 slot on every GPU',
-  cooling: 'heat builds 25% slower',
-  throughput: 'base throughput +15%',
-  patience: '+3 s patience for new requests',
-  queue: 'queue cap +2',
-  reputation: 'restore 3 reputation',
-  boost: '+1 boost charge per run',
+  slots: 'Each GPU gains 1 slot, maximum 6',
+  cooling: 'Heat loss +3 per second',
+  throughput: 'Base 60 becomes 15 higher',
+  patience: 'maxPatience of new requests +3 seconds',
+  queue: 'Queue capacity +2',
+  reputation: 'Restore 3 reputation',
+  boost: 'Boost cooldown -3 seconds, minimum 4',
 };
 
-const FONT = '"JetBrains Mono", monospace';
+const FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
+// The single source of truth for every rectangle on screen. Sized for up to
+// 6 slots per GPU and more than 8 queue cards (card height shrinks to fit).
 export function layout(state) {
-  const out = {
-    top: { x: 0, y: 0, w: W, h: 44 },
-    queue: [],
-    gpus: [],
-    offer: [],
-  };
+  const topBar = { x: 16, y: 12, w: W - 32, h: 44 };
 
-  const q = { x: 20, y: 70, w: 150, h: 440 };
-  out.queuePanel = q;
-  const cap = state.queueCap;
-  for (let i = 0; i < cap; i++) {
-    const h = 52;
-    const gap = 8;
-    out.queue.push({ x: q.x + 10, y: q.y + 34 + i * (h + gap), w: q.w - 20, h });
+  const queue = { x: 16, y: 72, w: 232, h: H - 72 - 16 };
+  const n = state.queue.length;
+  const gap = 6;
+  const cardH = n > 0 ? Math.min(46, Math.floor((queue.h - gap * (n - 1)) / n)) : 46;
+  const cards = [];
+  for (let i = 0; i < n; i++) {
+    cards.push({ x: queue.x, y: queue.y + i * (cardH + gap), w: queue.w, h: cardH });
   }
 
-  const n = state.gpus.length;
-  const areaX = 190;
-  const areaW = W - areaX - 20;
-  const gap = 12;
-  const cw = (areaW - gap * (n - 1)) / n;
-  const cy = 70;
-  const ch = 440;
-  for (let gi = 0; gi < n; gi++) {
-    const x = areaX + gi * (cw + gap);
-    const panel = { x, y: cy, w: cw, h: ch };
-    const g = state.gpus[gi];
+  const gpus = [];
+  for (let gi = 0; gi < state.gpus.length; gi++) {
+    const gpu = state.gpus[gi];
+    const panel = { x: 264 + gi * 350, y: 72, w: 330, h: 470 };
+    const sw = 150;
+    const sh = 78;
+    const gapx = 12;
+    const gapy = 12;
+    const rows = Math.ceil(gpu.slots.length / 2);
+    const sy0 = panel.y + 48;
     const slots = [];
-    const sw = cw - 20;
-    const sh = 60;
-    const sy = cy + 100;
-    const sgap = 10;
-    for (let si = 0; si < g.slots.length; si++) {
-      slots.push({ x: x + 10, y: sy + si * (sh + sgap), w: sw, h: sh });
+    for (let si = 0; si < gpu.slots.length; si++) {
+      const c = si % 2;
+      const r = Math.floor(si / 2);
+      slots.push({ x: panel.x + 10 + c * (sw + gapx), y: sy0 + r * (sh + gapy), w: sw, h: sh });
     }
-    out.gpus.push({ panel, slots, boost: { x: x + 10, y: cy + ch - 46, w: sw, h: 34 } });
+    const heat = { x: panel.x + 10, y: sy0 + rows * (sh + gapy) + 18, w: 310, h: 14 };
+    const boost = { x: panel.x + 10, y: heat.y + heat.h + 14, w: 310, h: 48 };
+    gpus.push({ panel, slots, heat, boost });
   }
 
-  if (state.phase === 'upgrade') {
-    const cw2 = 240;
-    const gap2 = 20;
-    const total = 3 * cw2 + 2 * gap2;
-    const x0 = (W - total) / 2;
-    for (let i = 0; i < 3; i++) {
-      out.offer.push({ x: x0 + i * (cw2 + gap2), y: 220, w: cw2, h: 180 });
-    }
+  const offer = [];
+  const ow = 240;
+  const ogap = 24;
+  const ox = (W - (ow * 3 + ogap * 2)) / 2;
+  for (let i = 0; i < 3; i++) {
+    offer.push({ x: ox + i * (ow + ogap), y: 220, w: ow, h: 160 });
   }
-  return out;
+
+  return { W, H, topBar, queue, cards, gpus, offer };
 }
 
+// Shared hit test so render and input use the same numbers.
 export function hitRect(p, r) {
   return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 }
 
-// --- drawing helpers ---------------------------------------------------------
+// --- small drawing helpers (view-only) ---------------------------------------
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -111,28 +108,47 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function bar(ctx, x, y, w, h, frac, color) {
-  ctx.fillStyle = '#0b1020';
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), h);
-}
-
-function text(ctx, s, x, y, size, color, align = 'left', weight = 600) {
-  ctx.font = `${weight} ${size}px ${FONT}`;
-  ctx.fillStyle = color;
+function text(ctx, str, x, y, size, color, align = 'left', glow = 0) {
+  ctx.font = `${size}px ${FONT}`;
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  ctx.fillText(s, x, y);
+  if (glow > 0) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glow;
+  }
+  ctx.fillStyle = color;
+  ctx.fillText(str, x, y);
+  ctx.shadowBlur = 0;
 }
 
-function box(ctx, r, fill, stroke, lw = 1) {
-  roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+function box(ctx, r, fill, stroke, lineWidth = 1) {
   ctx.fillStyle = fill;
+  roundRect(ctx, r.x, r.y, r.w, r.h, 6);
   ctx.fill();
-  ctx.lineWidth = lw;
   ctx.strokeStyle = stroke;
+  ctx.lineWidth = lineWidth;
+  roundRect(ctx, r.x, r.y, r.w, r.h, 6);
   ctx.stroke();
+}
+
+// The heat bar shifts from cyan (0) to red (1).
+function heatColor(t) {
+  const r = Math.round(0 + 255 * t);
+  const g = Math.round(229 - 169 * t);
+  const b = Math.round(255 - 195 * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function keyHint(idx) {
+  if (idx < 8) return String(idx + 1);
+  if (idx === 8) return '9';
+  if (idx === 9) return '0';
+  return '';
+}
+
+function drawScanlines(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
 }
 
 // --- effects (view-only state, fed by ingestEvents) ---------------------------
@@ -232,6 +248,143 @@ function drawFx(ctx) {
   ctx.globalAlpha = 1;
 }
 
+// --- scene parts ------------------------------------------------------------
+
+function drawTopBar(ctx, state, L) {
+  const b = L.topBar;
+  box(ctx, b, '#0a0d15', '#1d2740');
+  const cy = b.y + b.h / 2;
+  text(ctx, `SCORE ${Math.floor(state.score)}`, b.x + 16, cy, 18, '#00e5ff', 'left', 8);
+  text(ctx, `x${state.multiplier.toFixed(1)}`, b.x + 210, cy, 16, '#a8ff3e', 'left');
+  text(ctx, `LEVEL ${state.level}`, b.x + 330, cy, 16, '#ff4fd8', 'left');
+  text(ctx, `${Math.ceil(state.levelTime)}s`, b.x + 470, cy, 16, '#e8f4ff', 'left');
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i < state.reputation ? '#ffd700' : '#1a2338';
+    ctx.beginPath();
+    ctx.arc(b.x + b.w - 16 - i * 22, cy, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  text(ctx, 'REP', b.x + b.w - 16 - 10 * 22 - 10, cy, 12, '#5a6a80', 'right');
+}
+
+function drawQueueCard(ctx, r, req, idx, ui) {
+  const color = PREFIX_COLORS[req.prefix] || '#8899aa';
+  const selected = ui.selectedId === req.id;
+  const hovered = ui.hover && ui.hover.type === 'card' && ui.hover.index === idx;
+  box(ctx, r, '#0b0e16', req.vip ? '#ffd700' : color, req.vip ? 2 : 1);
+  if (selected || hovered) {
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    roundRect(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 5);
+    ctx.stroke();
+  }
+  text(ctx, req.prefix, r.x + 14, r.y + r.h / 2 - 4, 20, color, 'left', 8);
+  text(ctx, String(req.tokens), r.x + r.w / 2 + 14, r.y + r.h / 2 - 4, 16, '#e8f4ff', 'center');
+  const hint = keyHint(idx);
+  if (hint) text(ctx, hint, r.x + r.w - 12, r.y + r.h / 2 - 4, 12, '#5a6a80', 'right');
+  const frac = req.maxPatience > 0 ? Math.max(0, req.patience / req.maxPatience) : 0;
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(r.x + 10, r.y + r.h - 8, r.w - 20, 4);
+  ctx.fillStyle = frac > 0.35 ? color : '#ff5050';
+  ctx.fillRect(r.x + 10, r.y + r.h - 8, (r.w - 20) * frac, 4);
+}
+
+const SLOT_KEYS = [
+  ['Q', 'W', 'E', 'R', '', ''],
+  ['A', 'S', 'D', 'F', '', ''],
+];
+
+function drawGpu(ctx, state, gi, g, ui) {
+  const gpu = state.gpus[gi];
+  box(ctx, g.panel, '#0a0d15', gpu.throttled ? '#ff5050' : '#1d2740');
+  const hy = g.panel.y + 24;
+  text(ctx, `GPU ${gi + 1}`, g.panel.x + 12, hy, 18, '#e8f4ff', 'left', 6);
+  if (gpu.active) {
+    text(ctx, gpu.active, g.panel.x + g.panel.w - 20, hy, 18, PREFIX_COLORS[gpu.active], 'center', 8);
+  } else {
+    text(ctx, '-', g.panel.x + g.panel.w - 20, hy, 18, '#3a4a60', 'center');
+  }
+
+  for (let si = 0; si < gpu.slots.length; si++) {
+    const r = g.slots[si];
+    const req = gpu.slots[si];
+    const hovered = ui.hover && ui.hover.type === 'slot' && ui.hover.gpu === gi && ui.hover.slot === si;
+    if (req) {
+      const color = PREFIX_COLORS[req.prefix] || '#8899aa';
+      box(ctx, r, '#0e1220', req.vip ? '#ffd700' : color, req.vip ? 2 : 1);
+      text(ctx, req.prefix, r.x + 12, r.y + 18, 16, color, 'left', 6);
+      text(ctx, `${Math.floor(req.done)}/${req.tokens}`, r.x + r.w - 12, r.y + 18, 13, '#e8f4ff', 'right');
+      const frac = Math.min(1, req.done / req.tokens);
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(r.x + 10, r.y + r.h - 16, r.w - 20, 8);
+      ctx.fillStyle = color;
+      ctx.fillRect(r.x + 10, r.y + r.h - 16, (r.w - 20) * frac, 8);
+      if (req.stall > 0) {
+        text(ctx, 'STALL', r.x + r.w / 2, r.y + r.h / 2 + 6, 12, '#ff5050', 'center', 6);
+      }
+    } else {
+      box(ctx, r, '#080b12', hovered ? '#00e5ff' : '#1a2338', hovered ? 2 : 1);
+      const hint = SLOT_KEYS[gi][si];
+      if (hint) text(ctx, hint, r.x + r.w / 2, r.y + r.h / 2, 14, '#3a4a60', 'center');
+    }
+  }
+
+  text(ctx, 'HEAT', g.heat.x, g.heat.y - 8, 11, '#5a6a80', 'left');
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(g.heat.x, g.heat.y, g.heat.w, g.heat.h);
+  ctx.fillStyle = heatColor(gpu.heat / 100);
+  ctx.fillRect(g.heat.x, g.heat.y, g.heat.w * (gpu.heat / 100), g.heat.h);
+  if (gpu.throttled) {
+    text(ctx, 'THROTTLED', g.heat.x + g.heat.w, g.heat.y + g.heat.h / 2 + 8, 12, '#ff5050', 'right', 8);
+  }
+
+  const onCd = gpu.boostCooldown > 0;
+  const hovered = ui.hover && ui.hover.type === 'boost' && ui.hover.gpu === gi;
+  box(
+    ctx,
+    g.boost,
+    gpu.boostActive ? '#123a2a' : onCd ? '#0c0f18' : '#0d1a2a',
+    hovered && !onCd ? '#00e5ff' : onCd ? '#26304a' : '#1d4a5a',
+    hovered && !onCd ? 2 : 1
+  );
+  const label = gpu.boostActive
+    ? 'BOOSTING'
+    : onCd
+      ? `COOLDOWN ${Math.ceil(gpu.boostCooldown)}`
+      : 'BOOST';
+  text(
+    ctx,
+    label,
+    g.boost.x + g.boost.w / 2,
+    g.boost.y + g.boost.h / 2,
+    15,
+    onCd ? '#5a6a80' : '#00e5ff',
+    'center',
+    onCd ? 0 : 8
+  );
+  text(ctx, gi === 0 ? 'Z' : 'X', g.boost.x + g.boost.w - 14, g.boost.y + g.boost.h / 2, 12, '#5a6a80', 'center');
+
+  // throttled: red pulse over the panel + flicker (view-only)
+  if (gpu.throttled) {
+    const pulse = 0.1 + 0.1 * (0.5 + 0.5 * Math.sin(fx.time * 6));
+    ctx.fillStyle = `rgba(255,60,60,${pulse.toFixed(3)})`;
+    ctx.fillRect(g.panel.x, g.panel.y, g.panel.w, g.panel.h);
+    if (Math.random() < 0.15) {
+      ctx.fillStyle = 'rgba(4,5,10,0.35)';
+      ctx.fillRect(g.panel.x, g.panel.y, g.panel.w, g.panel.h);
+    }
+  }
+}
+
+function drawScene(ctx, state, L, ui) {
+  for (let i = 0; i < state.queue.length; i++) {
+    drawQueueCard(ctx, L.cards[i], state.queue[i], i, ui);
+  }
+  for (let gi = 0; gi < state.gpus.length; gi++) {
+    drawGpu(ctx, state, gi, L.gpus[gi], ui);
+  }
+}
+
 // --- screens ------------------------------------------------------------------
 
 function drawTitle(ctx, ui) {
@@ -260,6 +413,22 @@ function drawTitle(ctx, ui) {
   ctx.globalAlpha = 1;
 }
 
+function drawUpgrade(ctx, state, L, ui) {
+  ctx.fillStyle = 'rgba(4,5,10,0.7)';
+  ctx.fillRect(0, 0, W, H);
+  text(ctx, `LEVEL ${state.level} COMPLETE`, W / 2, 120, 20, '#ff4fd8', 'center', 8);
+  text(ctx, 'CHOOSE AN UPGRADE', W / 2, 160, 26, '#00e5ff', 'center', 12);
+  for (let i = 0; i < 3; i++) {
+    const id = state.offer ? state.offer[i] : '';
+    const r = L.offer[i];
+    const hovered = ui.hover && ui.hover.type === 'offer' && ui.hover.index === i;
+    box(ctx, r, hovered ? '#101a2e' : '#0b1020', hovered ? '#00e5ff' : '#1d2740', hovered ? 2 : 1);
+    text(ctx, UPGRADE_NAMES[id] || id, r.x + r.w / 2, r.y + 52, 22, '#a8ff3e', 'center', 8);
+    text(ctx, UPGRADE_TEXT[id] || '', r.x + r.w / 2, r.y + 96, 13, '#e8f4ff', 'center');
+    text(ctx, String(i + 1), r.x + r.w / 2, r.y + r.h - 24, 14, '#5a6a80', 'center');
+  }
+}
+
 function drawGameOver(ctx, state, ui) {
   ctx.fillStyle = 'rgba(4,5,10,0.8)';
   ctx.fillRect(0, 0, W, H);
@@ -274,22 +443,6 @@ function drawGameOver(ctx, state, ui) {
   ctx.globalAlpha = 1;
 }
 
-function drawUpgrade(ctx, state, L, ui) {
-  ctx.fillStyle = 'rgba(4,5,10,0.7)';
-  ctx.fillRect(0, 0, W, H);
-  text(ctx, `LEVEL ${state.level} COMPLETE`, W / 2, 120, 20, '#ff4fd8', 'center', 8);
-  text(ctx, 'CHOOSE AN UPGRADE', W / 2, 160, 26, '#00e5ff', 'center', 12);
-  for (let i = 0; i < 3; i++) {
-    const id = state.offer ? state.offer[i] : '';
-    const r = L.offer[i];
-    const hovered = ui.hover && ui.hover.type === 'offer' && ui.hover.index === i;
-    box(ctx, r, hovered ? '#101a2e' : '#0b1020', hovered ? '#00e5ff' : '#1d2740', hovered ? 2 : 1);
-    text(ctx, UPGRADE_NAMES[id] || id, r.x + r.w / 2, r.y + 55, 22, '#a8ff3e', 'center', 8);
-    text(ctx, UPGRADE_TEXT[id] || '', r.x + r.w / 2, r.y + 100, 13, '#e8f4ff', 'center');
-    text(ctx, String(i + 1), r.x + r.w / 2, r.y + r.h - 26, 14, '#5a6a80', 'center');
-  }
-}
-
 function drawPaused(ctx) {
   ctx.fillStyle = 'rgba(4,5,10,0.6)';
   ctx.fillRect(0, 0, W, H);
@@ -297,104 +450,21 @@ function drawPaused(ctx) {
   text(ctx, 'press P to resume', W / 2, H / 2 + 40, 16, '#5a6a80', 'center');
 }
 
-// --- scene --------------------------------------------------------------------
-
-function drawTopBar(ctx, state, L) {
-  const t = L.top;
-  ctx.fillStyle = '#0a0d18';
-  ctx.fillRect(t.x, t.y, t.w, t.h);
-  text(ctx, `SCORE ${Math.floor(state.score)}`, 20, 22, 18, '#00e5ff', 'left', 8);
-  text(ctx, `LEVEL ${state.level}`, 240, 22, 18, '#ff4fd8', 'left', 8);
-  text(ctx, `SERVED ${state.served}`, 400, 22, 16, '#a8ff3e', 'left');
-  text(ctx, `QUEUE ${state.queue.length}/${state.queueCap}`, 560, 22, 16, '#e8f4ff', 'left');
-  // reputation: 5 pips
-  const rx = 740;
-  for (let i = 0; i < 5; i++) {
-    ctx.fillStyle = i < state.reputation ? '#ffd700' : '#1d2740';
-    ctx.fillRect(rx + i * 18, 14, 12, 12);
-  }
-  text(ctx, 'REP', rx + 5 * 18 + 8, 22, 14, '#5a6a80', 'left');
-}
-
-function drawQueueCard(ctx, state, L, i, ui) {
-  const r = L.queue[i];
-  const req = state.queue[i];
-  if (!req) return;
-  const sel = ui.selectedId === req.id;
-  const col = req.vip ? '#ffd700' : PREFIX_COLORS[req.prefix];
-  box(ctx, r, sel ? '#101a2e' : '#0b1020', sel ? '#00e5ff' : '#1d2740', sel ? 2 : 1);
-  text(ctx, req.vip ? 'VIP' : req.prefix.toUpperCase(), r.x + 8, r.y + 16, 12, col, 'left', 8);
-  text(ctx, `${req.tokens} tok`, r.x + 8, r.y + 38, 13, '#e8f4ff', 'left');
-  // patience bar
-  const frac = req.patience / req.patienceMax;
-  const pcol = frac > 0.5 ? '#a8ff3e' : frac > 0.25 ? '#ffb02e' : '#ff5050';
-  bar(ctx, r.x + 8, r.y + 50, r.w - 16, 4, frac, pcol);
-}
-
-function drawGpu(ctx, state, L, gi) {
-  const g = state.gpus[gi];
-  const slot = L.gpus[gi];
-  box(ctx, slot.panel, '#0a0d18', '#1d2740');
-  text(ctx, `GPU ${gi}`, slot.panel.x + 10, slot.panel.y + 18, 14, '#5a6a80', 'left', 8);
-  // heat
-  const hcol = g.heat > 80 ? '#ff5050' : g.heat > 55 ? '#ffb02e' : '#a8ff3e';
-  bar(ctx, slot.panel.x + 10, slot.panel.y + 34, slot.panel.w - 20, 8, g.heat / 100, hcol);
-  text(ctx, `${Math.round(g.heat)}C`, slot.panel.x + 10, slot.panel.y + 54, 11, '#5a6a80', 'left');
-  if (g.throttled) {
-    text(ctx, 'THROTTLED', slot.panel.x + slot.panel.w - 10, slot.panel.y + 54, 11, '#ff5050', 'right', 8);
-  }
-  // slots
-  for (let si = 0; si < g.slots.length; si++) {
-    const s = slot.slots[si];
-    const req = g.slots[si];
-    box(ctx, s, '#0b1020', req ? '#2a3a5c' : '#141c30');
-    if (req) {
-      const col = req.vip ? '#ffd700' : PREFIX_COLORS[req.prefix];
-      text(ctx, req.vip ? 'VIP' : req.prefix.toUpperCase(), s.x + 8, s.y + 14, 11, col, 'left', 8);
-      const frac = req.done / req.tokens;
-      bar(ctx, s.x + 8, s.y + s.h - 16, s.w - 16, 6, frac, col);
-      text(ctx, `${Math.round(frac * 100)}%`, s.x + s.w - 8, s.y + 14, 11, '#5a6a80', 'right');
-    }
-  }
-  // boost button
-  const b = slot.boost;
-  const usable = g.boosts > 0 && !g.boosting;
-  box(ctx, b, usable ? '#101a2e' : '#0b1020', usable ? '#ff4fd8' : '#141c30');
-  text(ctx, g.boosting ? 'BOOSTING' : `BOOST x${g.boosts}`, b.x + b.w / 2, b.y + b.h / 2, 12, usable ? '#ff4fd8' : '#5a6a80', 'center', 8);
-  if (g.boosting) {
-    bar(ctx, b.x + 8, b.y + b.h - 8, b.w - 16, 3, g.boostTimer / 3, '#ff4fd8');
-  }
-
-  // throttled: red pulse over the panel + flicker (view-only)
-  if (g.throttled) {
-    const pulse = 0.1 + 0.1 * (0.5 + 0.5 * Math.sin(fx.time * 6));
-    ctx.fillStyle = `rgba(255,60,60,${pulse.toFixed(3)})`;
-    ctx.fillRect(slot.panel.x, slot.panel.y, slot.panel.w, slot.panel.h);
-    if (Math.random() < 0.15) {
-      ctx.fillStyle = 'rgba(4,5,10,0.35)';
-      ctx.fillRect(slot.panel.x, slot.panel.y, slot.panel.w, slot.panel.h);
-    }
-  }
-}
-
 function drawDrag(ctx, state, ui) {
   if (!ui.drag) return;
-  const req = state.queue.find((r) => r.id === ui.drag.reqId);
-  if (!req) return;
-  const col = req.vip ? '#ffd700' : PREFIX_COLORS[req.prefix];
-  ctx.globalAlpha = 0.85;
-  box(ctx, { x: ui.drag.x - 45, y: ui.drag.y - 26, w: 90, h: 52 }, '#101a2e', col, 2);
-  text(ctx, req.vip ? 'VIP' : req.prefix.toUpperCase(), ui.drag.x, ui.drag.y - 8, 12, col, 'center', 8);
-  text(ctx, `${req.tokens} tok`, ui.drag.x, ui.drag.y + 12, 13, '#e8f4ff', 'center');
-  ctx.globalAlpha = 1;
+  const idx = state.queue.findIndex((r) => r.id === ui.drag.id);
+  if (idx === -1) return;
+  const req = state.queue[idx];
+  const color = PREFIX_COLORS[req.prefix] || '#8899aa';
+  const w = 90;
+  const h = 36;
+  const r = { x: ui.drag.x - w / 2, y: ui.drag.y - h / 2, w, h };
+  box(ctx, r, '#0b0e16', req.vip ? '#ffd700' : color, 2);
+  text(ctx, req.prefix, r.x + 14, r.y + h / 2, 16, color, 'left', 6);
+  text(ctx, String(req.tokens), r.x + r.w - 14, r.y + h / 2, 14, '#e8f4ff', 'right');
 }
 
-function drawScanlines(ctx) {
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
-}
-
-// --- main render ---------------------------------------------------------------
+// --- entry point ------------------------------------------------------------
 
 export function render(ctx, state, ui) {
   const now = typeof performance !== 'undefined' && performance.now ? performance.now() : 0;
@@ -421,11 +491,7 @@ export function render(ctx, state, ui) {
     ctx.translate((Math.random() * 2 - 1) * 7 * k, (Math.random() * 2 - 1) * 7 * k);
   }
   drawTopBar(ctx, state, L);
-  // queue panel
-  box(ctx, L.queuePanel, '#0a0d18', '#1d2740');
-  text(ctx, 'QUEUE', L.queuePanel.x + 10, L.queuePanel.y + 18, 14, '#5a6a80', 'left', 8);
-  for (let i = 0; i < state.queue.length; i++) drawQueueCard(ctx, state, L, i, ui);
-  for (let gi = 0; gi < state.gpus.length; gi++) drawGpu(ctx, state, L, gi);
+  drawScene(ctx, state, L, ui);
   drawFx(ctx);
   ctx.restore();
 
