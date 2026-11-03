@@ -213,16 +213,6 @@ export function createUI(state, io) {
       }
     });
 
-    const id = document.createElement('div');
-    id.className = 'gen-id';
-    const name = document.createElement('div');
-    name.className = 'gen-name';
-    name.textContent = g.name;
-    const milestone = document.createElement('div');
-    milestone.className = 'gen-milestone';
-    id.append(name, milestone);
-    top.append(icon, id);
-
     const bar = document.createElement('div');
     bar.className = 'gen-bar';
     const barFill = document.createElement('div');
@@ -238,6 +228,22 @@ export function createUI(state, io) {
         updateGenCards(state);
       }
     });
+
+    // Row 1 right column: the name with the "x2 speed at N" note on the
+    // same line (small, dim), then the 28 px payout bar under it, so the
+    // row stays 56 px tall (the icon's height).
+    const id = document.createElement('div');
+    id.className = 'gen-id';
+    const nameLine = document.createElement('div');
+    nameLine.className = 'gen-name-line';
+    const name = document.createElement('div');
+    name.className = 'gen-name';
+    name.textContent = g.name;
+    const milestone = document.createElement('div');
+    milestone.className = 'gen-milestone';
+    nameLine.append(name, milestone);
+    id.append(nameLine, bar);
+    top.append(icon, id);
 
     const bottom = document.createElement('div');
     bottom.className = 'gen-bottom';
@@ -259,7 +265,7 @@ export function createUI(state, io) {
     status.className = 'gen-status';
     bottom.append(buyBtn, status);
 
-    card.append(top, bar, bottom);
+    card.append(top, bottom);
     els.genCards.appendChild(card);
     return { g, card, icon, iconCount, manMark, name, milestone, bar, barFill, barPayout, buyBtn, l1, l2, status };
   });
