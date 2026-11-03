@@ -7,6 +7,7 @@ import {
   runRow,
   buyManager,
   buy,
+  maxBuyable,
   buyUpgrade,
   buyAllUpgrades,
   buyWeightUpgrade,
@@ -82,6 +83,117 @@ test('buy: "max" is treated as Infinity', () => {
   assert.equal(s.generators.pi, 4);
   assert.ok(s.tokens < 26.24);
   assert.equal(buy(s, 'pi', 'max'), 0);
+});
+
+// The old per-unit loop, for cross-checking the closed-form maths.
+function bruteMax(state, id) {
+  const g = GENERATORS.find((x) => x.id === id);
+  let count = 0;
+  let total = 0;
+  let balance = state.tokens;
+  for (;;) {
+    const c = g.baseCost * Math.pow(1.15, (state.generators[id] || 0) + count);
+    if (balance < c) break;
+    balance -= c;
+    total += c;
+    count += 1;
+  }
+  return { count, total };
+}
+
+test('maxBuyable: matches the brute-force loop for small cases', () => {
+  // 0, 1, 15 and 500 owned; the tokens are scaled so the loop actually
+  // buys a few units in every case.
+  const cases = [
+    [0, 1e6],
+    [1, 1e6],
+    [15, 1e6],
+    [500, 3e32],
+  ];
+  for (const [owned, tokens] of cases) {
+    const s = createState();
+    s.generators.pi = owned;
+    s.tokens = tokens;
+    const got = maxBuyable(s, 'pi');
+    const exp = bruteMax(s, 'pi');
+    assert.equal(got.count, exp.count, `owned ${owned}: count ${got.count} vs ${exp.count}`);
+    assert.ok(
+      Math.abs(got.total - exp.total) / exp.total < 1e-9,
+      `owned ${owned}: total ${got.total} vs ${exp.total}`,
+    );
+    // the leftover cannot buy one more unit (the next unit, at the
+    // post-purchase owned count)
+    const g = GENERATORS.find((x) => x.id === 'pi');
+    const next = g.baseCost * Math.pow(1.15, owned + got.count);
+    const leftover = tokens - got.total;
+    assert.ok(got.count === 0 || leftover < next, `owned ${owned}: leftover ${leftover} >= next ${next}`);
+  }
+});
+
+test('maxBuyable: bad input returns { count: 0, total: 0 }', () => {
+  assert.deepEqual(maxBuyable(null, 'pi'), { count: 0, total: 0 });
+  assert.deepEqual(maxBuyable(createState(), 'nope'), { count: 0, total: 0 });
+  const s = createState();
+  s.tokens = 0;
+  assert.deepEqual(maxBuyable(s, 'pi'), { count: 0, total: 0 });
+  s.tokens = 100;
+  s.generators.pi = 0;
+  const m = maxBuyable(s, 'pi');
+  assert.ok(m.count > 0);
+});
+
+test('buy("max"): fast and correct with 1e15 tokens', () => {
+  const s = createState();
+  s.tokens = 1e15;
+  const expected = maxBuyable(s, 'pi');
+  const t0 = process.hrtime.bigint();
+  const bought = buy(s, 'pi', 'max');
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(bought > 100, `bought ${bought}`);
+  assert.ok(ms < 10, `took ${ms} ms`);
+  assert.equal(bought, expected.count);
+  assert.equal(s.tokens, 1e15 - expected.total);
+  assert.equal(s.generators.pi, expected.count);
+  assert.equal(s.stats.generatorsBought, expected.count);
+  // the remainder cannot buy one more, and a second max buys nothing
+  assert.ok(s.tokens < cost(s, 'pi', 1));
+  assert.equal(buy(s, 'pi', 'max'), 0);
+});
+
+test('buy: a finite max is capped by what is affordable', () => {
+  const s = createState();
+  s.tokens = 100;
+  assert.equal(buy(s, 'pi', 100), 4); // only 4 are affordable
+  assert.equal(buy(s, 'pi', 100), 0);
+  assert.equal(s.stats.generatorsBought, 4);
+  const s2 = createState();
+  s2.tokens = 100;
+  assert.equal(buy(s2, 'pi', 2), 2); // 32.25 <= 100
+  assert.equal(s2.stats.generatorsBought, 2);
+});
+
+test('cost(n): matches the old summed loop within 1e-9 relative error', () => {
+  const summed = (state, id, n) => {
+    const g = GENERATORS.find((x) => x.id === id);
+    const owned = state.generators[id] || 0;
+    let total = 0;
+    for (let i = 0; i < n; i++) {
+      total += g.baseCost * Math.pow(1.15, owned + i);
+    }
+    return total;
+  };
+  for (const owned of [0, 3, 42]) {
+    const s = createState();
+    s.generators.pi = owned;
+    for (const n of [1, 2, 10, 100]) {
+      const a = cost(s, 'pi', n);
+      const b = summed(s, 'pi', n);
+      assert.ok(
+        Math.abs(a - b) / b < 1e-9,
+        `owned ${owned}, n ${n}: ${a} vs ${b}`,
+      );
+    }
+  }
 });
 
 test('buyUpgrade: cost and idempotency', () => {
