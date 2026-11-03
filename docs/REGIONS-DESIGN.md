@@ -1,6 +1,6 @@
 # Second prestige layer: Regions
 
-Status: PROPOSED, waiting for the owner's OK. Do not build until the thread says approved.
+Status: APPROVED by the owner on 2026-11-03 ("Build it as designed"). Build it.
 This is the ONE merged design (two drafts were written on 2026-11-03; this file supersedes both).
 
 ## The idea in one line
