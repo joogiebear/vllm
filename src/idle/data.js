@@ -10,6 +10,10 @@ export const GENERATORS = [
   { id: 'datacenter', name: 'Datacenter', baseCost: 2000000, tps: 7800, cycleSeconds: 48 },
   { id: 'campus', name: 'Fusion Campus', baseCost: 33000000, tps: 44000, cycleSeconds: 96 },
   { id: 'swarm', name: 'Dyson Inference Swarm', baseCost: 510000000, tps: 260000, cycleSeconds: 192 },
+  { id: 'orbital', name: 'Orbital Compute Ring', baseCost: 8e9, tps: 1.5e6, cycleSeconds: 384 },
+  { id: 'lunar', name: 'Lunar Datacenter', baseCost: 1.3e11, tps: 9e6, cycleSeconds: 768 },
+  { id: 'matrioshka', name: 'Matrioshka Brain', baseCost: 2.2e12, tps: 5.4e7, cycleSeconds: 1536 },
+  { id: 'singularity', name: 'Inference Singularity', baseCost: 4e13, tps: 3.3e8, cycleSeconds: 3072 },
 ];
 
 export const COST_GROWTH = 1.15;
@@ -34,6 +38,10 @@ export const MANAGERS = [
   { id: 'datacenter', name: 'Orchestrator', cost: 500000000 },
   { id: 'campus', name: 'Fleet Controller', cost: 10000000000 },
   { id: 'swarm', name: 'Swarm Mind', cost: 200000000000 },
+  { id: 'orbital', name: 'Orbit Ops', cost: 4e12 },
+  { id: 'lunar', name: 'Lunar Admin', cost: 8e13 },
+  { id: 'matrioshka', name: 'Brain Warden', cost: 1.6e15 },
+  { id: 'singularity', name: 'Event Horizon', cost: 3.2e16 },
 ];
 
 // kind: 'production' multiplies every row's output; 'productionTier'
@@ -54,6 +62,10 @@ export const UPGRADES = [
   { id: 'datacenter3', name: 'x3 Datacenter output', cost: 100000000, kind: 'productionTier', tier: 'datacenter', value: 3 },
   { id: 'prefix3', name: 'Disaggregated Cache', cost: 200000000, kind: 'cacheRate', value: 1 },
   { id: 'custom', name: 'Custom Silicon', cost: 5000000000, kind: 'production', value: 5 },
+  { id: 'orbital3', name: 'x3 Orbital Compute Ring output', cost: 4e11, kind: 'productionTier', tier: 'orbital', value: 3 },
+  { id: 'lunar3', name: 'x3 Lunar Datacenter output', cost: 6.5e12, kind: 'productionTier', tier: 'lunar', value: 3 },
+  { id: 'matrioshka3', name: 'x3 Matrioshka Brain output', cost: 1.1e14, kind: 'productionTier', tier: 'matrioshka', value: 3 },
+  { id: 'singularity3', name: 'x3 Inference Singularity output', cost: 2e15, kind: 'productionTier', tier: 'singularity', value: 3 },
 ];
 
 // Removed in the v2 save (the click and cooling upgrades). A v1 save holding
@@ -89,11 +101,11 @@ export const RUSH_COOLDOWN_SECONDS = 600; // 10 minutes
 export const RUSH_MAX_SECONDS = 600; // payout = tokensPerSecond * min(600, score / 50)
 export const RUSH_SCORE_DIVISOR = 50;
 
-// Achievements (docs/COMPLETION.md). 44 entries, generated:
-// - every generator at 1, 25, 100 and 400 owned: 8 * 4 = 32
+// Achievements (docs/COMPLETION.md). 60 entries, generated:
+// - every generator at 1, 25, 100 and 400 owned: 12 * 4 = 48
 // - lifetime-in-run tokens of 1M, 1B, 1T and 1Qa: 4
 // - prestiges 1, 5 and 25: 3
-// - all 8 managers hired in one run: 1
+// - all 12 managers hired in one run: 1
 // - taps 100 and 1,000: 2
 // - rush games 1 and 10: 2
 // Each test is a JSON-safe descriptor (no functions), evaluated by
@@ -115,7 +127,7 @@ export const ACHIEVEMENTS = [
   { id: 'prestige-1', name: 'First Prestige', desc: 'Prestige 1 time', test: { kind: 'prestiges', n: 1 } },
   { id: 'prestige-5', name: '5 Prestiges', desc: 'Prestige 5 times', test: { kind: 'prestiges', n: 5 } },
   { id: 'prestige-25', name: '25 Prestiges', desc: 'Prestige 25 times', test: { kind: 'prestiges', n: 25 } },
-  { id: 'managers-all', name: 'Full Management', desc: 'Hire all 8 managers in one run', test: { kind: 'allManagers' } },
+  { id: 'managers-all', name: 'Full Management', desc: 'Hire all 12 managers in one run', test: { kind: 'allManagers' } },
   { id: 'taps-100', name: '100 Taps', desc: 'Start 100 rows by hand', test: { kind: 'taps', n: 100 } },
   { id: 'taps-1000', name: '1,000 Taps', desc: 'Start 1,000 rows by hand', test: { kind: 'taps', n: 1000 } },
   { id: 'rush-1', name: 'First Rush', desc: 'Play 1 rush game', test: { kind: 'rushGames', n: 1 } },
