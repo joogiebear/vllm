@@ -30,6 +30,8 @@ function safeRemove(key) {
 // Merge a saved state over fresh defaults: missing fields get defaults,
 // wrong-typed fields get defaults, unknown fields are kept so that saves
 // from a future version do not break this one.
+// Tiers added after a save was written (absent from it) stay at 0 owned /
+// null cycles, because the merge starts from createState().
 function mergeState(saved) {
   if (saved === null || typeof saved !== 'object' || Array.isArray(saved)) return null;
   const s = createState();

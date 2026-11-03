@@ -264,6 +264,8 @@ export function buyManager(state, id) {
 // v1 -> v2: keeps tokens, lifetime, generators, weights and weight upgrades;
 // refunds removed upgrades at their cost; drops heat/overclock; ignores
 // unknown fields. Never mutates the input; never throws.
+// Tiers added after a save was written (absent from it) stay at 0 owned /
+// null cycles, because the merge starts from createState().
 export function migrate(saveState) {
   const s = createState();
   if (saveState === null || typeof saveState !== 'object' || Array.isArray(saveState)) return s;
