@@ -185,12 +185,14 @@ export function createUI(state, io) {
     icon.append(tier);
     icon.append(iconCount);
     // A small person mark at the run button's corner while a manager is
-    // hired (docs/ART-DESIGN.md "Manager icons").
+    // hired (docs/ART-DESIGN.md "Manager icons"). Hidden by default;
+    // updateGenCards toggles it.
     const manMark = tierIcon('person', 16);
     manMark.style.position = 'absolute';
     manMark.style.right = '-3px';
     manMark.style.bottom = '-3px';
     manMark.style.color = TIER_COLORS[g.id];
+    manMark.style.display = 'none';
     icon.append(manMark);
     icon.addEventListener('click', () => {
       if (runRow(state, g.id)) {
@@ -808,7 +810,9 @@ export function createUI(state, io) {
       if (!visible) continue;
 
       const managed = hasManager(state, g.id);
-      r.manMark.hidden = !managed;
+      // manMark is an <svg>: the hidden attribute does not work on SVG
+      // elements (no IDL reflection), so toggle display instead.
+      r.manMark.style.display = managed ? '' : 'none';
       const progress = state.cycles[g.id];
       const prev = prevCycles[g.id];
       // A cycle completed since the previous update when progress wrapped
