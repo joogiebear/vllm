@@ -12,6 +12,9 @@ import {
   buyWeightUpgrade,
   weightsAvailable,
   prestige,
+  regionsAvailable,
+  expandRegion,
+  regionName,
   ensureStarter,
   cost,
   applyOffline,
@@ -31,6 +34,10 @@ test('createState: fresh state has the right fields', () => {
   assert.equal(s.totalLifetime, 0);
   assert.equal(s.weights, 0);
   assert.equal(s.weightsEarnedThisCycle, 0);
+  assert.equal(s.regions, 0);
+  assert.equal(s.regionsEarned, 0);
+  assert.equal(s.weightsEverEarned, 0);
+  assert.deepEqual(s.regionPerks, []);
   assert.equal(s.managers.length, 0);
   assert.equal(s.upgrades.length, 0);
   assert.equal(s.weightUpgrades.length, 0);
@@ -972,4 +979,138 @@ test('a saved game survives a reload: migrate keeps stats, achievements and even
   assert.deepEqual(r.achievements, ['gen-pi-1']);
   assert.equal(r.nextEventIn, 77);
   assert.equal(r.rng, 12345);
+});
+
+// Regions (docs/REGIONS-DESIGN.md)
+
+test('regionsAvailable: formula (first at 50, 2nd at 200, 3rd at 450 Weights)', () => {
+  const s = createState();
+  s.weightsEverEarned = 49;
+  assert.equal(regionsAvailable(s), 0);
+  s.weightsEverEarned = 50;
+  assert.equal(regionsAvailable(s), 1);
+  s.weightsEverEarned = 200;
+  assert.equal(regionsAvailable(s), 2);
+  s.weightsEverEarned = 450;
+  assert.equal(regionsAvailable(s), 3);
+  s.regionsEarned = 2;
+  assert.equal(regionsAvailable(s), 1);
+});
+
+test('prestige: adds the gained Weights to weightsEverEarned', () => {
+  const s = createState();
+  s.totalLifetime = 1e13;
+  assert.equal(prestige(s), 10);
+  assert.equal(s.weightsEverEarned, 10);
+  s.totalLifetime = 4e13;
+  assert.equal(prestige(s), 10);
+  assert.equal(s.weightsEverEarned, 20);
+});
+
+test('expandRegion: resets the right fields, keeps the rest', () => {
+  const s = createState();
+  s.weightsEverEarned = 450; // 3 Regions available
+  s.weights = 7;
+  s.weightUpgrades = ['seed', 'auto'];
+  s.weightsEarnedThisCycle = 3;
+  s.totalLifetime = 1e13;
+  s.tokens = 500;
+  s.lifetime = 500;
+  s.generators.pi = 3;
+  s.generators.gamer = 2;
+  s.upgrades = ['quant'];
+  s.managers = ['pi'];
+  s.regions = 1;
+  s.regionsEarned = 1;
+  s.regionPerks = ['headStart'];
+  s.achievements = ['gen-pi-1'];
+  s.rushCooldownUntil = 999;
+  s.stats.taps = 5;
+  s.stats.playSeconds = 123;
+  assert.equal(expandRegion(s), 2);
+  // reset like a prestige, plus the weight layer:
+  assert.equal(s.tokens, 0);
+  assert.equal(s.lifetime, 0);
+  assert.equal(s.totalLifetime, 0);
+  assert.equal(s.weights, 0);
+  assert.deepEqual(s.weightUpgrades, []);
+  assert.equal(s.weightsEarnedThisCycle, 0);
+  assert.equal(s.upgrades.length, 0);
+  assert.equal(s.managers.length, 0);
+  assert.equal(s.generators.pi, 1); // the starter Raspberry Pi
+  assert.equal(s.generators.gamer, 0);
+  assert.equal(s.cycles.pi, null);
+  assert.equal(s.cycles.gamer, null);
+  // kept:
+  assert.equal(s.regions, 3); // 1 + 2 gained
+  assert.equal(s.regionsEarned, 3);
+  assert.equal(s.weightsEverEarned, 450);
+  assert.deepEqual(s.regionPerks, ['headStart']);
+  assert.deepEqual(s.achievements, ['gen-pi-1']);
+  assert.equal(s.rushCooldownUntil, 999);
+  assert.equal(s.stats.taps, 5);
+  assert.equal(s.stats.runStartedAt, 123);
+  // nothing left to gain:
+  assert.equal(expandRegion(s), 0);
+});
+
+test('expandRegion: no-op below the first Region', () => {
+  const s = createState();
+  s.weightsEverEarned = 49;
+  s.tokens = 100;
+  s.generators.pi = 3;
+  assert.equal(expandRegion(s), 0);
+  assert.equal(s.tokens, 100);
+  assert.equal(s.generators.pi, 3);
+  assert.equal(s.regions, 0);
+  assert.equal(s.regionsEarned, 0);
+});
+
+test('tokensPerSecond: x2 per Region stacks multiplicatively; spending Regions does not lower it', () => {
+  const s = createState();
+  s.generators.pi = 10;
+  assert.equal(tokensPerSecond(s), 10);
+  s.regionsEarned = 1;
+  assert.equal(tokensPerSecond(s), 20);
+  s.regionsEarned = 2;
+  assert.equal(tokensPerSecond(s), 40);
+  s.regionsEarned = 3;
+  assert.equal(tokensPerSecond(s), 80);
+  s.regions = 3; // spendable Regions
+  s.regions = 0; // spent on perks
+  assert.equal(tokensPerSecond(s), 80);
+});
+
+test('regionName: the named list, then numbered', () => {
+  const s = createState();
+  assert.equal(regionName(s), 'Home Lab');
+  s.regionsEarned = 1;
+  assert.equal(regionName(s), 'Iowa');
+  s.regionsEarned = 9;
+  assert.equal(regionName(s), 'Mars Relay');
+  s.regionsEarned = 10;
+  assert.equal(regionName(s), 'Region 10');
+  s.regionsEarned = 11;
+  assert.equal(regionName(s), 'Region 11');
+});
+
+test('migrate: an old save gets the region fields at defaults; a v3 save passes through', () => {
+  const s = migrate({ version: 2, tokens: 100, weights: 3, generators: { pi: 2 } });
+  assert.equal(s.regions, 0);
+  assert.equal(s.regionsEarned, 0);
+  assert.equal(s.weightsEverEarned, 0);
+  assert.deepEqual(s.regionPerks, []);
+  const v3 = {
+    version: 3,
+    tokens: 5,
+    regions: 2,
+    regionsEarned: 2,
+    weightsEverEarned: 200,
+    regionPerks: ['headStart', 42],
+  };
+  const r = migrate(v3);
+  assert.equal(r.regions, 2);
+  assert.equal(r.regionsEarned, 2);
+  assert.equal(r.weightsEverEarned, 200);
+  assert.deepEqual(r.regionPerks, ['headStart']);
 });
