@@ -841,7 +841,6 @@ export function createUI(state, io) {
       r.card.classList.toggle('locked', isLocked);
       r.bar.hidden = isLocked;
       r.milestone.hidden = isLocked;
-      r.status.hidden = isLocked;
       let c;
       let disabled;
       if (isLocked) {
@@ -868,15 +867,22 @@ export function createUI(state, io) {
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
 
-      if (continuous) {
-        r.status.textContent = `${fmt(rowRate(state, g))}/s`;
-      } else if (managed) {
-        r.status.textContent = 'Auto';
-      } else if (!running) {
-        r.status.textContent = 'Tap to run';
-      } else {
-        const remaining = Math.max(0, ct - progress);
-        r.status.textContent = fmtTime(remaining * 1000);
+      // Status line: rate for continuous rows, "Auto" for managed rows,
+      // countdown for a running unmanaged row. An idle unmanaged row shows
+      // nothing — the payout bar itself is tappable, so the "Tap to run"
+      // text is gone.
+      r.status.hidden = true;
+      if (!isLocked) {
+        if (continuous) {
+          r.status.hidden = false;
+          r.status.textContent = `${fmt(rowRate(state, g))}/s`;
+        } else if (managed) {
+          r.status.hidden = false;
+          r.status.textContent = 'Auto';
+        } else if (running) {
+          r.status.hidden = false;
+          r.status.textContent = fmtTime(Math.max(0, ct - progress) * 1000);
+        }
       }
     }
   }
