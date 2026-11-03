@@ -94,6 +94,17 @@ export const WEIGHT_UPGRADES = [
 // weightsAvailable = floor(sqrt(totalLifetime / PRESTIGE_DIVISOR)) - weightsEarnedThisCycle
 export const PRESTIGE_DIVISOR = 100000000000;
 
+// Region perks (docs/REGIONS-DESIGN.md): bought with Regions, kept forever.
+// Spending Regions on perks does not lower the x2-per-Region multiplier.
+export const REGION_PERKS = [
+  { id: 'headStart', name: 'Head Start', cost: 1, kind: 'headStart', value: true },
+  { id: 'fresh', name: 'Fresh Weights', cost: 2, kind: 'freshWeights', value: 5 },
+  { id: 'overclock', name: 'Overclocked Fabric', cost: 2, kind: 'overclock', value: 0.2 },
+  { id: 'autoProcure', name: 'Auto-Procure', cost: 2, kind: 'autoProcure', value: true },
+  { id: 'eventDesk', name: 'Event Desk', cost: 3, kind: 'eventDesk', value: true },
+  { id: 'longHaul', name: 'Long Haul', cost: 3, kind: 'longHaul', value: true },
+];
+
 // regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
 // First Region at 50 Weights, 2nd at 200, 3rd at 450 (docs/REGIONS-DESIGN.md).
 export const REGION_DIVISOR = 50;
@@ -140,7 +151,8 @@ export const EVENT_SPIKE_MULTIPLIER = 3;
 export const EVENT_TURBO_SPEED = 2; // cycle time is divided by this
 export const EVENT_WINDFALL_SECONDS = 180;
 
-// Achievements (docs/COMPLETION.md). 62 entries, generated:
+// Achievements (docs/COMPLETION.md, docs/REGIONS-DESIGN.md). 66 entries,
+// generated:
 // - every generator at 1, 25, 100 and 400 owned: 12 * 4 = 48
 // - lifetime-in-run tokens of 1M, 1B, 1T and 1Qa: 4
 // - prestiges 1, 5 and 25: 3
@@ -148,6 +160,8 @@ export const EVENT_WINDFALL_SECONDS = 180;
 // - taps 100 and 1,000: 2
 // - rush games 1 and 10: 2
 // - timed events claimed 1 and 25: 2
+// - regions earned 1, 3 and 10: 3
+// - all 6 region perks bought: 1
 // Each test is a JSON-safe descriptor (no functions), evaluated by
 // checkAchievements() in achievements.js.
 const ACH_TIER_NAMES = { 1: 'First Boot', 25: '25 Online', 100: 'Server Farm', 400: 'Overkill' };
@@ -174,6 +188,10 @@ export const ACHIEVEMENTS = [
   { id: 'rush-10', name: '10 Rushes', desc: 'Play 10 rush games', test: { kind: 'rushGames', n: 10 } },
   { id: 'events-1', name: 'First Event', desc: 'Claim 1 timed event', test: { kind: 'events', n: 1 } },
   { id: 'events-25', name: 'Event Regular', desc: 'Claim 25 timed events', test: { kind: 'events', n: 25 } },
+  { id: 'regions-1', name: 'First Region', desc: 'Earn 1 Region', test: { kind: 'regions', n: 1 } },
+  { id: 'regions-3', name: '3 Regions', desc: 'Earn 3 Regions', test: { kind: 'regions', n: 3 } },
+  { id: 'regions-10', name: '10 Regions', desc: 'Earn 10 Regions', test: { kind: 'regions', n: 10 } },
+  { id: 'perks-all', name: 'All Perks', desc: 'Buy all 6 Region perks', test: { kind: 'allPerks' } },
 ];
 
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;

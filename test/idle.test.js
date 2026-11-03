@@ -591,13 +591,13 @@ test('migrate: old saves get zero stats', () => {
   });
 });
 
-test('ACHIEVEMENTS: 62 entries (48 owned + 14 others), unique ids, JSON-safe tests', () => {
-  assert.equal(ACHIEVEMENTS.length, 62);
+test('ACHIEVEMENTS: 66 entries (48 owned + 18 others), unique ids, JSON-safe tests', () => {
+  assert.equal(ACHIEVEMENTS.length, 66);
   const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
-  assert.equal(ids.size, 62);
+  assert.equal(ids.size, 66);
   const owned = ACHIEVEMENTS.filter((a) => a.test.kind === 'owned');
   assert.equal(owned.length, 48);
-  assert.equal(ACHIEVEMENTS.length - owned.length, 14);
+  assert.equal(ACHIEVEMENTS.length - owned.length, 18);
   for (const a of ACHIEVEMENTS) {
     assert.equal(typeof a.name, 'string');
     assert.equal(typeof a.desc, 'string');
