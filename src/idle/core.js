@@ -10,6 +10,8 @@ import {
   MANAGERS,
   REMOVED_UPGRADES,
   PRESTIGE_DIVISOR,
+  REGION_DIVISOR,
+  REGION_NAMES,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
   RUSH_COOLDOWN_SECONDS,
@@ -48,6 +50,10 @@ export function createState() {
     totalLifetime: 0,
     weights: 0,
     weightsEarnedThisCycle: 0,
+    regions: 0,
+    regionsEarned: 0,
+    weightsEverEarned: 0,
+    regionPerks: [],
     generators,
     upgrades: [],
     weightUpgrades: [],
@@ -212,7 +218,10 @@ export function tokensPerSecond(state) {
   let sum = 0;
   for (const g of GENERATORS) sum += rowRate(state, g);
   const n = Array.isArray(state.achievements) ? state.achievements.length : 0;
-  return sum * (1 + 0.01 * n);
+  // Each Region earned gives x2 to all production (multiplicative:
+  // 3 Regions = x8). Based on regionsEarned, so spending Regions on
+  // perks does not lower it.
+  return sum * (1 + 0.01 * n) * Math.pow(2, state.regionsEarned || 0);
 }
 
 // Advance the game by `seconds`.
@@ -334,6 +343,12 @@ export function migrate(saveState) {
   s.totalLifetime = num('totalLifetime');
   s.weights = num('weights');
   s.weightsEarnedThisCycle = num('weightsEarnedThisCycle');
+  s.regions = num('regions');
+  s.regionsEarned = num('regionsEarned');
+  s.weightsEverEarned = num('weightsEverEarned');
+  if (Array.isArray(saveState.regionPerks)) {
+    s.regionPerks = saveState.regionPerks.filter((x) => typeof x === 'string');
+  }
   if (saveState.generators !== null && typeof saveState.generators === 'object' && !Array.isArray(saveState.generators)) {
     for (const id of Object.keys(s.generators)) {
       const v = saveState.generators[id];
@@ -485,6 +500,7 @@ export function prestige(state) {
   const seed = WEIGHT_UPGRADES.find((u) => u.id === 'seed');
   const startTokens = hasWeightUpgrade(state, 'seed') ? seed.value : 0;
   state.weights += gained;
+  state.weightsEverEarned += gained;
   state.weightsEarnedThisCycle = Math.floor(
     Math.sqrt(Math.max(0, state.totalLifetime || 0) / PRESTIGE_DIVISOR)
   );
@@ -500,6 +516,51 @@ export function prestige(state) {
   state.managers = hasWeightUpgrade(state, 'auto') ? ['pi'] : [];
   // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil, achievements.
   return gained;
+}
+
+// regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
+export function regionsAvailable(state) {
+  if (!validState(state)) return 0;
+  return Math.floor(Math.sqrt(Math.max(0, state.weightsEverEarned || 0) / REGION_DIVISOR)) - (state.regionsEarned || 0);
+}
+
+// Second prestige layer (docs/REGIONS-DESIGN.md). Resets everything a
+// normal prestige resets, plus weights, weightUpgrades,
+// weightsEarnedThisCycle and totalLifetime (so Weights start from zero
+// again). weightUpgrades reset, so no Seed Funding or Standing Orders
+// on a new region. Returns the Regions gained, or 0 when none are
+// available.
+export function expandRegion(state) {
+  if (!validState(state)) return 0;
+  const gained = regionsAvailable(state);
+  if (gained < 1) return 0;
+  state.stats.runStartedAt = state.stats.playSeconds;
+  state.regions += gained;
+  state.regionsEarned = Math.floor(
+    Math.sqrt(Math.max(0, state.weightsEverEarned || 0) / REGION_DIVISOR)
+  );
+  state.weights = 0;
+  state.weightUpgrades = [];
+  state.weightsEarnedThisCycle = 0;
+  state.totalLifetime = 0;
+  state.tokens = 0;
+  state.lifetime = 0;
+  for (const g of GENERATORS) {
+    state.generators[g.id] = g.id === STARTER_GENERATOR ? 1 : 0;
+    state.cycles[g.id] = null;
+  }
+  state.upgrades = [];
+  state.managers = [];
+  // Kept: regions, regionPerks, weightsEverEarned, achievements, stats,
+  // rushCooldownUntil.
+  return gained;
+}
+
+// The server room for the current region number (regionsEarned): the
+// named list, then "Region N" after it ends.
+export function regionName(state) {
+  const n = isFiniteNumber(state && state.regionsEarned) ? state.regionsEarned : 0;
+  return REGION_NAMES[n] !== undefined ? REGION_NAMES[n] : `Region ${n}`;
 }
 
 // Claim the offer on screen. Returns the kind, or null when there is no

@@ -325,7 +325,7 @@ test('migrate: v1 save -> v2 (refunds removed upgrades, drops heat, keeps the re
     rushCooldownUntil: null,
   };
   const s = migrate(v1);
-  assert.equal(s.version, 2);
+  assert.equal(s.version, 3);
   assert.equal(s.tokens, 100 + 8000 + 500);
   assert.equal(s.lifetime, 100);
   assert.equal(s.totalLifetime, 100);
@@ -359,7 +359,7 @@ test('migrate: a v2 save passes through unchanged', () => {
     rushCooldownUntil: 123,
   };
   const s = migrate(v2);
-  assert.equal(s.version, 2);
+  assert.equal(s.version, 3);
   assert.equal(s.tokens, 50);
   assert.deepEqual(s.upgrades, ['batch']);
   assert.deepEqual(s.managers, ['pi']);
@@ -372,7 +372,7 @@ test('migrate: a v2 save passes through unchanged', () => {
 test('migrate: a fresh state (no version) is left alone', () => {
   const s = migrate(null);
   assert.equal(s.tokens, 0);
-  assert.equal(s.version, 2);
+  assert.equal(s.version, 3);
   assert.equal(s.generators.pi, 0);
   const empty = migrate({});
   assert.equal(empty.tokens, 0);
