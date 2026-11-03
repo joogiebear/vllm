@@ -215,11 +215,12 @@ export function createUI(state, io) {
   }
 
   // Generator rows: called with recompute=true on each 10 Hz update — the
-  // only place the before/after tps figures are computed, and only for
-  // visible rows — and with recompute=false on mode change / purchase, which
-  // reuses the last figures. The cost shown is the true cost of the mode:
-  // x1 -> 1, x10 -> 10, max -> the affordable count, or 1 when nothing is
-  // affordable (and the button is disabled).
+  // only place the producing/share/per-unit tps figures are computed, and
+  // only for visible rows — and with recompute=false on mode change /
+  // purchase, which reuses those figures but recomputes the mode gain, so
+  // the button never shows a stale figure. The cost shown is the true cost
+  // of the mode: x1 -> 1, x10 -> 10, max -> the affordable count, or 1 when
+  // nothing is affordable (and the button is disabled).
   function updateGenRows(state, recompute) {
     for (const r of genRefs) {
       // Revealed once lifetime OR current tokens reach half the base cost; the
@@ -236,12 +237,16 @@ export function createUI(state, io) {
         r.eff.producing = genContribution(state, r.g);
         r.eff.share = total > 0 ? Math.round((r.eff.producing / total) * 100) : 0;
         r.eff.each = tpsGain(state, r.g, 1);
-        if (view.buyMode === 'max') {
-          const m = maxAffordable(state, r.g);
-          r.eff.mode = m.count > 0 ? tpsGain(state, r.g, m.count) : r.eff.each;
-        } else {
-          r.eff.mode = tpsGain(state, r.g, Number(view.buyMode));
-        }
+      }
+      // The mode gain is recomputed on every pass (mode change and purchase
+      // call updateGenRows with recompute=false): tokensPerSecond on a JSON
+      // clone before and after adding that many owned, so a purchase that
+      // crosses a doubling threshold shows the full gain.
+      if (view.buyMode === 'max') {
+        const m = maxAffordable(state, r.g);
+        r.eff.mode = m.count > 0 ? tpsGain(state, r.g, m.count) : r.eff.each;
+      } else {
+        r.eff.mode = tpsGain(state, r.g, Number(view.buyMode));
       }
       // Line 1: name / owned.
       r.owned.textContent = `x${fmt(owned)}`;
