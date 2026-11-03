@@ -159,43 +159,89 @@
     #heat-fill.hot { background: var(--red); }
     #oc-state { color: var(--amber); min-width: 14ch; text-align: right; }
 
-    /* Generators: four stacked lines plus a full-width buy button, at every
-       width. */
-    .buy-sel { display: flex; gap: 6px; margin-bottom: 8px; }
+    /* Generators: compact one-line rows (at most 56px tall), a segmented
+       x1/x10/Max control as the section header, a thin progress bar along
+       each row's bottom edge. */
+    .buy-sel {
+      display: inline-flex;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .buy-sel button {
+      min-height: 36px;
+      padding: 0 16px;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--dim);
+      background: transparent;
+    }
+    .buy-sel button:last-child { border-right: none; }
+    .buy-sel button.active { background: var(--cyan); color: #04050a; }
     .row {
+      position: relative;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px 0;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
       border-top: 1px solid var(--border);
     }
     .row:first-of-type { border-top: none; }
     .row[hidden] { display: none; }
-    .row .r1,
-    .row .r2,
-    .row .r3 {
+    .row .name-btn {
+      flex: 1;
       display: flex;
-      justify-content: space-between;
       align-items: baseline;
       gap: 8px;
+      min-width: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 15px;
+      text-align: left;
     }
-    .row .r4 { display: flex; align-items: center; gap: 8px; }
-    .row .owned { color: var(--dim); }
-    .row .share { color: var(--dim); font-size: 12px; }
-    .row .each { color: var(--lime); font-size: 12px; }
-    .row .bar {
-      flex: 1;
-      height: 4px;
+    .row .name-btn[aria-expanded="true"] { color: var(--cyan); }
+    .row .owned { color: var(--dim); font-size: 13px; }
+    .row .buy {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
       border: 1px solid var(--border);
-      border-radius: 2px;
+      border-radius: 8px;
+      color: var(--dim);
+      background: transparent;
+    }
+    .row .buy .be { color: var(--lime); }
+    .row .buy.afford {
+      border-color: var(--lime);
+      background: rgba(74, 222, 128, 0.12);
+    }
+    .row .buy.afford .bc { color: var(--lime); }
+    .row .bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
       overflow: hidden;
-      background: #06080d;
     }
     .row .bar-fill { height: 100%; width: 0%; background: var(--cyan); }
-    .row .dbl { color: var(--dim); font-size: 12px; }
-    .row .buy { width: 100%; }
-    .row .buy.afford { border-color: var(--lime); color: var(--lime); }
-    .row .buy .bc.amber { color: var(--amber); }
+    .row .details {
+      flex-basis: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      padding-top: 6px;
+      font-size: 13px;
+      color: var(--dim);
+    }
+    .row .details[hidden] { display: none; }
+    .row .details .each { color: var(--lime); }
     @media (max-width: 599px) {
       /* Phone: every button is a 44px tap target. */
       button { min-height: 44px; }
@@ -360,7 +406,7 @@
           <div class="buy-sel" role="group" aria-label="buy amount">
             <button type="button" data-mode="1" class="active">x1</button>
             <button type="button" data-mode="10">x10</button>
-            <button type="button" data-mode="max">MAX</button>
+            <button type="button" data-mode="max">Max</button>
           </div>
           <div id="gen-rows"></div>
         </section>

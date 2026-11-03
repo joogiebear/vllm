@@ -8,7 +8,7 @@ import {
 } from './core.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
-  GENERATOR_REVEAL_FRACTION, PRESTIGE_DIVISOR,
+  PRESTIGE_DIVISOR,
   WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
 } from './data.js';
 
@@ -103,6 +103,7 @@ const WU_WORDS = {
 export function createUI(state, io) {
   const view = {
     buyMode: '1', // '1' | '10' | 'max'
+    openGen: null, // id of the one open generator row, or null
     prestigeArmed: false,
     resetArmed: false,
     lastNow: 0,
@@ -146,62 +147,63 @@ export function createUI(state, io) {
   }
 
   // --- build generator rows (once) -----------------------------------------
-  // Each row is four lines plus a full-width buy button, at every width:
-  //   1  name (left) / "x12" owned (right)
-  //   2  "Producing 96/s" (left) / share of the total, "42%" (right)
-  //   3  "+8/s each" in lime: what one more adds at the current multipliers
-  //   4  slim progress bar (tokens / cost) + "x2 at 25"
-  //   Buy 1 · 18 · +8/s  (cost and effect together on the button)
+  // Each row is one line, at most 56px tall: "Name  x12" on the left
+  // (tappable to expand the details), a single "+60/s  20K" button on the
+  // right, and a thin progress bar along the row's bottom edge. The
+  // details (producing now, share of total, gain per unit, next doubling)
+  // show when the row is open — one row open at a time.
   const genRefs = GENERATORS.map((g) => {
     const row = document.createElement('div');
     row.className = 'row';
-    const l1 = document.createElement('div');
-    l1.className = 'r1';
+    const nameBtn = document.createElement('button');
+    nameBtn.type = 'button';
+    nameBtn.className = 'name-btn';
+    nameBtn.setAttribute('aria-expanded', 'false');
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = g.name;
     const owned = document.createElement('span');
     owned.className = 'owned';
-    l1.append(name, owned);
-    const l2 = document.createElement('div');
-    l2.className = 'r2';
-    const out = document.createElement('span');
-    out.className = 'out';
-    const share = document.createElement('span');
-    share.className = 'share';
-    l2.append(out, share);
-    const l3 = document.createElement('div');
-    l3.className = 'r3';
-    const each = document.createElement('span');
-    each.className = 'each';
-    l3.append(each);
-    const l4 = document.createElement('div');
-    l4.className = 'r4';
+    nameBtn.append(name, owned);
+    const buyBtn = document.createElement('button');
+    buyBtn.type = 'button';
+    buyBtn.className = 'buy';
+    const bEffect = document.createElement('span');
+    bEffect.className = 'be';
+    const bCost = document.createElement('span');
+    bCost.className = 'bc';
+    buyBtn.append(bEffect, bCost);
+    buyBtn.addEventListener('click', () => {
+      buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
+      updateGenRows(state, false); // immediate, without waiting for the next 10 Hz pass
+    });
     const bar = document.createElement('div');
     bar.className = 'bar';
     const barFill = document.createElement('div');
     barFill.className = 'bar-fill';
     bar.append(barFill);
-    const dbl = document.createElement('span');
-    dbl.className = 'dbl';
-    l4.append(bar, dbl);
-    const buyBtn = document.createElement('button');
-    buyBtn.type = 'button';
-    buyBtn.className = 'buy';
-    const bCount = document.createElement('span');
-    const bCost = document.createElement('span');
-    bCost.className = 'bc';
-    const bEffect = document.createElement('span');
-    buyBtn.append(bCount, ' · ', bCost, ' · ', bEffect);
-    buyBtn.addEventListener('click', () => {
-      buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
-      updateGenRows(state, false); // immediate, without waiting for the next 10 Hz pass
+    const details = document.createElement('div');
+    details.className = 'details';
+    details.hidden = true;
+    const dOut = document.createElement('span');
+    const dShare = document.createElement('span');
+    const dEach = document.createElement('span');
+    dEach.className = 'each';
+    const dDbl = document.createElement('span');
+    details.append(dOut, dShare, dEach, dDbl);
+    nameBtn.addEventListener('click', () => {
+      view.openGen = view.openGen === g.id ? null : g.id;
+      for (const r of genRefs) {
+        const isOpen = view.openGen === r.g.id;
+        r.details.hidden = !isOpen;
+        r.nameBtn.setAttribute('aria-expanded', String(isOpen));
+      }
     });
-    row.append(l1, l2, l3, l4, buyBtn);
+    row.append(nameBtn, buyBtn, details, bar);
     els.genRows.appendChild(row);
     return {
-      g, row, l2, owned, out, share, each, barFill, dbl,
-      buyBtn, bCount, bCost, bEffect,
+      g, row, nameBtn, owned, buyBtn, bEffect, bCost, barFill,
+      details, dOut, dShare, dEach, dDbl,
       eff: { producing: 0, share: 0, each: 0, mode: 0 },
     };
   });
@@ -256,19 +258,22 @@ export function createUI(state, io) {
   // the button never shows a stale figure. The cost shown is the true cost
   // of the mode: x1 -> 1, x10 -> 10, max -> the affordable count, or 1 when
   // nothing is affordable (and the button is disabled).
+  // Visibility: all owned tiers plus the next unowned one; later tiers stay
+  // hidden until reached.
   function updateGenRows(state, recompute) {
+    let nextUnowned = null;
     for (const r of genRefs) {
-      // Revealed once lifetime OR current tokens reach half the base cost; the
-      // Raspberry Pi is always shown so a fresh (prestige) run is never empty.
-      const revealed =
-        r.g.id === 'pi' ||
-        state.lifetime >= r.g.baseCost * GENERATOR_REVEAL_FRACTION ||
-        state.tokens >= r.g.baseCost * GENERATOR_REVEAL_FRACTION;
-      r.row.hidden = !revealed;
-      if (!revealed) continue;
+      if ((state.generators[r.g.id] || 0) === 0 && nextUnowned === null) {
+        nextUnowned = r.g.id;
+      }
+    }
+    for (const r of genRefs) {
       // A missing key (e.g. an imported save predating this generator)
-      // counts as 0, so the producing line hides for it as well.
+      // counts as 0.
       const owned = state.generators[r.g.id] || 0;
+      const visible = owned > 0 || r.g.id === nextUnowned;
+      r.row.hidden = !visible;
+      if (!visible) continue;
       if (recompute) {
         const total = tokensPerSecond(state);
         r.eff.producing = genContribution(state, r.g);
@@ -285,40 +290,37 @@ export function createUI(state, io) {
       } else {
         r.eff.mode = tpsGain(state, r.g, Number(view.buyMode));
       }
-      // Line 1: name / owned.
+      // The line: "Name  x12" on the left.
       r.owned.textContent = `x${fmt(owned)}`;
-      // Line 2: what this generator makes now (all multipliers included) and
-      // its share of the total; hidden while owned is 0.
-      r.l2.hidden = owned === 0;
-      r.out.textContent = `Producing ${fmt(r.eff.producing)}/s`;
-      r.share.textContent = `${r.eff.share}%`;
-      // Line 3: what one more adds at the current multipliers.
-      r.each.textContent = `+${fmt(r.eff.each)}/s each`;
-      // Line 4: progress bar toward the mode's cost (full when affordable)
-      // plus the next doubling threshold.
-      let count;
+      // The button carries the mode's cost and its gain: "+60/s  20K".
       let c;
       let disabled;
       if (view.buyMode === 'max') {
         const m = maxAffordable(state, r.g);
-        count = m.count > 0 ? m.count : 1;
         c = m.count > 0 ? m.total : cost(state, r.g.id, 1);
         disabled = m.count === 0;
       } else {
-        count = Number(view.buyMode);
-        c = cost(state, r.g.id, count);
+        c = cost(state, r.g.id, Number(view.buyMode));
         disabled = c > state.tokens;
       }
-      r.barFill.style.width = `${Math.min(100, (state.tokens / c) * 100)}%`;
-      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
-      r.dbl.textContent = next === undefined ? '' : `x2 at ${next}`;
-      // The button carries the cost and the effect together: "Buy 1 · 18 · +8/s".
-      r.bCount.textContent = `Buy ${count}`;
-      r.bCost.textContent = fmt(c);
       r.bEffect.textContent = `+${fmt(r.eff.mode)}/s`;
+      r.bCost.textContent = fmt(c);
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
-      r.bCost.classList.toggle('amber', disabled);
+      // Thin bar along the bottom edge: progress to affordable (full when
+      // the mode is affordable).
+      r.barFill.style.width = `${Math.min(100, (state.tokens / c) * 100)}%`;
+      // Details: open for the one open row only.
+      const open = view.openGen === r.g.id;
+      r.details.hidden = !open;
+      r.nameBtn.setAttribute('aria-expanded', String(open));
+      if (open) {
+        r.dOut.textContent = `Producing ${fmt(r.eff.producing)}/s`;
+        r.dShare.textContent = `${r.eff.share}% of total`;
+        r.dEach.textContent = `+${fmt(r.eff.each)}/s each`;
+        const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
+        r.dDbl.textContent = next === undefined ? '' : `x2 at ${next}`;
+      }
     }
   }
 
