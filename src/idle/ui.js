@@ -9,6 +9,8 @@ import {
   CONTINUOUS_CYCLE_MAX, MANAGERS,
 } from './data.js?v=20261103041805';
 import { get as getSetting } from './settings.js?v=20261103041805';
+import { mountAchievements } from './achievements-ui.js?v=20261103041805';
+import { mountStats } from './stats-ui.js?v=20261103041805';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -392,6 +394,10 @@ export function createUI(state, io) {
     io.replaceState(ensureStarter(createState()));
     showBanner('Hard reset. Fresh run.', 'Reset');
   });
+
+  // Mount the More tab sub-screens once at start.
+  mountAchievements(document.getElementById('more-achievements'), () => state);
+  mountStats(document.getElementById('more-stats'), () => state);
 
   // Banner.
   let bannerTimer = null;

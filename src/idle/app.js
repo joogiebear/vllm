@@ -1,8 +1,10 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
 import { tick, applyOffline, applyRush } from './core.js?v=20261103041805';
-import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY } from './data.js?v=20261103041805';
+import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103041805';
 import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261103041805';
 import { createUI, fmt } from './ui.js?v=20261103041805';
+import { showWelcome } from './welcome.js?v=20261103041805';
+import { toast } from './toast.js?v=20261103041805';
 
 const { state, savedAt } = load();
 
@@ -59,13 +61,19 @@ function readRushResult() {
 }
 
 // Offline earnings from the last save timestamp.
+function offlineCapped(state, seconds) {
+  // Mirrors applyOffline's cap: true when the gap exceeds the offline cap.
+  const long = WEIGHT_UPGRADES.find((u) => u.id === 'long');
+  const capHours = long && (state.weightUpgrades || []).includes('long') ? long.value : OFFLINE_CAP_HOURS;
+  return seconds > capHours * 3600;
+}
 function applyOfflineEarnings() {
   if (savedAt === null) return;
   const now = Date.now();
   const seconds = (now - savedAt) / 1000;
   if (seconds < 5) return; // short gaps: nothing to report
   const earned = applyOffline(state, seconds);
-  if (earned > 0) ui.showBanner(`While you were away: +${fmt(earned)} tokens`);
+  if (earned > 0) showWelcome({ awaySeconds: seconds, earned, capped: offlineCapped(state, seconds) });
 }
 
 function saveNow() {
@@ -84,9 +92,17 @@ function step() {
   last = now;
   if (dt > 60) {
     const earned = applyOffline(state, dt);
-    if (earned > 0) ui.showBanner(`While you were away: +${fmt(earned)} tokens`);
+    if (earned > 0) showWelcome({ awaySeconds: dt, earned, capped: offlineCapped(state, dt) });
   } else {
+    // checkAchievements (inside tick) appends newly unlocked ids; compare the
+    // length before and after and toast each new one.
+    const before = (state.achievements || []).length;
     tick(state, dt);
+    const after = state.achievements || [];
+    for (let i = before; i < after.length; i++) {
+      const a = ACHIEVEMENTS.find((x) => x.id === after[i]);
+      toast('Achievement: ' + (a ? a.name : after[i]));
+    }
   }
   if (now - lastRender >= 100) {
     lastRender = now;
