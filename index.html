@@ -187,7 +187,17 @@
     .card[hidden] { display: none; }
     .card .name { color: var(--cyan); }
     .card .effect { color: var(--dim); font-size: 12px; }
-    .card .cost { color: var(--amber); font-size: 12px; }
+    .card .now { color: var(--lime); font-size: 12px; }
+    .card .bar {
+      height: 4px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      background: #06080d;
+    }
+    .card .bar-fill { height: 100%; width: 0%; background: var(--cyan); }
+    .card .buy.afford { border-color: var(--lime); color: var(--lime); }
+    .card .buy .bc.amber { color: var(--amber); }
     #purchased summary { cursor: pointer; color: var(--dim); }
     #purchased ul { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
 

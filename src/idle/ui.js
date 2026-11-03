@@ -204,6 +204,15 @@ export function createUI(state, io) {
     return total - tokensPerSecond(clone);
   }
 
+  // tps delta when buying upgrade u (used for production upgrades), same
+  // clone-and-compare approach, so the real state is never mutated.
+  function upgradeGain(state, u) {
+    const before = tokensPerSecond(state);
+    const clone = JSON.parse(JSON.stringify(state));
+    clone.upgrades = [...clone.upgrades, u.id];
+    return tokensPerSecond(clone) - before;
+  }
+
   // Generator rows: called with recompute=true on each 10 Hz update — the
   // only place the before/after tps figures are computed, and only for
   // visible rows — and with recompute=false on mode change / purchase, which
@@ -271,7 +280,9 @@ export function createUI(state, io) {
   }
 
   // --- build upgrade cards (once) ------------------------------------------
-  // Sorted by cost, cheapest first: one column, top to bottom, at every width.
+  // Card layout: name, the effect in words, what it means now (production:
+  // "+1.2K/s" from the before/after comparison; cooling/click: the words),
+  // a slim progress bar, and a "Buy · 1,000" button.
   const upRefs = [...UPGRADES]
     .sort((a, b) => a.cost - b.cost)
     .map((u) => {
@@ -283,16 +294,23 @@ export function createUI(state, io) {
     const effect = document.createElement('span');
     effect.className = 'effect';
     effect.textContent = upgradeWords(u);
-    const costEl = document.createElement('span');
-    costEl.className = 'cost';
-    costEl.textContent = `${fmt(u.cost)} tokens`;
+    const now = document.createElement('span');
+    now.className = 'now';
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const barFill = document.createElement('div');
+    barFill.className = 'bar-fill';
+    bar.append(barFill);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
-    buyBtn.textContent = 'BUY';
+    buyBtn.className = 'buy';
+    const bCost = document.createElement('span');
+    bCost.className = 'bc';
+    buyBtn.append('Buy · ', bCost);
     buyBtn.addEventListener('click', () => buyUpgrade(state, u.id));
-    card.append(name, effect, costEl, buyBtn);
+    card.append(name, effect, now, bar, buyBtn);
     els.upGrid.appendChild(card);
-    return { u, card, buyBtn, moved: false };
+    return { u, card, now, barFill, buyBtn, bCost, moved: false, gain: 0 };
   });
 
   // --- build weight upgrade rows (once) ------------------------------------
@@ -496,10 +514,24 @@ export function createUI(state, io) {
         r.card.remove();
       }
       if (!owned) {
-        r.card.hidden =
+        const hidden =
           state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION &&
           state.tokens < r.u.cost * UPGRADE_REVEAL_FRACTION;
-        r.buyBtn.disabled = state.tokens < r.u.cost;
+        r.card.hidden = hidden;
+        if (hidden) continue;
+        // The before/after figure is computed here, at the 10 Hz pass, for
+        // visible cards only.
+        if (r.u.kind === 'production') r.gain = upgradeGain(state, r.u);
+        // What it means now: production shows the tps delta; cooling and
+        // click upgrades just repeat their effect in words.
+        r.now.textContent =
+          r.u.kind === 'production' ? `+${fmt(r.gain)}/s` : upgradeWords(r.u);
+        const affordable = state.tokens >= r.u.cost;
+        r.buyBtn.disabled = !affordable;
+        r.buyBtn.classList.toggle('afford', affordable);
+        r.bCost.classList.toggle('amber', !affordable);
+        r.bCost.textContent = fmt(r.u.cost);
+        r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
       }
     }
 
