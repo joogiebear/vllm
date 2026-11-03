@@ -196,6 +196,41 @@ Files: `index.html` (markup and CSS) and the small `ui.js` code that fills
 the header. Do it with the buy-count change (section 3); both touch the same
 area.
 
+## 5. Row tidy-up (owner feedback on the live art pass, 2026-11-03)
+
+The owner's phone screenshot (390 px wide) shows each row about 330 px tall,
+so only about 3 rows fit on screen, and the rows look busy. The approved
+mockup (CYCLES-DESIGN) fit 5. Problems and fixes, all CSS plus small
+`ui.js` changes:
+
+| Seen | Fix |
+| --- | --- |
+| Count pill hangs off the ring's bottom edge and clips it | Put the count inside the ring under the glyph, as in the mockup: 56 px ring, 22 px glyph, 12 px bold count below it, all centred. No pill. Never truncate the count (no ellipsis). |
+| Manager mark draws as a stray curl on the ring's lower right | Remove the mark from the ring. A managed row shows its state in the status text ("Auto") only. |
+| Buy button is two lines and ~90 px tall | One line, 40 px tall: `Buy 1 level` on the left, `494 tokens` on the right (two spans, `justify-content: space-between`). Bold left, mono right. |
+| "Auto" floats in its own column beside the button | Move status into the top row, right-aligned after the name block (`Auto`, the countdown, or the cycle time). The Buy button then spans the full card width. |
+| Bar fill is a muddy brown (amber at 22% opacity) | Fill with the row's tier colour at 85% opacity; payout text white with `text-shadow: 0 1px 2px #0008` so it reads on both fill and empty track. Bar height 26 px, radius 13 px. |
+| x1 / x10 / x100 / Max bar is square, heavy and touches the rows | Rounded inset control like the mockup: 36 px tall, track `var(--bg)` with 3 px padding and 10 px radius, active segment 8 px radius. 12 px margin left and right and 8 px below. |
+
+Target layout per row (card padding 10 px, gap 8 px):
+
+```
+[ring 56] Raspberry Pi            Auto
+          x2 speed at 50
+[==== tier colour bar  +389.8K ========]
+[ Buy 1 level                494 tokens ]
+```
+
+About 140 px per row, so 4-5 rows fit on a 390 x 844 phone.
+
+Acceptance: screenshot at 390 x 844 shows at least 4 full rows; no element
+overlaps the ring; the count shows in full at 4 digits; the bar fill uses each
+tier's colour; tests pass.
+
+Build as small tasks, one at a time: (a) ring with count inside and manager
+mark removed; (b) one-line Buy button and status moved to the top row;
+(c) bar colour and size; (d) buy-amount control styling.
+
 ## Build passes
 
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
