@@ -138,9 +138,9 @@ export function createUI(state, io) {
     heatFill: $('heat-fill'),
     overclock: $('overclock'),
     adviceCard: $('advice-card'),
-    adviceText: $('advice-text'),
+    adviceName: $('advice-name'),
+    adviceGain: $('advice-gain'),
     adviceBuy: $('advice-buy'),
-    adviceGoal: $('advice-goal'),
     genRows: $('gen-rows'),
     upGrid: $('up-grid'),
     wAvail: $('w-avail'),
@@ -660,7 +660,9 @@ export function createUI(state, io) {
     els.overclock.textContent = state.overclock ? 'OVERCLOCK ON' : 'OVERCLOCK OFF';
     els.overclock.disabled = state.throttled;
 
-    // Advice: the single highlighted card above the generators.
+    // Advice: the single highlighted card above the generators. Two lines
+    // on the left ("Next: name", "+gain/s" in lime), a buy button on the
+    // right, the same style as the affordable row buttons.
     advice = nextBestBuy(state);
     if (!advice) {
       els.adviceCard.hidden = true;
@@ -669,15 +671,10 @@ export function createUI(state, io) {
       const def = advice.kind === 'generator'
         ? GENERATORS.find((g) => g.id === advice.id)
         : UPGRADES.find((u) => u.id === advice.id);
-      els.adviceText.textContent = `NEXT: ${def.name} — +${fmt(advice.gain)}/s FOR ${fmt(advice.cost)}`;
-      els.adviceBuy.hidden = !advice.affordable;
-      els.adviceGoal.hidden = advice.affordable;
-      if (!advice.affordable) {
-        const tps = tokensPerSecond(state);
-        els.adviceGoal.textContent = tps > 0
-          ? `NEXT GOAL IN ${fmtTime(((advice.cost - state.tokens) / tps) * 1000)}`
-          : 'NEXT GOAL — NO PRODUCTION';
-      }
+      els.adviceName.textContent = `Next: ${def.name}`;
+      els.adviceGain.textContent = `+${fmt(advice.gain)}/s`;
+      els.adviceBuy.textContent = `Buy ${fmt(advice.cost)}`;
+      els.adviceBuy.disabled = !advice.affordable;
     }
 
     // Generators (immediate updates on mode change / purchase call this too).
