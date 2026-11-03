@@ -465,16 +465,16 @@ export function createUI(state, io) {
       r.buyBtn.textContent = owned ? 'OWNED' : 'BUY';
     }
 
-    // Rush button: usable when the cooldown has passed.
+    // Rush card: the button is usable when the cooldown has passed.
     const remaining = state.rushCooldownUntil !== null ? state.rushCooldownUntil - now : 0;
     if (remaining > 0) {
       els.rush.classList.add('disabled');
       els.rush.setAttribute('aria-disabled', 'true');
-      els.rush.innerHTML = `RUSH <span class="cd">${fmtTime(remaining)}</span>`;
+      els.rush.textContent = `Ready in ${fmtTime(remaining)}`;
     } else {
       els.rush.classList.remove('disabled');
       els.rush.removeAttribute('aria-disabled');
-      els.rush.textContent = 'RUSH';
+      els.rush.textContent = 'Play Rush';
     }
   }
 
