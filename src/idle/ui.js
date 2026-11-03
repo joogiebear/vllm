@@ -192,15 +192,17 @@ export function createUI(state, io) {
     });
     icon.append(tier);
     icon.append(iconCount);
-    // A small person mark at the run button's corner while a manager is
-    // hired (docs/ART-DESIGN.md "Manager icons"). Hidden by default;
+    // A small solid badge at the icon's top-right corner while a manager
+    // is hired (docs/ART-DESIGN.md "Manager icons"): an 18 px dark disc
+    // with a 1.5 px tier-colour ring holding a tiny person glyph, clear
+    // of the count pill at the bottom. Hidden by default;
     // updateGenCards toggles it.
-    const manMark = tierIcon('person', 16);
-    manMark.style.position = 'absolute';
-    manMark.style.right = '-3px';
-    manMark.style.bottom = '-3px';
-    manMark.style.color = TIER_COLORS[g.id];
+    const manMark = document.createElement('span');
+    manMark.className = 'gen-man-mark';
     manMark.style.display = 'none';
+    const manGlyph = tierIcon('person', 11);
+    manGlyph.style.color = TIER_COLORS[g.id];
+    manMark.append(manGlyph);
     icon.append(manMark);
     icon.addEventListener('click', () => {
       if (runRow(state, g.id)) {
@@ -821,8 +823,8 @@ export function createUI(state, io) {
       if (!visible) continue;
 
       const managed = hasManager(state, g.id);
-      // manMark is an <svg>: the hidden attribute does not work on SVG
-      // elements (no IDL reflection), so toggle display instead.
+      // manMark is a <span>: toggle display (the stylesheet's flex
+      // applies when it is shown).
       r.manMark.style.display = managed ? '' : 'none';
       const progress = state.cycles[g.id];
       const prev = prevCycles[g.id];
