@@ -9,6 +9,8 @@ import {
   CONTINUOUS_CYCLE_MAX, MANAGERS,
 } from './data.js?v=20261103041805';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261103041805';
+import { play } from './feedback.js?v=20261103041805';
+import { play } from './feedback.js?v=20261103041805';
 import { mountAchievements } from './achievements-ui.js?v=20261103041805';
 import { mountStats } from './stats-ui.js?v=20261103041805';
 
@@ -91,6 +93,10 @@ export function createUI(state, io) {
     lastNow: Date.now(),
   };
 
+  // Previous update's cycle progress per row, to detect completed cycles
+  // (a payout) without touching core.js.
+  const prevCycles = {};
+
   const els = {
     tokens: document.getElementById('tokens'),
     tps: document.getElementById('tps'),
@@ -171,7 +177,10 @@ export function createUI(state, io) {
     buyBtn.addEventListener('click', () => {
       const mode = view.buyMode === 'max' ? 'max' : Number(view.buyMode);
       const bought = buy(state, g.id, mode);
-      if (bought > 0) flash(card);
+      if (bought > 0) {
+        flash(card);
+        play('buy');
+      }
       updateGenCards(state);
     });
     const status = document.createElement('div');
@@ -200,7 +209,10 @@ export function createUI(state, io) {
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
     buyBtn.addEventListener('click', () => {
-      if (buyUpgrade(state, u.id)) flash(row);
+      if (buyUpgrade(state, u.id)) {
+        flash(row);
+        play('buy');
+      }
       updateUpgrades(state);
     });
     row.append(left, buyBtn);
@@ -213,7 +225,10 @@ export function createUI(state, io) {
   buyAllBtn.textContent = 'Buy all';
   buyAllBtn.addEventListener('click', () => {
     const n = buyAllUpgrades(state);
-    if (n > 0) flash(els.upGrid);
+    if (n > 0) {
+      flash(els.upGrid);
+      play('buy');
+    }
     updateUpgrades(state);
   });
   els.upGrid.prepend(buyAllBtn);
@@ -238,6 +253,7 @@ export function createUI(state, io) {
     buyBtn.addEventListener('click', () => {
       if (buyManager(state, m.id)) {
         flash(row);
+        play('hire');
         updateGenCards();
       }
       updateManagers();
@@ -319,7 +335,10 @@ export function createUI(state, io) {
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
     buyBtn.addEventListener('click', () => {
-      if (buyWeightUpgrade(state, u.id)) flash(row);
+      if (buyWeightUpgrade(state, u.id)) {
+        flash(row);
+        play('buy');
+      }
       updateWeightUpgrades(state);
     });
     row.append(left, buyBtn);
@@ -339,6 +358,7 @@ export function createUI(state, io) {
     els.prestigeBtn.classList.remove('armed');
     els.prestigeBtn.textContent = 'PRESTIGE';
     const gained = prestige(state);
+    if (gained > 0) play('prestige');
     showBanner(
       `Prestige! +${gained} weights. New run begins — buy a Raspberry Pi.`,
       'New run',
@@ -597,6 +617,16 @@ export function createUI(state, io) {
 
       const managed = hasManager(state, g.id);
       const progress = state.cycles[g.id];
+      const prev = prevCycles[g.id];
+      // A cycle completed since the previous update when progress wrapped
+      // (managed row) or reset to null (unmanaged row stopped after paying).
+      if (
+        prev !== null && prev !== undefined &&
+        (progress === null ? !managed : typeof progress === 'number' && progress < prev)
+      ) {
+        play('payout');
+      }
+      prevCycles[g.id] = progress;
       const ct = cycleTime(state, g);
       const continuous = ct < CONTINUOUS_CYCLE_MAX;
       const running = progress !== null && progress !== undefined;
