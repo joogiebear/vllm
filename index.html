@@ -159,8 +159,8 @@
       #rush { min-height: 44px; }
     }
 
-    /* Upgrades */
-    #up-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+    /* Upgrades: one column, top to bottom, at every width. */
+    #up-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .card {
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -180,7 +180,7 @@
     #prestige-box { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-bottom: 10px; }
     #prestige-btn { border-color: var(--magenta); color: var(--magenta); }
     #prestige-btn.armed { background: var(--magenta); color: #04050a; }
-    #prestige-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+    #prestige-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .wu {
       border: 1px solid var(--border);
       border-radius: 6px;

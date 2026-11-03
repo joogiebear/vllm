@@ -145,7 +145,10 @@ export function createUI(state, io) {
   });
 
   // --- build upgrade cards (once) ------------------------------------------
-  const upRefs = UPGRADES.map((u) => {
+  // Sorted by cost, cheapest first: one column, top to bottom, at every width.
+  const upRefs = [...UPGRADES]
+    .sort((a, b) => a.cost - b.cost)
+    .map((u) => {
     const card = document.createElement('div');
     card.className = 'card';
     const name = document.createElement('span');
@@ -167,7 +170,10 @@ export function createUI(state, io) {
   });
 
   // --- build weight upgrade rows (once) ------------------------------------
-  const wuRefs = WEIGHT_UPGRADES.map((wu) => {
+  // Sorted by cost, cheapest first, like the token upgrades.
+  const wuRefs = [...WEIGHT_UPGRADES]
+    .sort((a, b) => a.cost - b.cost)
+    .map((wu) => {
     const row = document.createElement('div');
     row.className = 'wu';
     const name = document.createElement('span');
