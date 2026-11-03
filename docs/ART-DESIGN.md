@@ -201,6 +201,16 @@ area.
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
 each push.
 
+No wasted compute (owner, 2026-11-03):
+
+- One pass at a time per file; never two jobs on `ui.js` or `index.html`.
+- A Qwen pass gets one retry. If it loops, hits its call cap or fails the
+  tests twice, stop it and have Claude write that piece directly instead of
+  a third try.
+- Kill any test servers and browsers a pass leaves running.
+- After each pass, push and post one line in the thread, so a stall shows up
+  as silence on the thread rather than an idle session.
+
 1. Hints and the row text cleanup: `hints.js`, hooks in `ui.js`, `save.js`,
    `settings.js`, tests.
 2. `icons.js` with the 12 tier icons and `TIER_COLORS`; run buttons use them;
