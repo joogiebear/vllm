@@ -309,6 +309,7 @@ export function cost(state, id, max = 1) {
 }
 
 export function buy(state, id, max = Infinity) {
+  if (max === 'max') max = Infinity;
   if (!validState(state) || typeof max !== 'number' || Number.isNaN(max) || max < 1) return 0;
   const g = GENERATORS.find((x) => x.id === id);
   if (!g) return 0;

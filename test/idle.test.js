@@ -56,6 +56,15 @@ test('buy: buys as many as it can', () => {
   assert.equal(buy(s, 'pi', 0), 0);
 });
 
+test('buy: "max" is treated as Infinity', () => {
+  const s = createState();
+  s.tokens = 100;
+  assert.equal(buy(s, 'pi', 'max'), 4);
+  assert.equal(s.generators.pi, 4);
+  assert.ok(s.tokens < 26.24);
+  assert.equal(buy(s, 'pi', 'max'), 0);
+});
+
 test('buyUpgrade: cost and idempotency', () => {
   const s = createState();
   s.tokens = 100;
