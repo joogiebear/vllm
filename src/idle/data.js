@@ -21,6 +21,21 @@ export const COST_GROWTH = 1.15;
 // replacing the old output doubling. The managed steady-state rate is
 // unchanged: payout / shorter cycle time.
 export const DOUBLING_THRESHOLDS = [25, 50, 100, 200, 400];
+// Payout milestones per tier (docs/LATE-GAME-DESIGN.md, section 3): once a
+// tier reaches `owned`, its payout is multiplied by `value`.
+export const PAYOUT_MILESTONES = [
+  { owned: 300, value: 2 },
+  { owned: 500, value: 3 },
+  { owned: 750, value: 3 },
+  { owned: 1000, value: 5 },
+];
+// Global milestones (docs/LATE-GAME-DESIGN.md, section 3): when every
+// unlocked tier reaches `owned`, all production is multiplied by `value`.
+export const GLOBAL_MILESTONES = [
+  { owned: 100, value: 2 },
+  { owned: 250, value: 3 },
+  { owned: 500, value: 5 },
+];
 // A cycle shorter than this many seconds is treated as continuous: the bar
 // shows full and the row pays every tick.
 export const CONTINUOUS_CYCLE_MAX = 0.25;
@@ -68,6 +83,29 @@ export const UPGRADES = [
   { id: 'singularity3', name: 'x3 Inference Singularity output', cost: 2e15, kind: 'productionTier', tier: 'singularity', value: 3 },
 ];
 
+// Second-round x5 output upgrades (docs/LATE-GAME-DESIGN.md, section 4).
+// Each appears after 2 Regions (minRegions); for tiers 9-12, only when the
+// tier itself is unlocked (see TIER_GATES). Price: 1,000 times that tier's
+// x3 upgrade. Campus and swarm have no x3 upgrade, so their price is
+// 1,000 x (50 x base cost), matching the 50 x pattern of the other tiers;
+// the balance bot (section 5) tunes these prices. A separate table from
+// UPGRADES so the existing behaviour is unchanged; a later task wires
+// these into Buy All, Auto-Procure and the multipliers.
+export const X5_UPGRADES = [
+  { id: 'pi5', name: 'x5 Raspberry Pi output', cost: 2e6, kind: 'productionTier', tier: 'pi', value: 5, minRegions: 2 },
+  { id: 'gamer5', name: 'x5 Gaming GPU output', cost: 1e7, kind: 'productionTier', tier: 'gamer', value: 5, minRegions: 2 },
+  { id: 'workstation5', name: 'x5 Workstation output', cost: 1e8, kind: 'productionTier', tier: 'workstation', value: 5, minRegions: 2 },
+  { id: 'rack5', name: 'x5 Rack Server output', cost: 1e9, kind: 'productionTier', tier: 'rack', value: 5, minRegions: 2 },
+  { id: 'cluster5', name: 'x5 GPU Cluster output', cost: 1e10, kind: 'productionTier', tier: 'cluster', value: 5, minRegions: 2 },
+  { id: 'datacenter5', name: 'x5 Datacenter output', cost: 1e11, kind: 'productionTier', tier: 'datacenter', value: 5, minRegions: 2 },
+  { id: 'campus5', name: 'x5 Fusion Campus output', cost: 1.65e12, kind: 'productionTier', tier: 'campus', value: 5, minRegions: 2 },
+  { id: 'swarm5', name: 'x5 Dyson Inference Swarm output', cost: 2.55e13, kind: 'productionTier', tier: 'swarm', value: 5, minRegions: 2 },
+  { id: 'orbital5', name: 'x5 Orbital Compute Ring output', cost: 4e14, kind: 'productionTier', tier: 'orbital', value: 5, minRegions: 2 },
+  { id: 'lunar5', name: 'x5 Lunar Datacenter output', cost: 6.5e15, kind: 'productionTier', tier: 'lunar', value: 5, minRegions: 2 },
+  { id: 'matrioshka5', name: 'x5 Matrioshka Brain output', cost: 1.1e17, kind: 'productionTier', tier: 'matrioshka', value: 5, minRegions: 2 },
+  { id: 'singularity5', name: 'x5 Inference Singularity output', cost: 2e18, kind: 'productionTier', tier: 'singularity', value: 5, minRegions: 2 },
+];
+
 // Removed in the v2 save (the click and cooling upgrades). A v1 save holding
 // one is refunded at its cost by migrate() in core.js.
 export const REMOVED_UPGRADES = [
@@ -108,6 +146,11 @@ export const REGION_PERKS = [
 // regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
 // First Region at 50 Weights, 2nd at 200, 3rd at 450 (docs/REGIONS-DESIGN.md).
 export const REGION_DIVISOR = 4000;
+// Per-Region expansion target (docs/LATE-GAME-DESIGN.md, section 2):
+// expanding needs Weights earned since the last expansion to reach
+// REGION_BASE * REGION_GROWTH ^ regionsEarned. The balance bot tunes both.
+export const REGION_BASE = 4000;
+export const REGION_GROWTH = 1.6;
 // The Regions view appears once this many Weights have been earned in total.
 export const REGION_UNLOCK_WEIGHTS = 2000; // half the first Region, so the tab appears when it is in sight
 // The server room moves per Region earned; after the list ends it is
@@ -123,6 +166,15 @@ export const REGION_NAMES = [
   'Low Orbit',
   'Lunar Base',
   'Mars Relay',
+];
+// Tiers 9-12 unlock through Regions (docs/LATE-GAME-DESIGN.md, section 1);
+// tiers 1-8 work as now. A tier becomes available once the player has
+// earned `regions` Regions.
+export const TIER_GATES = [
+  { id: 'orbital', regions: 1 },
+  { id: 'lunar', regions: 3 },
+  { id: 'matrioshka', regions: 5 },
+  { id: 'singularity', regions: 8 },
 ];
 
 export const OFFLINE_CAP_HOURS = 8;

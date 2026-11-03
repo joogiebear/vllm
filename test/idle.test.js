@@ -28,7 +28,18 @@ import {
   autoProcureDue,
   cycleTime,
 } from '../src/idle/core.js';
-import { ACHIEVEMENTS, GENERATORS, REGION_DIVISOR } from '../src/idle/data.js';
+import {
+  ACHIEVEMENTS,
+  GENERATORS,
+  REGION_DIVISOR,
+  REGION_BASE,
+  REGION_GROWTH,
+  TIER_GATES,
+  PAYOUT_MILESTONES,
+  GLOBAL_MILESTONES,
+  UPGRADES,
+  X5_UPGRADES,
+} from '../src/idle/data.js';
 import { checkAchievements } from '../src/idle/achievements.js';
 
 test('createState: fresh state has the right fields', () => {
@@ -1407,4 +1418,70 @@ test('achievements: regions 1, 3, 10 and all perks', () => {
   u = checkAchievements(s);
   assert.ok(!u.includes('regions-1'));
   assert.ok(!u.includes('perks-all'));
+});
+
+// Late-game data tables (docs/LATE-GAME-DESIGN.md)
+
+test('TIER_GATES: the 4 top tiers, valid ids, strictly increasing region requirements', () => {
+  assert.equal(TIER_GATES.length, 4);
+  assert.deepEqual(TIER_GATES.map((g) => g.id), ['orbital', 'lunar', 'matrioshka', 'singularity']);
+  assert.equal(new Set(TIER_GATES.map((g) => g.id)).size, 4);
+  for (const g of TIER_GATES) {
+    assert.ok(GENERATORS.some((x) => x.id === g.id), `gate for unknown tier ${g.id}`);
+    assert.ok(Number.isInteger(g.regions) && g.regions >= 1, `regions ${g.regions}`);
+  }
+  for (let i = 1; i < TIER_GATES.length; i++) {
+    assert.ok(TIER_GATES[i].regions > TIER_GATES[i - 1].regions, 'requirements strictly increasing');
+  }
+});
+
+test('PAYOUT_MILESTONES: 4 entries above 200 owned, strictly increasing, values 2/3/3/5', () => {
+  assert.equal(PAYOUT_MILESTONES.length, 4);
+  assert.deepEqual(PAYOUT_MILESTONES.map((m) => m.owned), [300, 500, 750, 1000]);
+  assert.deepEqual(PAYOUT_MILESTONES.map((m) => m.value), [2, 3, 3, 5]);
+  for (const m of PAYOUT_MILESTONES) {
+    assert.ok(Number.isInteger(m.owned) && m.owned > 200, `owned ${m.owned} must be above 200`);
+    assert.ok(Number.isFinite(m.value) && m.value > 1, `value ${m.value}`);
+  }
+});
+
+test('GLOBAL_MILESTONES: 3 entries, strictly increasing owned, values 2/3/5', () => {
+  assert.equal(GLOBAL_MILESTONES.length, 3);
+  assert.deepEqual(GLOBAL_MILESTONES.map((m) => m.owned), [100, 250, 500]);
+  assert.deepEqual(GLOBAL_MILESTONES.map((m) => m.value), [2, 3, 5]);
+  for (const m of GLOBAL_MILESTONES) {
+    assert.ok(Number.isInteger(m.owned) && m.owned > 0, `owned ${m.owned}`);
+    assert.ok(Number.isFinite(m.value) && m.value > 1, `value ${m.value}`);
+  }
+});
+
+test('X5_UPGRADES: 12 entries, one per tier in order, x5, minRegions 2, cost = 1000 x the x3 cost', () => {
+  assert.equal(X5_UPGRADES.length, 12);
+  assert.equal(new Set(X5_UPGRADES.map((u) => u.id)).size, 12);
+  assert.deepEqual(X5_UPGRADES.map((u) => u.tier), GENERATORS.map((g) => g.id));
+  for (const u of X5_UPGRADES) {
+    assert.equal(u.kind, 'productionTier');
+    assert.equal(u.value, 5);
+    assert.equal(u.minRegions, 2);
+    assert.ok(Number.isFinite(u.cost) && u.cost > 0, `${u.id} cost ${u.cost}`);
+    const x3 = UPGRADES.find((x) => x.kind === 'productionTier' && x.tier === u.tier);
+    if (x3) {
+      assert.equal(u.cost, x3.cost * 1000, `${u.id} cost`);
+    } else {
+      // campus and swarm have no x3 upgrade: 1000 x (50 x base cost)
+      const g = GENERATORS.find((x) => x.id === u.tier);
+      assert.equal(u.cost, 50 * g.baseCost * 1000, `${u.id} cost`);
+    }
+  }
+  for (let i = 1; i < X5_UPGRADES.length; i++) {
+    assert.ok(X5_UPGRADES[i].cost > X5_UPGRADES[i - 1].cost, `costs strictly increase at ${X5_UPGRADES[i].id}`);
+  }
+  for (const g of TIER_GATES) {
+    assert.ok(X5_UPGRADES.some((u) => u.tier === g.id), `x5 missing for gated tier ${g.id}`);
+  }
+});
+
+test('REGION_BASE and REGION_GROWTH', () => {
+  assert.equal(REGION_BASE, 4000);
+  assert.equal(REGION_GROWTH, 1.6);
 });
