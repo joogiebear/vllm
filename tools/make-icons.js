@@ -11,7 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const CHROME = '/home/hermes/.hermes/tools/chromium-1208/chrome-linux64/chrome';
+const CHROME = '/home/hermes/.hermes/tools/chromium-1208/chrome-linux64/chrome-wrapper';
 const FFMPEG = '/home/hermes/.hermes/tools/ffmpeg-9.0.1-linux-x64/bin/ffmpeg';
 const CHROME_PX = 87; // measured chrome height (256 window -> 169 viewport)
 
