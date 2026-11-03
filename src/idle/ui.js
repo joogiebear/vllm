@@ -23,6 +23,10 @@ const TIER_COLORS = {
   datacenter: '#68d391',
   campus: '#f6e05e',
   swarm: '#fc8181',
+  orbital: '#9b5cf6',
+  lunar: '#38bdf8',
+  matrioshka: '#f43f5e',
+  singularity: '#eab308',
 };
 
 export function fmt(n) {
