@@ -72,16 +72,22 @@ function saveNow() {
   save(state, Date.now());
 }
 
-// Main loop: rAF. dt is clamped so a background tab that resumes does not
-// fast-forward the game; long gaps are covered by offline earnings instead.
+// Main loop: setInterval at 10 Hz, driven by the real clock. dt is the
+// actual elapsed time; gaps over 60 s go through applyOffline (which caps
+// them at the offline cap) instead of a tick.
 let last = Date.now();
 let lastRender = 0;
 let lastSave = last;
-function frame() {
+function step() {
   const now = Date.now();
-  const dt = Math.min(30, Math.max(0, (now - last) / 1000));
+  const dt = Math.max(0, (now - last) / 1000);
   last = now;
-  tick(state, dt);
+  if (dt > 60) {
+    const earned = applyOffline(state, dt);
+    if (earned > 0) ui.showBanner(`While you were away: +${fmt(earned)} tokens`);
+  } else {
+    tick(state, dt);
+  }
   if (now - lastRender >= 100) {
     lastRender = now;
     ui.update(state, now);
@@ -90,7 +96,6 @@ function frame() {
     lastSave = now;
     saveNow();
   }
-  requestAnimationFrame(frame);
 }
 
 // Autosave when the tab goes hidden.
@@ -101,4 +106,4 @@ document.addEventListener('visibilitychange', () => {
 readRushResult();
 applyOfflineEarnings();
 ui.update(state, Date.now());
-requestAnimationFrame(frame);
+setInterval(step, 100);
