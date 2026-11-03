@@ -317,7 +317,13 @@ export function createUI(state, io) {
     for (const r of genRefs) {
       const n = view.buyMode === 'max' ? 1 : Number(view.buyMode);
       const c = cost(state, r.g.id, n);
-      r.row.hidden = state.lifetime < r.g.baseCost * GENERATOR_REVEAL_FRACTION;
+      // Revealed once lifetime OR current tokens reach half the base cost; the
+      // Raspberry Pi is always shown so a fresh (prestige) run is never empty.
+      const revealed =
+        r.g.id === 'pi' ||
+        state.lifetime >= r.g.baseCost * GENERATOR_REVEAL_FRACTION ||
+        state.tokens >= r.g.baseCost * GENERATOR_REVEAL_FRACTION;
+      r.row.hidden = !revealed;
       const owned = state.generators[r.g.id];
       r.owned.textContent = `owned ${owned}`;
       r.out.textContent = `${fmt(genOutput(state, r.g))}/s`;
@@ -327,7 +333,8 @@ export function createUI(state, io) {
       r.buyBtn.disabled = c > state.tokens;
     }
 
-    // Upgrades: reveal at 25% of cost; purchased move to the collapsed list.
+    // Upgrades: reveal at 25% of cost (lifetime or tokens); purchased move to
+    // the collapsed list.
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
       if (owned && !r.moved) {
@@ -340,7 +347,9 @@ export function createUI(state, io) {
         r.card.remove();
       }
       if (!owned) {
-        r.card.hidden = state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION;
+        r.card.hidden =
+          state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION &&
+          state.tokens < r.u.cost * UPGRADE_REVEAL_FRACTION;
         r.buyBtn.disabled = state.tokens < r.u.cost;
       }
     }

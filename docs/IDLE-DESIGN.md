@@ -64,7 +64,8 @@ Cost of the next one is `baseCost * 1.15 ^ owned`, rounded up. Base production i
 
 A generator's output doubles each time its owned count reaches 25, 50, 100, 200 and 400.
 
-A generator is shown once `lifetime` reaches half its base cost.
+A generator is shown once `lifetime` or `tokens` reaches half its base cost, and the Raspberry Pi
+is always shown.
 
 ## Production
 
@@ -87,7 +88,7 @@ A click earns `(1 + clickFlat) + clickShare * tokensPerSecond`. `clickFlat` and 
 
 ## Upgrades
 
-One-time purchases. Each is shown once `lifetime` reaches 25% of its cost.
+One-time purchases. Each is shown once `lifetime` or `tokens` reaches 25% of its cost.
 
 | Id | Name | Cost | Effect |
 | --- | --- | ---: | --- |
