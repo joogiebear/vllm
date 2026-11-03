@@ -10,4 +10,5 @@ done
 for f in index.html rush.html; do
   sed -i -E "s#(src=\"src/[A-Za-z0-9_./-]+\.js)(\?v=[0-9]+)?\"#\1?v=$V\"#g" "$f"
 done
+sed -i -E "s#overclock-[0-9]+#overclock-$V#" sw.js
 echo "stamped $V"

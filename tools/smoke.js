@@ -289,8 +289,9 @@ async function runChecks(cdp, sessionId, url) {
 
   // Wait for the page to finish loading (loadEventFired, or readyState
   // 'complete' as a belt-and-braces fallback). Reusable so the late-save
-  // reload waits the same way.
-  const loadPage = () => {
+  // reload and the offline reload wait the same way; the timeout is
+  // parameterized (the offline reload gets a shorter one).
+  const loadPage = (timeoutMs = 15000) => {
     const loaded = new Promise((resolve) => {
       let t;
       let done = false;
@@ -317,7 +318,7 @@ async function runChecks(cdp, sessionId, url) {
           .catch(() => {});
       }, 250);
     });
-    return withTimeout(loaded, 15000, 'page load');
+    return withTimeout(loaded, timeoutMs, 'page load');
   };
   cdp.send('Page.navigate', { url }, sessionId);
   await loadPage();
@@ -527,6 +528,51 @@ async function runChecks(cdp, sessionId, url) {
           return !!(gs && !gs.hidden);
         })()`
       )
+  );
+
+  // --- offline ---------------------------------------------------------------
+  // The service worker (registered by app.js on 127.0.0.1) is active after
+  // the first load and its install precached the shell, the module graph
+  // and the icons, so the cache is populated. Wait for it, go offline,
+  // reload: the game still renders (docs/STABILITY-DESIGN.md, section 2).
+  const swActive = await withTimeout(
+    poll(
+      8000,
+      'navigator.serviceWorker !== undefined && navigator.serviceWorker.controller !== null'
+    ),
+    9000,
+    'service worker active'
+  );
+  results.push({
+    name: 'offline: service worker active',
+    pass: !!swActive,
+    detail: swActive ? '' : 'no controller',
+  });
+  await cdp.send(
+    'Network.emulateNetworkConditions',
+    { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 },
+    sessionId
+  );
+  await cdp.send('Page.reload', {}, sessionId);
+  await loadPage(10000);
+  // Wait for the game to re-render from the cache.
+  await withTimeout(
+    poll(
+      5000,
+      'document.querySelector("#gen-cards") && document.querySelector("#gen-cards").children.length > 0'
+    ),
+    6000,
+    'game load (offline)'
+  );
+  await check(
+    'offline: #gen-cards still has cards after the offline reload',
+    () => evalIn('document.querySelectorAll("#gen-cards .gen-card").length >= 1')
+  );
+  // Back online for any later checks.
+  await cdp.send(
+    'Network.emulateNetworkConditions',
+    { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 },
+    sessionId
   );
 
   results.push({

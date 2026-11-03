@@ -1,13 +1,13 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
-import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261103182106';
-import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103182106';
-import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261103182106';
-import { get } from './settings.js?v=20261103182106';
-import { createUI } from './ui.js?v=20261103182106';
-import { fmt } from './fmt.js?v=20261103182106';
-import { showWelcome } from './welcome.js?v=20261103182106';
-import { toast } from './toast.js?v=20261103182106';
-import { initFeedback } from './feedback.js?v=20261103182106';
+import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261103182600';
+import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103182600';
+import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261103182600';
+import { get } from './settings.js?v=20261103182600';
+import { createUI } from './ui.js?v=20261103182600';
+import { fmt } from './fmt.js?v=20261103182600';
+import { showWelcome } from './welcome.js?v=20261103182600';
+import { toast } from './toast.js?v=20261103182600';
+import { initFeedback } from './feedback.js?v=20261103182600';
 
 const { state, savedAt, restoredFrom } = load();
 initFeedback();
@@ -169,3 +169,15 @@ applyOfflineEarnings();
 ui.update(state, Date.now());
 document.getElementById('boot')?.remove();
 setInterval(step, 100);
+
+// Service worker (docs/STABILITY-DESIGN.md, section 2): offline play and
+// instant start. Only where service workers are allowed: https:, or the
+// local hosts.
+if (
+  'serviceWorker' in navigator &&
+  (location.protocol === 'https:' ||
+    location.hostname === 'localhost' ||
+    location.hostname === '127.0.0.1')
+) {
+  navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+}
