@@ -287,34 +287,40 @@ async function runChecks(cdp, sessionId, url) {
     sessionId
   );
 
-  const loaded = new Promise((resolve) => {
-    let t;
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      clearInterval(t);
-      resolve();
-    };
-    cdp.on('Page.loadEventFired', finish, sessionId);
-    // Belt and braces: also accept readyState === 'complete' in case the
-    // load event is delayed or the page errors out late.
-    t = setInterval(() => {
-      if (done) return;
-      cdp
-        .send(
-          'Runtime.evaluate',
-          { expression: 'document.readyState', returnByValue: true },
-          sessionId
-        )
-        .then((r) => {
-          if (r.result && r.result.value === 'complete') finish();
-        })
-        .catch(() => {});
-    }, 250);
-  });
+  // Wait for the page to finish loading (loadEventFired, or readyState
+  // 'complete' as a belt-and-braces fallback). Reusable so the late-save
+  // reload waits the same way.
+  const loadPage = () => {
+    const loaded = new Promise((resolve) => {
+      let t;
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearInterval(t);
+        resolve();
+      };
+      cdp.on('Page.loadEventFired', finish, sessionId);
+      // Belt and braces: also accept readyState === 'complete' in case the
+      // load event is delayed or the page errors out late.
+      t = setInterval(() => {
+        if (done) return;
+        cdp
+          .send(
+            'Runtime.evaluate',
+            { expression: 'document.readyState', returnByValue: true },
+            sessionId
+          )
+          .then((r) => {
+            if (r.result && r.result.value === 'complete') finish();
+          })
+          .catch(() => {});
+      }, 250);
+    });
+    return withTimeout(loaded, 15000, 'page load');
+  };
   cdp.send('Page.navigate', { url }, sessionId);
-  await withTimeout(loaded, 15000, 'page load');
+  await loadPage();
 
   const evalIn = (expression) =>
     cdp.send(
@@ -390,6 +396,136 @@ async function runChecks(cdp, sessionId, url) {
       poll(
         1000,
         `(() => { const f = document.querySelector("#gen-cards .gen-card .gen-bar-fill"); if (!f) return false; const m = /scaleX\\(([0-9.]+)\\)/.exec(f.style.transform || ""); return m ? parseFloat(m[1]) > 0 : false; })()`
+      )
+  );
+
+  // --- late save -----------------------------------------------------------
+  // Load test/fixtures/late-save.json through the game's own load() path:
+  // the fixture is written to localStorage before the reloaded document's
+  // scripts run (addScriptToEvaluateOnNewDocument), so load() reads it.
+  const fixture = fs.readFileSync(
+    path.join(REPO, 'test', 'fixtures', 'late-save.json'),
+    'utf8'
+  );
+  await cdp.send(
+    'Page.addScriptToEvaluateOnNewDocument',
+    {
+      source: `try { localStorage.setItem('overclock.idle.v1', ${JSON.stringify(
+        fixture
+      )}); } catch (e) {}`,
+    },
+    sessionId
+  );
+  await cdp.send('Page.reload', {}, sessionId);
+  await loadPage();
+  // Wait for the game to re-render after the reload.
+  await withTimeout(
+    poll(
+      5000,
+      'document.querySelector("#gen-cards") && document.querySelector("#gen-cards").children.length > 0'
+    ),
+    6000,
+    'game load (late save)'
+  );
+  // Dismiss the welcome-back modal if the offline gap credited earnings.
+  await evalIn(
+    'const wb = document.querySelector(".wb-btn"); if (wb) wb.click(); true'
+  ).catch(() => {});
+
+  // The fixture loaded through load(): the Pi shows the saved 25 (a fresh
+  // game would show 1) and the token count shows the saved 100T.
+  await check(
+    'late save: save loaded (Pi count is 25, tokens show 100T)',
+    () =>
+      evalIn(
+        'document.querySelector("#gen-cards .gen-card .gen-icon-count").textContent.trim() === "25" && /100\\.0T/.test(document.getElementById("tokens").textContent)'
+      )
+  );
+
+  // Select Max.
+  await evalIn(
+    'document.querySelector(\'#buy-sel button[data-mode="max"]\').click(); true'
+  );
+
+  // 60 animation frames must complete in under 1.5 s (catches Max-lag loops).
+  let frameMs = Infinity;
+  try {
+    const r = await evalIn(
+      'new Promise((resolve) => { const t0 = performance.now(); let n = 0; const step = () => { n++; if (n >= 60) { resolve(performance.now() - t0); } else { requestAnimationFrame(step); } }; requestAnimationFrame(step); })'
+    );
+    frameMs =
+      r.result && typeof r.result.value === 'number' ? r.result.value : Infinity;
+  } catch (err) {
+    frameMs = Infinity;
+  }
+  results.push({
+    name: 'late save: 60 animation frames under 1.5 s (Max selected)',
+    pass: frameMs < 1500,
+    detail:
+      frameMs < 1500
+        ? ''
+        : frameMs === Infinity
+          ? 'timed out'
+          : frameMs.toFixed(0) + ' ms',
+  });
+
+  // Tap Buy on the Pi (Max): tokens go down, the Pi count goes up.
+  const parseFmt = (s) => {
+    const m = /^([0-9.]+)([KMBTQ])?$/.exec(String(s).trim());
+    if (!m) return NaN;
+    const mult = { K: 1e3, M: 1e6, B: 1e9, T: 1e12, Q: 1e15 }[m[2] || ''] || 1;
+    return parseFloat(m[1]) * mult;
+  };
+  const readHud = () =>
+    evalIn(
+      '({ t: document.getElementById("tokens").textContent, c: document.querySelector("#gen-cards .gen-card .gen-icon-count").textContent })'
+    );
+  const beforeHud = await readHud();
+  await evalIn(
+    'document.querySelector("#gen-cards .gen-card .gen-buy").click(); true'
+  );
+  await new Promise((r) => setTimeout(r, 300));
+  const afterHud = await readHud();
+  const bv = beforeHud.result && beforeHud.result.value ? beforeHud.result.value : {};
+  const av = afterHud.result && afterHud.result.value ? afterHud.result.value : {};
+  const tb = parseFmt(bv.t);
+  const ta = parseFmt(av.t);
+  const cb = parseFmt(bv.c);
+  const ca = parseFmt(av.c);
+  results.push({
+    name: 'late save: Buy (Max) on the Pi lowers tokens and raises the Pi count',
+    pass:
+      Number.isFinite(tb) &&
+      Number.isFinite(ta) &&
+      Number.isFinite(cb) &&
+      Number.isFinite(ca) &&
+      ta < tb &&
+      ca > cb,
+    detail: `tokens ${tb} -> ${ta}, pi ${cb} -> ${ca}`,
+  });
+
+  // --- tabs ----------------------------------------------------------------
+  // Open each bottom tab, then return to Game, with no error.
+  await check(
+    'tabs: open each bottom tab, then return to Game',
+    () =>
+      evalIn(
+        `(async () => {
+          const tabs = ['game', 'upgrades', 'prestige', 'shop', 'more'];
+          for (const t of tabs) {
+            const btn = document.querySelector('#tabs [data-tab="' + t + '"]');
+            if (!btn) return false;
+            btn.click();
+            await new Promise((r) => setTimeout(r, 50));
+            const sec = document.getElementById('tab-' + t);
+            if (!sec || sec.hidden) return false;
+          }
+          const g = document.querySelector('#tabs [data-tab="game"]');
+          g.click();
+          await new Promise((r) => setTimeout(r, 50));
+          const gs = document.getElementById('tab-game');
+          return !!(gs && !gs.hidden);
+        })()`
       )
   );
 

@@ -1,0 +1,73 @@
+{
+  "version": 3,
+  "savedAt": 1762176000000,
+  "state": {
+    "version": 3,
+    "tokens": 100000000000000,
+    "lifetime": 100000000000000,
+    "totalLifetime": 100000000000000,
+    "weights": 0,
+    "weightsEarnedThisCycle": 0,
+    "regions": 0,
+    "regionsEarned": 1,
+    "weightsEverEarned": 4000,
+    "regionPerks": [],
+    "autoProcureTimer": 0,
+    "generators": {
+      "pi": 25,
+      "gamer": 25,
+      "workstation": 25,
+      "rack": 25,
+      "cluster": 25,
+      "datacenter": 0,
+      "campus": 0,
+      "swarm": 0,
+      "orbital": 0,
+      "lunar": 0,
+      "matrioshka": 0,
+      "singularity": 0
+    },
+    "upgrades": [],
+    "weightUpgrades": [],
+    "managers": ["pi", "gamer", "workstation", "rack", "cluster"],
+    "cycles": {
+      "pi": null,
+      "gamer": null,
+      "workstation": null,
+      "rack": null,
+      "cluster": null,
+      "datacenter": null,
+      "campus": null,
+      "swarm": null,
+      "orbital": null,
+      "lunar": null,
+      "matrioshka": null,
+      "singularity": null
+    },
+    "achievements": [],
+    "rushCooldownUntil": null,
+    "rng": 42,
+    "nextEventIn": 120,
+    "eventOffer": null,
+    "eventActive": null,
+    "stats": {
+      "allTimeTokens": 100000000000000,
+      "bestRunTokens": 100000000000000,
+      "playSeconds": 0,
+      "offlineSeconds": 0,
+      "offlineTokens": 0,
+      "prestiges": 0,
+      "managersHired": 5,
+      "taps": 0,
+      "generatorsBought": 125,
+      "upgradesBought": 0,
+      "rushGames": 0,
+      "bestRushScore": 0,
+      "runStartedAt": 0,
+      "eventsClaimed": 0
+    },
+    "hints": {
+      "seen": ["run", "buy", "manager"]
+    }
+  }
+}
