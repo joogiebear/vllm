@@ -156,6 +156,8 @@ export function createUI(state, io) {
   const genRefs = GENERATORS.map((g) => {
     const card = document.createElement('div');
     card.className = 'gen-card';
+    // Shared by the icon ring, the manager badge ring and the bar fill.
+    card.style.setProperty('--tier-color', TIER_COLORS[g.id]);
 
     const top = document.createElement('div');
     top.className = 'gen-top';
