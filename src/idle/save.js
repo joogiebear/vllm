@@ -3,7 +3,7 @@
 // supplied by app.js (the only file that reads the clock); this module
 // never reads the clock itself.
 import { SAVE_VERSION, SAVE_KEY, SAVE_CORRUPT_KEY } from './data.js';
-import { createState } from './core.js';
+import { createState, migrate } from './core.js';
 
 function safeGet(key) {
   try {
@@ -37,10 +37,6 @@ function mergeState(saved) {
     const v = saved[k];
     return typeof v === 'number' && Number.isFinite(v) ? v : s[k];
   };
-  const bool = (k) => {
-    const v = saved[k];
-    return typeof v === 'boolean' ? v : s[k];
-  };
   const timeOrNull = (k) => {
     const v = saved[k];
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -50,10 +46,15 @@ function mergeState(saved) {
   s.totalLifetime = num('totalLifetime');
   s.weights = num('weights');
   s.weightsEarnedThisCycle = num('weightsEarnedThisCycle');
-  s.heat = Math.min(100, Math.max(0, num('heat')));
-  s.overclock = bool('overclock');
-  s.throttled = bool('throttled');
-  s.autoPause = bool('autoPause');
+  if (Array.isArray(saved.managers)) {
+    s.managers = saved.managers.filter((x) => typeof x === 'string');
+  }
+  if (saved.cycles !== null && typeof saved.cycles === 'object' && !Array.isArray(saved.cycles)) {
+    for (const id of Object.keys(s.cycles)) {
+      const v = saved.cycles[id];
+      s.cycles[id] = typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+    }
+  }
   s.rushCooldownUntil = timeOrNull('rushCooldownUntil');
   if (Array.isArray(saved.upgrades)) {
     s.upgrades = saved.upgrades.filter((x) => typeof x === 'string');
@@ -106,7 +107,10 @@ export function load() {
     safeSet(SAVE_CORRUPT_KEY, raw);
     return { state: createState(), savedAt: null };
   }
-  const state = mergeState(data.state);
+  // Old saves are migrated (removed upgrades refunded at cost); current and
+  // newer saves are merged with forward compatibility.
+  const version = typeof data.version === 'number' ? data.version : 1;
+  const state = version < SAVE_VERSION ? migrate(data.state) : mergeState(data.state);
   if (state === null) {
     safeSet(SAVE_CORRUPT_KEY, raw);
     return { state: createState(), savedAt: null };
@@ -133,7 +137,8 @@ export function importSave(text) {
     return null;
   }
   if (!validSaveShape(data)) return null;
-  return mergeState(data.state);
+  const version = typeof data.version === 'number' ? data.version : 1;
+  return version < SAVE_VERSION ? migrate(data.state) : mergeState(data.state);
 }
 
 // Hard reset: remove the save (the corrupt copy is left for inspection).
