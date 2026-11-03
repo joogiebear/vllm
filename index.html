@@ -541,16 +541,28 @@
     .wu .effect { color: var(--dim); font-size: 12px; }
     .wu .cost { color: var(--amber); font-size: 12px; }
 
-    /* Actions */
-    #actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    /* Rush: a small chip row beneath the generators — "Rush ready · Play"
+       or "Rush in 7:32" (play disabled), with a small info button that
+       shows the explanation. */
+    #rush-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
     #rush {
       display: inline-block;
+      min-height: 44px;
       padding: 8px 14px;
       border: 1px solid var(--cyan);
-      border-radius: 6px;
+      border-radius: 999px;
       text-decoration: none;
     }
     #rush.disabled { opacity: 0.4; pointer-events: none; }
+    #rush-info {
+      min-height: 44px;
+      width: 44px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--dim);
+    }
+    #rush-explain { flex-basis: 100%; font-size: 12px; }
 
     /* Settings */
     #settings[hidden] { display: none; }
@@ -655,12 +667,14 @@
           <div id="gen-rows"></div>
         </section>
 
-        <section id="rush-card" class="panel">
-          <h2>RUSH</h2>
-          <p class="dim">Bonus arcade mode. Run the GPUs by hand for a token payout. Better scores pay more.</p>
-          <p class="dim">Payout: up to 10 minutes of your current production.</p>
-          <a id="rush" href="rush.html">Play Rush</a>
-        </section>
+        <div id="rush-row">
+          <a id="rush" href="rush.html">Rush ready · Play</a>
+          <button id="rush-info" type="button" aria-label="About Rush">i</button>
+          <span id="rush-explain" class="dim" hidden>
+            Bonus arcade mode. Run the GPUs by hand for a token payout.
+            Payout: up to 10 minutes of your current production.
+          </span>
+        </div>
       </div>
 
       <div id="tab-upgrades" class="tab-panel" hidden>

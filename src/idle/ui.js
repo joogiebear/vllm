@@ -149,6 +149,8 @@ export function createUI(state, io) {
     prestigeBtn: $('prestige-btn'),
     prestigeGrid: $('prestige-grid'),
     rush: $('rush'),
+    rushInfo: $('rush-info'),
+    rushExplain: $('rush-explain'),
     exportArea: $('export-area'),
     exportBtn: $('export-btn'),
     importArea: $('import-area'),
@@ -475,6 +477,11 @@ export function createUI(state, io) {
   // --- overclock toggle ----------------------------------------------------
   els.overclock.addEventListener('click', () => setOverclock(state, !state.overclock));
 
+  // --- rush: the small info button shows the explanation -------------------
+  els.rushInfo.addEventListener('click', () => {
+    els.rushExplain.hidden = !els.rushExplain.hidden;
+  });
+
   // --- prestige: two-step confirm -------------------------------------------
   function disarmPrestige() {
     view.prestigeArmed = false;
@@ -716,16 +723,16 @@ export function createUI(state, io) {
       r.buyBtn.textContent = owned ? 'OWNED' : 'BUY';
     }
 
-    // Rush card: the button is usable when the cooldown has passed.
+    // Rush chip: "Rush ready · Play" or "Rush in 7:32" (play disabled).
     const remaining = state.rushCooldownUntil !== null ? state.rushCooldownUntil - now : 0;
     if (remaining > 0) {
       els.rush.classList.add('disabled');
       els.rush.setAttribute('aria-disabled', 'true');
-      els.rush.textContent = `Ready in ${fmtTime(remaining)}`;
+      els.rush.textContent = `Rush in ${fmtTime(remaining)}`;
     } else {
       els.rush.classList.remove('disabled');
       els.rush.removeAttribute('aria-disabled');
-      els.rush.textContent = 'Play Rush';
+      els.rush.textContent = 'Rush ready · Play';
     }
   }
 
