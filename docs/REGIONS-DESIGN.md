@@ -9,7 +9,7 @@ the first layer resets, including Weights, and you earn **Regions**, a rarer cur
 makes every later run faster and unlocks quality-of-life perks.
 
 ## When it unlocks
-- The Regions view appears once you've earned 25 Weights in total; the first Region needs 4000.
+- The Regions view appears once you've earned 2,000 Weights in total; the first Region needs 4,000 (tuned by the bot).
 - Target: the first Region lands at about 3 to 5 hours of active play.
   The test bot tunes `REGION_DIVISOR` until it does.
 
@@ -46,7 +46,7 @@ makes every later run faster and unlocks quality-of-life perks.
 - The Prestige tab gets a segmented control: **Weights | Regions**, the same pattern as
   Upgrades | Managers. Regions stays hidden until it unlocks, then shows a dot.
 - The Regions view uses the same progress-bar-plus-sentence style:
-  "You're 40% of the way to your first Region (20 / 50 Weights)".
+  "You're 40% of the way to your first Region (1,600 / 4,000 Weights)".
 - Region perks are rows like the Weight upgrades.
 - New achievements: first Region, 3 Regions, 10 Regions, all perks bought (+1% each, like the rest), plus Regions stats.
 

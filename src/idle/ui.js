@@ -4,18 +4,18 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
-} from './core.js?v=20261103050553';
+} from './core.js?v=20261103140732';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS, REGION_DIVISOR, REGION_UNLOCK_WEIGHTS,
-} from './data.js?v=20261103050553';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261103050553';
-import { play } from './feedback.js?v=20261103050553';
-import { mountAchievements } from './achievements-ui.js?v=20261103050553';
-import { mountStats } from './stats-ui.js?v=20261103050553';
-import { mountEvents } from './events-ui.js?v=20261103050553';
+} from './data.js?v=20261103140732';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261103140732';
+import { play } from './feedback.js?v=20261103140732';
+import { mountAchievements } from './achievements-ui.js?v=20261103140732';
+import { mountStats } from './stats-ui.js?v=20261103140732';
+import { mountEvents } from './events-ui.js?v=20261103140732';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -884,7 +884,7 @@ export function createUI(state, io) {
   }
 
   function updateRegions() {
-    const total = (state.weightsEverEarned || 0) + (state.weightsEarnedThisCycle || 0);
+    const total = state.weightsEverEarned || 0;
     const earned = state.regionsEarned || 0;
     const target = (earned + 1) * (earned + 1) * REGION_DIVISOR;
     const prev = earned * earned * REGION_DIVISOR;
@@ -919,7 +919,7 @@ export function createUI(state, io) {
 
   function updatePrestigeSeg() {
     const unlocked =
-      (state.weightsEverEarned || 0) + (state.weightsEarnedThisCycle || 0) >= REGION_UNLOCK_WEIGHTS;
+      (state.weightsEverEarned || 0) >= REGION_UNLOCK_WEIGHTS;
     els.regionsSegBtn.hidden = !unlocked;
     // The dot marks the Regions segment once, until it has been viewed.
     els.regionDot.hidden = !unlocked || view.regionDotSeen;

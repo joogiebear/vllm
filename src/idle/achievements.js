@@ -1,6 +1,6 @@
 // Achievement checks (docs/COMPLETION.md). Pure: the only mutation is
 // appending newly met ids to state.achievements.
-import { ACHIEVEMENTS, MANAGERS, REGION_PERKS } from './data.js?v=20261103050553';
+import { ACHIEVEMENTS, MANAGERS, REGION_PERKS } from './data.js?v=20261103140732';
 
 // Evaluate one JSON-safe test descriptor against the state.
 function met(test, state) {

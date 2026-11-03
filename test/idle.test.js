@@ -27,7 +27,7 @@ import {
   autoProcureDue,
   cycleTime,
 } from '../src/idle/core.js';
-import { ACHIEVEMENTS, GENERATORS } from '../src/idle/data.js';
+import { ACHIEVEMENTS, GENERATORS, REGION_DIVISOR } from '../src/idle/data.js';
 import { checkAchievements } from '../src/idle/achievements.js';
 
 test('createState: fresh state has the right fields', () => {
@@ -986,15 +986,15 @@ test('a saved game survives a reload: migrate keeps stats, achievements and even
 
 // Regions (docs/REGIONS-DESIGN.md)
 
-test('regionsAvailable: formula (first at 50, 2nd at 200, 3rd at 450 Weights)', () => {
+test('regionsAvailable: formula (1, 4 and 9 times REGION_DIVISOR Weights)', () => {
   const s = createState();
-  s.weightsEverEarned = 49;
+  s.weightsEverEarned = REGION_DIVISOR - 1;
   assert.equal(regionsAvailable(s), 0);
-  s.weightsEverEarned = 50;
+  s.weightsEverEarned = REGION_DIVISOR;
   assert.equal(regionsAvailable(s), 1);
-  s.weightsEverEarned = 200;
+  s.weightsEverEarned = 4 * REGION_DIVISOR;
   assert.equal(regionsAvailable(s), 2);
-  s.weightsEverEarned = 450;
+  s.weightsEverEarned = 9 * REGION_DIVISOR;
   assert.equal(regionsAvailable(s), 3);
   s.regionsEarned = 2;
   assert.equal(regionsAvailable(s), 1);
@@ -1012,7 +1012,7 @@ test('prestige: adds the gained Weights to weightsEverEarned', () => {
 
 test('expandRegion: resets the right fields, keeps the rest', () => {
   const s = createState();
-  s.weightsEverEarned = 450; // 3 Regions available
+  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
   s.weights = 7;
   s.weightUpgrades = ['seed', 'auto'];
   s.weightsEarnedThisCycle = 3;
@@ -1049,7 +1049,7 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   // kept:
   assert.equal(s.regions, 3); // 1 + 2 gained
   assert.equal(s.regionsEarned, 3);
-  assert.equal(s.weightsEverEarned, 450);
+  assert.equal(s.weightsEverEarned, 9 * REGION_DIVISOR);
   assert.deepEqual(s.regionPerks, ['headStart']);
   assert.deepEqual(s.achievements, ['gen-pi-1']);
   assert.equal(s.rushCooldownUntil, 999);
@@ -1061,7 +1061,7 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
 
 test('expandRegion: no-op below the first Region', () => {
   const s = createState();
-  s.weightsEverEarned = 49;
+  s.weightsEverEarned = REGION_DIVISOR - 1;
   s.tokens = 100;
   s.generators.pi = 3;
   assert.equal(expandRegion(s), 0);
@@ -1157,7 +1157,7 @@ test('Head Start: re-applies after prestige (weight upgrades, 3 managers, seed t
 
 test('Head Start: re-applies after expandRegion (no seed tokens, no duplicates)', () => {
   const s = createState();
-  s.weightsEverEarned = 450; // 3 Regions available
+  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
   s.regionPerks = ['headStart'];
   assert.equal(expandRegion(s), 3);
   assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
@@ -1170,13 +1170,13 @@ test('Head Start: re-applies after expandRegion (no seed tokens, no duplicates)'
 
 test('Fresh Weights: 5 Weights at the start of each new region, counted as earned', () => {
   const s = createState();
-  s.weightsEverEarned = 450; // 3 Regions available
+  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
   s.regionPerks = ['fresh'];
   assert.equal(expandRegion(s), 3);
   assert.equal(s.weights, 5);
   assert.equal(s.weightsEarnedThisCycle, 5);
   const s2 = createState();
-  s2.weightsEverEarned = 450;
+  s2.weightsEverEarned = 9 * REGION_DIVISOR;
   assert.equal(expandRegion(s2), 3);
   assert.equal(s2.weights, 0);
   assert.equal(s2.weightsEarnedThisCycle, 0);
