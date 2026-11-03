@@ -331,7 +331,7 @@
       overflow: hidden;
     }
     .buy-sel button {
-      min-height: 36px;
+      min-height: 44px;
       padding: 0 16px;
       border: none;
       border-right: 1px solid var(--border);
@@ -354,7 +354,7 @@
     .row .name-btn {
       flex: 1;
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 8px;
       min-width: 0;
       padding: 0;
@@ -379,21 +379,25 @@
       color: var(--dim);
       background: transparent;
     }
-    .row .buy .be { color: var(--lime); }
+    /* The button shows gain and price, with the price brighter. */
+    .row .buy .be { color: var(--dim); }
+    .row .buy .bc { color: var(--text); }
     .row .buy.afford {
       border-color: var(--lime);
       background: rgba(74, 222, 128, 0.12);
     }
     .row .buy.afford .bc { color: var(--lime); }
+    /* Progress bar: 2px, subtle, dim colour; hidden when the item is
+       affordable (toggled in ui.js). */
     .row .bar {
       position: absolute;
       left: 0;
       right: 0;
       bottom: 0;
-      height: 3px;
+      height: 2px;
       overflow: hidden;
     }
-    .row .bar-fill { height: 100%; width: 0%; background: var(--cyan); }
+    .row .bar-fill { height: 100%; width: 0%; background: var(--dim); opacity: 0.6; }
     .row .details {
       flex-basis: 100%;
       display: flex;

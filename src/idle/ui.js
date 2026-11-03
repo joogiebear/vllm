@@ -248,7 +248,7 @@ export function createUI(state, io) {
     row.append(nameBtn, buyBtn, details, bar);
     els.genRows.appendChild(row);
     return {
-      g, row, nameBtn, owned, buyBtn, bEffect, bCost, barFill,
+      g, row, nameBtn, owned, buyBtn, bEffect, bCost, bar, barFill,
       details, dOut, dShare, dEach, dDbl,
       eff: { producing: 0, share: 0, each: 0, mode: 0 },
     };
@@ -353,9 +353,12 @@ export function createUI(state, io) {
       r.bCost.textContent = fmt(c);
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
-      // Thin bar along the bottom edge: progress to affordable (full when
-      // the mode is affordable).
-      r.barFill.style.width = `${Math.min(100, (state.tokens / c) * 100)}%`;
+      // Thin bar along the bottom edge: progress to affordable. Hidden
+      // when the mode is affordable.
+      r.bar.hidden = !disabled;
+      r.barFill.style.width = disabled
+        ? `${Math.min(100, (state.tokens / c) * 100)}%`
+        : '0%';
       // Details: open for the one open row only.
       const open = view.openGen === r.g.id;
       r.details.hidden = !open;
