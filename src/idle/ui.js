@@ -128,6 +128,8 @@ export function createUI(state, io) {
     out.className = 'out';
     const costEl = document.createElement('span');
     costEl.className = 'cost';
+    const dbl = document.createElement('span');
+    dbl.className = 'dbl';
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
@@ -135,9 +137,9 @@ export function createUI(state, io) {
     buyBtn.addEventListener('click', () => {
       buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
     });
-    row.append(name, owned, out, costEl, buyBtn);
+    row.append(name, owned, out, costEl, dbl, buyBtn);
     els.genRows.appendChild(row);
-    return { g, row, owned, out, costEl, buyBtn };
+    return { g, row, owned, out, costEl, dbl, buyBtn };
   });
 
   // --- build upgrade cards (once) ------------------------------------------
@@ -174,7 +176,7 @@ export function createUI(state, io) {
     effect.textContent = WU_WORDS[wu.id] || '';
     const costEl = document.createElement('span');
     costEl.className = 'cost';
-    costEl.textContent = `${wu.cost} weights`;
+    costEl.textContent = wu.cost === 1 ? '1 weight' : `${wu.cost} weights`;
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.textContent = 'BUY';
@@ -306,9 +308,12 @@ export function createUI(state, io) {
       const n = view.buyMode === 'max' ? 1 : Number(view.buyMode);
       const c = cost(state, r.g.id, n);
       r.row.hidden = state.lifetime < r.g.baseCost * GENERATOR_REVEAL_FRACTION;
-      r.owned.textContent = String(state.generators[r.g.id]);
-      r.out.textContent = fmt(genOutput(state, r.g));
-      r.costEl.textContent = fmt(c);
+      const owned = state.generators[r.g.id];
+      r.owned.textContent = `owned ${owned}`;
+      r.out.textContent = `${fmt(genOutput(state, r.g))}/s`;
+      r.costEl.textContent = `cost ${fmt(c)}`;
+      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
+      r.dbl.textContent = next === undefined ? '' : `x2 at ${next}`;
       r.buyBtn.disabled = c > state.tokens;
     }
 

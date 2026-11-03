@@ -125,20 +125,26 @@
     .buy-sel { display: flex; gap: 6px; margin-bottom: 8px; }
     .row {
       display: grid;
-      grid-template-columns: minmax(0, 2fr) auto auto auto auto;
+      grid-template-columns: minmax(0, 2fr) auto auto auto auto auto;
       gap: 8px;
       align-items: center;
       padding: 6px 0;
       border-top: 1px solid var(--border);
     }
     .row:first-of-type { border-top: none; }
-    .row .owned { color: var(--dim); min-width: 5ch; text-align: right; }
-    .row .out { color: var(--lime); min-width: 7ch; text-align: right; }
+    .row .owned { color: var(--dim); min-width: 8ch; text-align: right; }
+    .row .out { color: var(--lime); min-width: 4ch; text-align: right; }
     .row .cost { color: var(--amber); min-width: 8ch; text-align: right; }
+    .row .dbl { color: var(--dim); min-width: 7ch; text-align: right; font-size: 12px; }
     .row[hidden] { display: none; }
     @media (max-width: 560px) {
       .row { grid-template-columns: minmax(0, 1fr) auto auto; }
       .row .name { grid-column: 1 / -1; }
+      .row .owned { grid-column: 1; }
+      .row .out { grid-column: 2; }
+      .row .cost { grid-column: 3; }
+      .row .dbl { grid-column: 1 / -1; text-align: left; }
+      .row .buy { grid-column: 1 / -1; width: 100%; }
     }
 
     /* Upgrades */
