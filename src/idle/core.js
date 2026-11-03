@@ -19,6 +19,8 @@ import {
   CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
 } from './data.js?v=20261103041805';
+import { ACHIEVEMENTS } from './data.js?v=20261103041805';
+import { checkAchievements } from './achievements.js?v=20261103041805';
 
 // --- state -------------------------------------------------------------------
 
@@ -41,6 +43,7 @@ export function createState() {
     weightUpgrades: [],
     managers: [],
     cycles,
+    achievements: [],
     rushCooldownUntil: null,
     stats: {
       allTimeTokens: 0,
@@ -182,7 +185,8 @@ export function tokensPerSecond(state) {
   if (!validState(state)) return 0;
   let sum = 0;
   for (const g of GENERATORS) sum += rowRate(state, g);
-  return sum;
+  const n = Array.isArray(state.achievements) ? state.achievements.length : 0;
+  return sum * (1 + 0.01 * n);
 }
 
 // Advance the game by `seconds`.
@@ -227,6 +231,7 @@ export function tick(state, seconds) {
     }
     state.cycles[g.id] = progress;
   }
+  checkAchievements(state);
   return state;
 }
 
@@ -297,6 +302,11 @@ export function migrate(saveState) {
   if (Array.isArray(saveState.managers)) {
     s.managers = saveState.managers.filter(
       (x) => typeof x === 'string' && MANAGERS.some((m) => m.id === x)
+    );
+  }
+  if (Array.isArray(saveState.achievements)) {
+    s.achievements = saveState.achievements.filter(
+      (x) => typeof x === 'string' && ACHIEVEMENTS.some((a) => a.id === x)
     );
   }
   if (saveState.cycles !== null && typeof saveState.cycles === 'object' && !Array.isArray(saveState.cycles)) {
@@ -418,7 +428,7 @@ export function prestige(state) {
   // Managers reset like regular upgrades; Standing Orders re-hires the
   // Cron Job at the start of each run.
   state.managers = hasWeightUpgrade(state, 'auto') ? ['pi'] : [];
-  // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil.
+  // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil, achievements.
   return gained;
 }
 
