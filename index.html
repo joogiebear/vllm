@@ -31,37 +31,63 @@
     [hidden] { display: none !important; }
     #app { display: flex; flex-direction: column; height: 100dvh; }
 
-    /* Header */
+    /* Header: fixed-height rows that never wrap. Row 1 is 56 px (token
+       count left, chip column right); row 2 is 44 px (buy-amount
+       segmented control, Game tab only). */
     #hud {
       position: sticky; top: 0; z-index: 10;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; flex-wrap: wrap;
-      padding: 10px 12px;
+      display: flex; flex-direction: column;
       background: var(--card);
       border-bottom: 1px solid var(--border);
+    }
+    #hud-row1 {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; height: 56px; padding: 0 12px; flex-shrink: 0;
     }
     #hud-left { display: flex; flex-direction: column; min-width: 0; }
     #tokens {
       font-size: 30px; font-weight: 800; line-height: 1.1;
       color: var(--text); letter-spacing: -0.01em;
+      white-space: nowrap; font-variant-numeric: tabular-nums;
     }
-    #rate { font-size: 13px; color: var(--dim); }
+    /* Step the font down once the text is 8+ chars so "1.23e15" /
+       "999.9T" stay on one line at 360 px. */
+    #tokens.long { font-size: 22px; }
+    #rate { font-size: 13px; color: var(--dim); white-space: nowrap; }
     #region-name { font-size: 11px; color: var(--dim); margin-top: 2px; }
-    #hud-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    #hud-right {
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 4px; min-width: 0; max-width: 45%;
+    }
     .chip {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-height: 44px; padding: 4px 14px; border-radius: 999px;
+      display: block; max-height: 22px; padding: 0 10px; border-radius: 999px;
       border: 1px solid var(--border); background: var(--bg);
-      color: var(--text); font-size: 13px; white-space: nowrap; text-decoration: none;
+      color: var(--text); font-size: 11px; line-height: 20px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; text-decoration: none; text-align: center;
     }
     #weights-chip { color: var(--affordable); }
     #rush { cursor: pointer; }
-    .buy-sel { display: flex; gap: 4px; }
-    .buy-sel button {
-      min-height: 44px; padding: 0 10px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--bg);
-      color: var(--dim); font-size: 13px; cursor: pointer;
+    /* The event chip (events-ui.js) is 44 px in its own stylesheet;
+       shrink it into the 22 px chip column. */
+    #hud-right .event-chip {
+      display: block; min-height: 0; max-height: 22px; padding: 0 10px;
+      font-size: 11px; line-height: 20px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; text-align: center;
     }
+    /* Row 2: full-width segmented control, four equal parts. */
+    .buy-sel {
+      display: flex; height: 44px; padding: 0 12px; flex-shrink: 0;
+    }
+    .buy-sel button {
+      flex: 1 1 0; min-width: 0;
+      border: 1px solid var(--border); border-left-width: 0;
+      background: var(--bg);
+      color: var(--dim); font-size: 13px; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .buy-sel button:first-child { border-left-width: 1px; }
     .buy-sel button.active {
       background: var(--affordable); border-color: var(--affordable);
       color: #0b0f17; font-weight: 700;
@@ -341,20 +367,22 @@
 <body>
   <div id="app">
     <header id="hud">
-      <div id="hud-left">
-        <div id="tokens" class="value">0</div>
-        <div id="rate"><span id="tps">0</span> per sec</div>
-        <div id="region-name" hidden></div>
-      </div>
-      <div id="hud-right">
-        <div id="weights-chip" class="chip" hidden>Weights +0%</div>
-        <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
-          <button type="button" data-mode="1" class="active">x1</button>
-          <button type="button" data-mode="10">x10</button>
-          <button type="button" data-mode="100">x100</button>
-          <button type="button" data-mode="max">Max</button>
+      <div id="hud-row1">
+        <div id="hud-left">
+          <div id="tokens" class="value">0</div>
+          <div id="rate"><span id="tps">0</span> per sec</div>
+          <div id="region-name" hidden></div>
         </div>
-        <a href="#" id="rush" class="chip rush">Rush ready</a>
+        <div id="hud-right">
+          <div id="weights-chip" class="chip" hidden>Weights +0%</div>
+          <a href="#" id="rush" class="chip rush">Rush ready</a>
+        </div>
+      </div>
+      <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
+        <button type="button" data-mode="1" class="active">x1</button>
+        <button type="button" data-mode="10">x10</button>
+        <button type="button" data-mode="100">x100</button>
+        <button type="button" data-mode="max">Max</button>
       </div>
     </header>
 

@@ -138,7 +138,9 @@ export function createUI(state, io) {
     regionName: document.getElementById('region-name'),
   };
 
-  // Buy-mode switch (header): x1 / x10 / x100 / Max.
+  // Buy-mode switch (header row 2): x1 / x10 / x100 / Max. The row is
+  // Game-tab only; the tab handler below toggles its visibility.
+  const buySel = document.getElementById('buy-sel');
   const buyModeBtns = Array.from(
     document.querySelectorAll('#buy-sel button'),
   );
@@ -544,6 +546,8 @@ export function createUI(state, io) {
       Object.entries(sections).forEach(([k, s]) => {
         s.hidden = k !== tab;
       });
+      // The buy-amount row (header row 2) is Game-tab only.
+      buySel.hidden = tab !== 'game';
       tabs.forEach((x) => {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
@@ -760,11 +764,12 @@ export function createUI(state, io) {
   mountStats(document.getElementById('more-stats'), () => state);
 
   // Timed events (docs/TIERS-EVENTS.md): banner above the generator cards,
-  // chip in the header.
+  // chip in the header (appended last: the column reads Weights, Rush,
+  // event chip).
   const eventsList = document.createElement('div');
   const eventsChip = document.createElement('div');
   document.getElementById('tab-game').prepend(eventsList);
-  document.getElementById('hud-right').prepend(eventsChip);
+  document.getElementById('hud-right').append(eventsChip);
   mountEvents(eventsList, eventsChip, () => state, () => {
     if (claimEvent(state)) play('achievement');
   });
@@ -1036,7 +1041,11 @@ export function createUI(state, io) {
 
   function update() {
     view.lastNow = Date.now();
-    els.tokens.textContent = fmt(state.tokens);
+    const tokenText = fmt(state.tokens);
+    els.tokens.textContent = tokenText;
+    // Step the font down once the text is 8+ chars so long values
+    // ("1.23e15", "999.9T") stay on one line at 360 px.
+    els.tokens.classList.toggle('long', tokenText.length >= 8);
     els.tps.textContent = fmt(tokensPerSecond(state));
 
     const earnedRegions = state.regionsEarned || 0;
