@@ -74,8 +74,8 @@ export const ICONS = {
   matrioshka: 'M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17z'
     + 'M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10z'
     + 'M12 10.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3z',
-  // Spiral into a centre dot.
-  singularity: 'M12 12a1.5 1.5 0 0 1 3 0a2.5 2.5 0 0 1 -5 0a3.5 3.5 0 0 1 7 0a4.5 4.5 0 0 1 -9 0a5.5 5.5 0 0 1 11 0'
+  // Spiral into a centre dot (3 turns, 3.5 units apart so it reads at 20 px).
+  singularity: 'M12 12a1.5 1.5 0 0 1 3 0a5 5 0 0 1 -10 0a8.5 8.5 0 0 1 17 0'
     + 'M12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2z',
 };
 

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OVERCLOCK — tier icon sheet</title>
+<style>
+  body {
+    margin: 0; padding: 24px; background: #0b0f17; color: #eef3f9;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: #93a3b8; margin: 0 0 20px; }
+  .row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid #1d2636;
+  }
+  .name { width: 120px; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .sizes { display: flex; align-items: center; gap: 24px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .cell span { font-size: 11px; color: #93a3b8; }
+</style>
+</head>
+<body>
+  <h1>Tier icon sheet</h1>
+  <p class="sub">12 tiers, 20 / 32 / 64 px, stroke 1.8, currentColor on #0b0f17.</p>
+  <div id="sheet"></div>
+  <script type="module">
+    import { TIER_COLORS, icon } from '../src/idle/icons.js';
+    const sheet = document.getElementById('sheet');
+    for (const [id, color] of Object.entries(TIER_COLORS)) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = id;
+      const sizes = document.createElement('div');
+      sizes.className = 'sizes';
+      for (const size of [20, 32, 64]) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        const svg = icon(id, size);
+        svg.style.color = color;
+        const label = document.createElement('span');
+        label.textContent = size + 'px';
+        cell.append(svg, label);
+        sizes.append(cell);
+      }
+      row.append(name, sizes);
+      sheet.append(row);
+    }
+  </script>
+</body>
+</html>
