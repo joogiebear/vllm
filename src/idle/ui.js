@@ -19,7 +19,7 @@ import { mountEvents } from './events-ui.js?v=20261103140732';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103140732';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS } from './icons.js?v=20261103140732';
+import { TIER_COLORS, icon as tierIcon } from './icons.js?v=20261103140732';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
@@ -138,8 +138,29 @@ export function createUI(state, io) {
     icon.type = 'button';
     icon.className = 'gen-icon';
     icon.style.setProperty('--tier-color', TIER_COLORS[g.id]);
+    const tier = tierIcon(g.id, 24);
+    tier.style.color = TIER_COLORS[g.id];
+    tier.style.position = 'absolute';
+    tier.style.inset = '0';
+    tier.style.margin = 'auto';
     const iconCount = document.createElement('span');
     iconCount.className = 'gen-icon-count';
+    // The count is a small badge on the button, so it stays readable
+    // next to the tier icon.
+    Object.assign(iconCount.style, {
+      top: '2px',
+      right: '2px',
+      width: 'auto',
+      height: '18px',
+      minWidth: '18px',
+      padding: '0 3px',
+      borderRadius: '9px',
+      background: 'var(--tier-color, #93a3b8)',
+      color: '#0b0f17',
+      fontSize: '10px',
+      fontWeight: '800',
+    });
+    icon.append(tier);
     icon.append(iconCount);
     icon.addEventListener('click', () => {
       if (runRow(state, g.id)) {
