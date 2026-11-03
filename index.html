@@ -84,18 +84,22 @@
     .dim { color: var(--dim); }
     .value { color: var(--cyan); }
 
-    /* Header: tokens as the largest text, the rate beside it, and the heat
-       multiplier (x2 amber / x0.5 red) next to the rate. */
+    /* Header: tokens as the largest text, the rate beside it in smaller
+       text. Weights appear only after the first is earned, as a small
+       magenta chip. Heat is not here. */
     #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
     #hud-main { display: flex; align-items: baseline; gap: 12px; }
     #tokens { font-size: 32px; line-height: 1; }
     #rate { font-size: 16px; }
-    #tps-mult { font-size: 14px; }
     [hidden] { display: none !important; }
-    #tps-mult[hidden] { display: none; }
-    #tps-mult.oc { color: var(--amber); }
-    #tps-mult.throttle { color: var(--red); }
-    #weights-value { color: var(--magenta); }
+    #weights-chip {
+      font-size: 13px;
+      color: var(--magenta);
+      border: 1px solid var(--magenta);
+      border-radius: 12px;
+      padding: 2px 12px;
+      align-self: center;
+    }
 
     /* Notification banners (offline earnings, rush payout) */
     #banner {
@@ -329,9 +333,8 @@
       <div id="hud-main">
         <span id="tokens" class="value">0</span>
         <span id="rate"><span id="tps" class="value">+0/s</span></span>
-        <span id="tps-mult" hidden></span>
       </div>
-      <div>weights <span id="weights-value">0</span></div>
+      <span id="weights-chip" hidden>weights 0</span>
     </header>
 
     <main id="tab-scroll">
