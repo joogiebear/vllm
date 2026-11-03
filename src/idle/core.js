@@ -83,6 +83,10 @@ export function createState() {
       runStartedAt: 0,
       eventsClaimed: 0,
     },
+    // First-run hints (docs/ART-DESIGN.md §1): ids run, buy, manager.
+    // Kept across prestige and Regions; the migration marks all three seen
+    // for existing players (lifetime > 0).
+    hints: { seen: [] },
   };
 }
 
@@ -426,6 +430,22 @@ export function migrate(saveState) {
       const v = saveState.stats[k];
       if (isFiniteNumber(v) && v >= 0) s.stats[k] = v;
     }
+  }
+  // First-run hints (docs/ART-DESIGN.md §1): a save that already carries a
+  // hints field keeps its seen list; an old save (no hints field) whose
+  // player has already played (lifetime > 0) has seen everything, so existing
+  // players never see the hints; a fresh save keeps the empty seen list from
+  // createState().
+  const HINT_IDS = ['run', 'buy', 'manager'];
+  if (
+    saveState.hints !== null && typeof saveState.hints === 'object' &&
+    !Array.isArray(saveState.hints) && Array.isArray(saveState.hints.seen)
+  ) {
+    s.hints.seen = saveState.hints.seen.filter(
+      (x) => typeof x === 'string' && HINT_IDS.includes(x)
+    );
+  } else if (s.lifetime > 0) {
+    s.hints.seen = HINT_IDS.slice();
   }
   return s;
 }

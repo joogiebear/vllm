@@ -105,3 +105,10 @@ export function toast(text) {
   queue.push(String(text));
   if (!busy) showNext();
 }
+
+// True while an achievement toast is on screen (or queued) (docs/ART-DESIGN.md
+// §1: first-run hints never appear in the same second as achievement toasts,
+// so the hint callout waits while a toast is visible).
+export function isToastVisible() {
+  return busy || queue.length > 0;
+}

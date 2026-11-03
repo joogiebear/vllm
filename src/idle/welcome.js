@@ -3,7 +3,7 @@
 // app.js on load when offline earnings were credited. Skipped when earned
 // is 0. Focus is trapped on the Collect button; Escape closes.
 import { OFFLINE_CAP_HOURS } from './data.js?v=20261103140732';
-import { fmt } from './ui.js?v=20261103140732';
+import { fmt } from './fmt.js?v=20261103140732';
 
 const CSS = `
     /* Welcome back modal */
@@ -59,6 +59,13 @@ function plural(n, word) {
 export function closeWelcome() {
   if (openEl && openEl.parentNode) openEl.parentNode.removeChild(openEl);
   openEl = null;
+}
+
+// True while the welcome-back card is covering the screen (docs/ART-DESIGN.md
+// §1: first-run hints never appear in the same second as the welcome-back
+// card, so the hint callout waits while it is open).
+export function isWelcomeOpen() {
+  return openEl !== null;
 }
 
 export function showWelcome(info) {

@@ -16,6 +16,7 @@ import { play } from './feedback.js?v=20261103140732';
 import { mountAchievements } from './achievements-ui.js?v=20261103140732';
 import { mountStats } from './stats-ui.js?v=20261103140732';
 import { mountEvents } from './events-ui.js?v=20261103140732';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103140732';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -32,21 +33,6 @@ const TIER_COLORS = {
   matrioshka: '#f43f5e',
   singularity: '#eab308',
 };
-
-export function fmt(n) {
-  if (!Number.isFinite(n)) return '∞';
-  if (getSetting('numberFormat') === 'sci' && n >= 1000) {
-    return n.toExponential(2).replace('e+', 'e'); // e.g. 1.23e6
-  }
-  if (n >= 1e15) return `${(n / 1e15).toFixed(1)}Q`;
-  if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  if (n >= 100) return `${Math.floor(n)}`;
-  if (n >= 10) return n % 1 ? n.toFixed(1) : `${Math.floor(n)}`;
-  return n % 1 ? n.toFixed(1) : `${Math.floor(n)}`;
-}
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
@@ -169,7 +155,10 @@ export function createUI(state, io) {
     iconCount.className = 'gen-icon-count';
     icon.append(iconCount);
     icon.addEventListener('click', () => {
-      if (runRow(state, g.id)) updateGenCards(state);
+      if (runRow(state, g.id)) {
+        naturalDismiss('run', state);
+        updateGenCards(state);
+      }
     });
 
     const id = document.createElement('div');
@@ -189,6 +178,14 @@ export function createUI(state, io) {
     const barPayout = document.createElement('span');
     barPayout.className = 'gen-bar-payout';
     bar.append(barFill, barPayout);
+    // The payout bar is tappable: tapping it runs the row, the same handler
+    // as the round icon (docs/ART-DESIGN.md §1 owner request).
+    bar.addEventListener('click', () => {
+      if (runRow(state, g.id)) {
+        naturalDismiss('run', state);
+        updateGenCards(state);
+      }
+    });
 
     const bottom = document.createElement('div');
     bottom.className = 'gen-bottom';
@@ -199,6 +196,7 @@ export function createUI(state, io) {
       const mode = view.buyMode === 'max' ? 'max' : Number(view.buyMode);
       const bought = buy(state, g.id, mode);
       if (bought > 0) {
+        naturalDismiss('buy', state);
         flash(card);
         play('buy');
       }
@@ -273,6 +271,7 @@ export function createUI(state, io) {
     buyBtn.className = 'buy';
     buyBtn.addEventListener('click', () => {
       if (buyManager(state, m.id)) {
+        naturalDismiss('manager', state);
         flash(row);
         play('hire');
         updateGenCards();
@@ -496,6 +495,8 @@ export function createUI(state, io) {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
       });
+      // Opening Upgrades dismisses the manager hint (docs/ART-DESIGN.md §1).
+      if (tab === 'upgrades') naturalDismiss('manager', state);
     });
   });
 
@@ -550,6 +551,12 @@ export function createUI(state, io) {
       color: #0b0f17; font-weight: 700;
     }
     .set-note { font-size: 12px; color: var(--dim); }
+    .set-tips-btn {
+      min-height: 44px; padding: 0 16px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--dim);
+      font-size: 13px; cursor: pointer;
+    }
     .about {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px;
@@ -665,6 +672,18 @@ export function createUI(state, io) {
     prefs.appendChild(makeToggleRow('Sound', 'sound'));
     prefs.appendChild(makeToggleRow('Haptics', 'haptics', 'Haptics need the app version on iPhone'));
     morePanels.settings.prepend(prefs);
+
+    // "Show tips again" (docs/ART-DESIGN.md §1): clears hints.seen so the
+    // first-run hints show again.
+    const tipsBtn = document.createElement('button');
+    tipsBtn.type = 'button';
+    tipsBtn.className = 'set-tips-btn';
+    tipsBtn.textContent = 'Show tips again';
+    tipsBtn.addEventListener('click', () => {
+      showHintsAgain(state);
+      showBanner('Tips will show again.', 'Tips');
+    });
+    morePanels.settings.appendChild(tipsBtn);
 
     const about = document.createElement('div');
     about.className = 'about';
@@ -987,6 +1006,9 @@ export function createUI(state, io) {
     updateWeightUpgrades();
     updateRushChip();
   }
+
+  // First-run hints (docs/ART-DESIGN.md §1): mount the callout.
+  mountHint(state);
 
   return { update, showBanner };
 }
