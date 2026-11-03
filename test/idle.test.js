@@ -23,8 +23,11 @@ import {
   click,
   setOverclock,
   claimEvent,
+  buyRegionPerk,
+  autoProcureDue,
+  cycleTime,
 } from '../src/idle/core.js';
-import { ACHIEVEMENTS } from '../src/idle/data.js';
+import { ACHIEVEMENTS, GENERATORS } from '../src/idle/data.js';
 import { checkAchievements } from '../src/idle/achievements.js';
 
 test('createState: fresh state has the right fields', () => {
@@ -1115,4 +1118,181 @@ test('migrate: an old save gets the region fields at defaults; a v3 save passes 
   assert.equal(r.regionsEarned, 2);
   assert.equal(r.weightsEverEarned, 200);
   assert.deepEqual(r.regionPerks, ['headStart']);
+});
+
+test('buyRegionPerk: spends Regions, never lowers the multiplier, no double-buy', () => {
+  const s = createState();
+  s.regions = 2;
+  s.regionsEarned = 2;
+  const tpsBefore = tokensPerSecond(s);
+  assert.equal(buyRegionPerk(s, 'headStart'), true);
+  assert.equal(s.regions, 1);
+  assert.equal(s.regionsEarned, 2); // multiplier based on regionsEarned
+  assert.deepEqual(s.regionPerks, ['headStart']);
+  assert.equal(tokensPerSecond(s), tpsBefore);
+  assert.equal(buyRegionPerk(s, 'headStart'), false); // already owned
+  assert.equal(buyRegionPerk(s, 'nope'), false); // unknown id
+  assert.equal(buyRegionPerk(s, 'eventDesk'), false); // cost 3 > 1
+  assert.equal(buyRegionPerk(s, 'fresh'), false); // cost 2 > 1
+  assert.equal(s.regions, 1);
+  assert.deepEqual(s.regionPerks, ['headStart']);
+});
+
+test('Head Start: re-applies after prestige (weight upgrades, 3 managers, seed tokens)', () => {
+  const s = createState();
+  s.regionPerks = ['headStart'];
+  s.totalLifetime = 400 * 1e11; // 20 Weights
+  s.lifetime = 400 * 1e11;
+  s.stats.playSeconds = 10;
+  assert.equal(prestige(s), 20);
+  assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
+  assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
+  assert.equal(s.tokens, 1000); // granted Seed Funding
+  assert.equal(s.stats.prestiges, 1);
+  // a second prestige: no new Weights, nothing resets
+  assert.equal(prestige(s), 0);
+  assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
+  assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
+});
+
+test('Head Start: re-applies after expandRegion (no seed tokens, no duplicates)', () => {
+  const s = createState();
+  s.weightsEverEarned = 450; // 3 Regions available
+  s.regionPerks = ['headStart'];
+  assert.equal(expandRegion(s), 3);
+  assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
+  assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
+  assert.equal(s.tokens, 0); // region resets do not grant Seed Funding
+  assert.equal(expandRegion(s), 0);
+  assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
+  assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
+});
+
+test('Fresh Weights: 5 Weights at the start of each new region, counted as earned', () => {
+  const s = createState();
+  s.weightsEverEarned = 450; // 3 Regions available
+  s.regionPerks = ['fresh'];
+  assert.equal(expandRegion(s), 3);
+  assert.equal(s.weights, 5);
+  assert.equal(s.weightsEarnedThisCycle, 5);
+  const s2 = createState();
+  s2.weightsEverEarned = 450;
+  assert.equal(expandRegion(s2), 3);
+  assert.equal(s2.weights, 0);
+  assert.equal(s2.weightsEarnedThisCycle, 0);
+});
+
+test('Overclocked Fabric: cycle times 20% shorter', () => {
+  const s = createState();
+  s.generators.pi = 1;
+  const base = cycleTime(s, GENERATORS[0]); // Raspberry Pi: 7 s
+  s.regionPerks = ['overclock'];
+  assert.equal(cycleTime(s, GENERATORS[0]), base * 0.8);
+  s.generators.pi = 25; // milestone: halved, then 20% off
+  assert.equal(cycleTime(s, GENERATORS[0]), (7 / 2) * 0.8);
+  // behaviour: 11.5 s buys 2 cycles (2 * 5.6 = 11.2 <= 11.5); without
+  // the perk it would be 1 (11.5 / 7 = 1.6)
+  const s2 = createState();
+  s2.generators.pi = 1;
+  s2.managers = ['pi'];
+  s2.regionPerks = ['overclock'];
+  tick(s2, 11.5);
+  assert.equal(s2.tokens, 14); // 2 cycles * 7
+  tick(s2, 5.6);
+  assert.equal(s2.tokens, 21); // 3rd cycle completes
+});
+
+test('Event Desk: halves the event gap and makes timed events last 50% longer', () => {
+  const s = createState();
+  s.rng = 42;
+  s.nextEventIn = 0;
+  tick(s, 1); // offer, then the gap is scheduled
+  const gap = s.nextEventIn;
+  assert.ok(gap >= 180 && gap <= 360, 'base gap in [180, 360]');
+  const s2 = createState();
+  s2.rng = 42; // same seed: same roll, halved
+  s2.regionPerks = ['eventDesk'];
+  s2.nextEventIn = 0;
+  tick(s2, 1);
+  assert.ok(Math.abs(s2.nextEventIn - gap / 2) < 1e-9);
+  // timed events last 45 s instead of 30
+  s2.eventOffer = { kind: 'surge', claimBy: 999 };
+  claimEvent(s2);
+  assert.equal(s2.eventActive.remaining, 45);
+  const s3 = createState();
+  s3.eventOffer = { kind: 'surge', claimBy: 999 };
+  claimEvent(s3);
+  assert.equal(s3.eventActive.remaining, 30);
+});
+
+test('Long Haul: offline cap 24 h and offline rate 1', () => {
+  const make = (perk) => {
+    const s = createState();
+    s.managers = ['pi'];
+    s.generators.pi = 1;
+    s.stats.playSeconds = 0;
+    s.lastActiveAt = 0;
+    if (perk) s.regionPerks = ['longHaul'];
+    return s;
+  };
+  const base = make(false);
+  const e1 = applyOffline(base, 25 * 3600);
+  assert.equal(base.stats.offlineSeconds, 8 * 3600); // 8 h cap
+  const lh = make(true);
+  const e2 = applyOffline(lh, 25 * 3600);
+  assert.equal(lh.stats.offlineSeconds, 24 * 3600); // 24 h cap
+  assert.equal(e2, e1 * 6); // 24 h * 1 / (8 h * 0.5)
+  // a short absence: same cap, rate 1 vs 0.5
+  const b2 = make(false);
+  const l2 = make(true);
+  assert.equal(applyOffline(l2, 3600), applyOffline(b2, 3600) * 2);
+});
+
+test('autoProcureDue: every 10 s when the perk is owned, bookkeeping only', () => {
+  const s = createState();
+  assert.equal(autoProcureDue(s, 9), false); // no perk
+  assert.equal(s.autoProcureTimer, 0);
+  s.regionPerks = ['autoProcure'];
+  assert.equal(autoProcureDue(s, 9), false);
+  assert.equal(s.autoProcureTimer, 9);
+  assert.equal(autoProcureDue(s, 1), true);
+  assert.equal(s.autoProcureTimer, 0);
+  assert.equal(autoProcureDue(s, 10), true);
+  assert.equal(autoProcureDue(s, 0.5), false);
+  assert.equal(s.autoProcureTimer, 0.5);
+  // losing the perk resets the timer
+  s.regionPerks = [];
+  assert.equal(autoProcureDue(s, 5), false);
+  assert.equal(s.autoProcureTimer, 0);
+  // invalid input
+  s.regionPerks = ['autoProcure'];
+  assert.equal(autoProcureDue(s, -1), false);
+  assert.equal(autoProcureDue(s, NaN), false);
+  assert.equal(s.autoProcureTimer, 0);
+});
+
+test('achievements: regions 1, 3, 10 and all perks', () => {
+  const s = createState();
+  s.regionsEarned = 1;
+  let u = checkAchievements(s);
+  assert.ok(u.includes('regions-1'));
+  assert.ok(!u.includes('regions-3'));
+  s.regionsEarned = 3;
+  u = checkAchievements(s);
+  assert.ok(u.includes('regions-3'));
+  assert.ok(!u.includes('regions-10'));
+  s.regionsEarned = 10;
+  u = checkAchievements(s);
+  assert.ok(u.includes('regions-10'));
+  // allPerks: 5 of 6 is not enough
+  s.regionPerks = ['headStart', 'fresh', 'overclock', 'autoProcure', 'eventDesk'];
+  u = checkAchievements(s);
+  assert.ok(!u.includes('perks-all'));
+  s.regionPerks.push('longHaul');
+  u = checkAchievements(s);
+  assert.ok(u.includes('perks-all'));
+  // already unlocked ids are never returned twice
+  u = checkAchievements(s);
+  assert.ok(!u.includes('regions-1'));
+  assert.ok(!u.includes('perks-all'));
 });
