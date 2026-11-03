@@ -223,8 +223,7 @@
     .card .bar-fill { height: 100%; width: 0%; background: var(--cyan); }
     .card .buy.afford { border-color: var(--lime); color: var(--lime); }
     .card .buy .bc.amber { color: var(--amber); }
-    #purchased summary { cursor: pointer; color: var(--dim); }
-    #purchased ul { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
+    .card.owned { opacity: 0.45; }
 
     /* Prestige */
     #prestige-box { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-bottom: 10px; }
@@ -359,10 +358,6 @@
         <section id="upgrades" class="panel">
           <h2>UPGRADES</h2>
           <div id="up-grid"></div>
-          <details id="purchased">
-            <summary>purchased</summary>
-            <ul id="purchased-list"></ul>
-          </details>
         </section>
       </div>
 

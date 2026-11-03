@@ -8,7 +8,7 @@ import {
 } from './core.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
-  GENERATOR_REVEAL_FRACTION, UPGRADE_REVEAL_FRACTION, PRESTIGE_DIVISOR,
+  GENERATOR_REVEAL_FRACTION, PRESTIGE_DIVISOR,
   WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
 } from './data.js';
 
@@ -89,8 +89,6 @@ export function createUI(state, io) {
     overclock: $('overclock'),
     genRows: $('gen-rows'),
     upGrid: $('up-grid'),
-    purchasedList: $('purchased-list'),
-    purchased: $('purchased'),
     wAvail: $('w-avail'),
     prestige: $('prestige'),
     prestigeHint: $('prestige-hint'),
@@ -314,21 +312,16 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
+    const bLabel = document.createElement('span');
+    bLabel.textContent = 'Buy ·';
     const bCost = document.createElement('span');
     bCost.className = 'bc';
-    buyBtn.append('Buy · ', bCost);
+    buyBtn.append(bLabel, ' ', bCost);
     buyBtn.addEventListener('click', () => buyUpgrade(state, u.id));
     card.append(name, effect, now, bar, buyBtn);
     els.upGrid.appendChild(card);
-    return { u, card, now, barFill, buyBtn, bCost, li: null, gain: 0 };
+    return { u, card, now, bar, barFill, buyBtn, bLabel, bCost, gain: 0 };
   });
-
-  // Shown while no upgrade card is revealed (e.g. right after a prestige).
-  const upEmpty = document.createElement('p');
-  upEmpty.className = 'dim';
-  upEmpty.textContent = 'New upgrades appear as your token total grows.';
-  upEmpty.hidden = true;
-  els.upGrid.insertAdjacentElement('afterend', upEmpty);
 
   // --- build weight upgrade rows (once) ------------------------------------
   // Sorted by cost, cheapest first, like the token upgrades.
@@ -537,35 +530,28 @@ export function createUI(state, io) {
     // Generators (immediate updates on mode change / purchase call this too).
     updateGenRows(state, true);
 
-    // Upgrades: reveal at 25% of cost (lifetime or tokens); owned cards are
-    // hidden and listed in the collapsed list. Both directions follow state
-    // on every pass, so a prestige, import or reset that clears (or changes)
-    // state.upgrades brings the cards back and the list back in sync.
+    // Upgrades: every card is always shown (sorted by cost, cheapest first),
+    // whether or not it is affordable or was once "revealed". An owned card
+    // stays in its place, dimmed, with a disabled "Owned" button and no
+    // progress bar. Both directions follow state on every pass, so a
+    // prestige, import or reset that clears (or changes) state.upgrades
+    // brings the cards back in sync.
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
+      r.card.classList.toggle('owned', owned);
       if (owned) {
-        // Hide the card and keep exactly one line in the list.
-        r.card.hidden = true;
-        if (!r.li) {
-          r.li = document.createElement('li');
-          r.li.textContent = `${r.u.name} - ${upgradeWords(r.u)}`;
-          els.purchasedList.appendChild(r.li);
-        }
+        r.now.hidden = true;
+        r.bar.hidden = true;
+        r.buyBtn.disabled = true;
+        r.buyBtn.classList.remove('afford');
+        r.bLabel.textContent = 'Owned';
+        r.bCost.hidden = true;
         continue;
       }
-      // Not owned: drop the list line (if any) and show the card per the
-      // reveal rule.
-      if (r.li) {
-        r.li.remove();
-        r.li = null;
-      }
-      const hidden =
-        state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION &&
-        state.tokens < r.u.cost * UPGRADE_REVEAL_FRACTION;
-      r.card.hidden = hidden;
-      if (hidden) continue;
-      // The before/after figure is computed here, at the 10 Hz pass, for
-      // visible cards only.
+      r.bLabel.textContent = 'Buy ·';
+      r.bCost.hidden = false;
+      r.bar.hidden = false;
+      // The before/after figure is computed here, at the 10 Hz pass.
       if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
         r.gain = upgradeGain(state, r.u);
         r.now.hidden = false;
@@ -582,10 +568,6 @@ export function createUI(state, io) {
       r.bCost.textContent = fmt(r.u.cost);
       r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
     }
-    // Empty state: the message shows while no card is visible (e.g. right
-    // after a prestige), and the purchased section hides while it is empty.
-    upEmpty.hidden = upRefs.some((r) => !r.card.hidden);
-    els.purchased.hidden = els.purchasedList.children.length === 0;
 
     // Prestige: hidden until the first weight is in reach or already earned;
     // a hint line takes its place in the meantime.
@@ -601,11 +583,11 @@ export function createUI(state, io) {
     els.wAvail.textContent = fmt(w);
     els.prestigeBtn.disabled = w < 1;
 
-    // Tab dots: Upgrades lights up when a revealed upgrade is affordable,
+    // Tab dots: Upgrades lights up when an upgrade is affordable,
     // Prestige when a weight is available.
     let upAffordable = false;
     for (const r of upRefs) {
-      if (!state.upgrades.includes(r.u.id) && !r.card.hidden && state.tokens >= r.u.cost) {
+      if (!state.upgrades.includes(r.u.id) && state.tokens >= r.u.cost) {
         upAffordable = true;
         break;
       }

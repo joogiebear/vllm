@@ -35,9 +35,6 @@ export const UPGRADES = [
   { id: 'custom', name: 'Custom Silicon', cost: 5000000000, kind: 'production', value: 5 },
 ];
 
-// An upgrade is shown once lifetime reaches this fraction of its cost.
-export const UPGRADE_REVEAL_FRACTION = 0.25;
-
 export const WEIGHT_UPGRADES = [
   { id: 'seed', name: 'Seed Funding', cost: 1, kind: 'startTokens', value: 1000 },
   { id: 'night', name: 'Night Shift', cost: 3, kind: 'offlineRate', value: 0.75 },
