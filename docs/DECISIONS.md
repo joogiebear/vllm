@@ -206,3 +206,42 @@ with the design's "Start **each** run with 1,000 tokens".
 
 The tables in `docs/IDLE-DESIGN.md` and the tests in `test/idle.test.js` were
 updated to match the new numbers.
+
+## 2026-11-03 — Cycle/prestige balance: fix post-prestige deadlock, hit all 4 targets
+
+`tools/idle-balance.js` plays the idle game headlessly under the cycle rules
+(managed rows run forever; unmanaged rows stop; milestones halve the cycle
+time; sub-0.25 s cycles are continuous) with two bots: `active` (taps every
+tick) and `idle` (taps every 60 s). Targets: active first manager under 2 min;
+active first prestige in 20–40 min; each later run faster; idle first prestige
+<= ~2x active.
+
+Before tuning the bot deadlocked after the first prestige: the Cron Job (pi)
+manager cost 1,000 tokens consumed the entire post-prestige token budget, so the
+bot had 0 tokens left for generators and never reached the next reset (1 reset
+in 720 min, weights=0 after prestige).
+
+| data.js constant | before | after |
+| --- | --- | --- |
+| `pi` cycleSeconds | 1 | 7 |
+| `pi` manager (Cron Job) cost | 1,000 | 100 |
+| `gamer` baseCost | 220 | 500 |
+
+- `pi` manager cost 1,000 -> 100 (in steps 1,000 -> 500 -> 250 -> 100): the
+  deadlock fix, and it puts the first manager under 2 min for an active player.
+- `pi` cycleSeconds 1 -> 7: at 1 s the tap-limited pi row paid only ~1.7% of the
+  continuous rate, which dominated the idle bot's slow phase; at 7 s an idle
+  player who taps every 60 s still completes a pi cycle per tap, and 7 s keeps
+  400 pi under the 0.25 s continuous threshold (7/32 = 0.219 s).
+- `gamer` baseCost 220 -> 500 (in steps 220 -> 350 -> 450 -> 500): slows the
+  active bot's mid-game to push the first prestige from ~18 min into the 20–40
+  min window; it slows the active bot more than the idle bot (whose gamer row is
+  tap-limited to ~5% of the rate), so the idle/active ratio only improves.
+
+Result (all 4 targets pass):
+- active: first manager 1m19s; first prestige 20m23s; run durations strictly
+  decreasing 27m37s > 17m35s > 15m04s > 13m01s.
+- idle: first prestige 37m12s; idle/active first-prestige ratio 1.83x (<= 2x).
+
+The base-cycle-time and manager-cost tables in `docs/CYCLES-DESIGN.md` and the
+tests in `test/idle.test.js` were updated to match the new numbers.

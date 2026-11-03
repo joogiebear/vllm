@@ -128,31 +128,31 @@ test('tick: a tapped row pays one lump at the end of the cycle, then stops', () 
   const s = createState();
   s.generators.pi = 1;
   assert.equal(runRow(s, 'pi'), true);
-  tick(s, 0.5);
+  tick(s, 3.5);
   assert.equal(s.tokens, 0);
-  tick(s, 0.5);
-  assert.equal(s.tokens, 1);
+  tick(s, 3.5);
+  assert.equal(s.tokens, 7);
   assert.equal(s.cycles.pi, null);
   tick(s, 10);
-  assert.equal(s.tokens, 1);
+  assert.equal(s.tokens, 7);
 });
 
 test('tick: a row with a manager restarts itself', () => {
   const s = createState();
   s.generators.pi = 1;
   s.managers.push('pi');
-  tick(s, 3);
-  assert.equal(s.tokens, 3);
+  tick(s, 21);
+  assert.equal(s.tokens, 21);
   assert.equal(s.cycles.pi, 0);
 });
 
 test('tick: a cycle under 0.25s is continuous (bar full, pays every tick)', () => {
   const s = createState();
-  s.generators.pi = 100;
+  s.generators.pi = 400;
   s.managers.push('pi');
   tick(s, 2);
-  assert.equal(s.tokens, 1600);
-  assert.equal(s.cycles.pi, 0.125);
+  assert.equal(s.tokens, 25600);
+  assert.equal(s.cycles.pi, 0.21875);
 });
 
 test('tick: a row with 0 owned cannot run', () => {
@@ -167,23 +167,24 @@ test('milestones: cycle time halves, steady-state rate unchanged', () => {
   const s = createState();
   s.generators.pi = 24;
   s.managers.push('pi');
-  tick(s, 1);
-  assert.equal(s.tokens, 24);
+  tick(s, 7);
+  assert.equal(s.tokens, 168);
+  assert.equal(s.cycles.pi, 0);
   s.generators.pi = 25;
   s.cycles.pi = 0;
-  tick(s, 1);
-  assert.equal(s.tokens, 24 + 50);
+  tick(s, 3.5);
+  assert.equal(s.tokens, 168 + 175);
   assert.equal(s.cycles.pi, 0);
   s.generators.pi = 50;
   s.cycles.pi = 0;
-  tick(s, 1);
-  assert.equal(s.tokens, 24 + 50 + 200);
+  tick(s, 1.75);
+  assert.equal(s.tokens, 168 + 175 + 350);
   assert.equal(s.cycles.pi, 0);
   s.generators.pi = 100;
   s.cycles.pi = 0;
-  tick(s, 1);
-  assert.equal(s.tokens, 24 + 50 + 200 + 800);
-  assert.equal(s.cycles.pi, 0.125);
+  tick(s, 0.875);
+  assert.equal(s.tokens, 168 + 175 + 350 + 700);
+  assert.equal(s.cycles.pi, 0);
 });
 
 test('runRow: invalid id and already-running row do nothing', () => {
@@ -196,7 +197,7 @@ test('runRow: invalid id and already-running row do nothing', () => {
 
 test('buyManager: cost, one per generator', () => {
   const s = createState();
-  s.tokens = 1000;
+  s.tokens = 100;
   assert.equal(buyManager(s, 'pi'), true);
   assert.equal(s.tokens, 0);
   assert.equal(buyManager(s, 'pi'), false);

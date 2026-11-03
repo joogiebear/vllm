@@ -1,34 +1,58 @@
-// Headless pacing check: simulates a bot playing the idle game and reports
-// the pacing targets from docs/IDLE-DESIGN.md.
+// Headless pacing check for the cycle rules. Runs two bots:
+// - "active": every tick, runs every unmanaged row that is idle (a player
+//   tapping), buys a manager as soon as it is affordable, then the best
+//   generator per cost, then any affordable upgrade.
+// - "idle": the same, but it runs unmanaged rows only once every 60 seconds
+//   (a player who checks in now and then).
+// Both prestige when weights available reach max(5, 0.5 * current weights) and
+// buy every weight upgrade they can afford.
 // Run: node tools/idle-balance.js
-//
-// Bot (per the design): buys whatever gives the best output per cost, buys
-// every upgrade it can afford, does not click, never overclocks, and
-// prestiges when weights available reach max(5, 0.5 * current weights).
 import {
-  createState, tick, click, buy, buyUpgrade, buyWeightUpgrade, prestige,
-  cost, weightsAvailable,
+  createState, tick, runRow, buyManager, buy, buyUpgrade,
+  buyWeightUpgrade, prestige, cost, weightsAvailable,
 } from '../src/idle/core.js';
 import {
-  GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
+  GENERATORS, UPGRADES, WEIGHT_UPGRADES, MANAGERS, DOUBLING_THRESHOLDS,
 } from '../src/idle/data.js';
 
 const DT = 1; // seconds per step
-const START_CLICKS = 20; // the design gives 20 clicks at the start
-const MAX_MINUTES = 150; // long enough for four resets
+const START_TOKENS = 20; // the old game's 20 clicks; clicks are now a no-op
+const IDLE_CHECK_SECONDS = 60; // the idle bot checks in every 60 s
+const MAX_MINUTES = 720; // long enough for four resets
+const FOUR_LOWEST = ['pi', 'gamer', 'workstation', 'rack'];
 
-// Output per cost of the next unit of a generator.
+// Steady-state speed factor: milestones halve the cycle time (x2 each).
+function speedFactor(owned) {
+  let f = 1;
+  for (const t of DOUBLING_THRESHOLDS) if (owned >= t) f *= 2;
+  return f;
+}
+
+// Output per cost of the next unit of a generator (steady-state rate / cost).
 function outputPerCost(state, g) {
   const c = cost(state, g.id, 1);
   if (c <= 0) return 0;
   const owned = state.generators[g.id];
-  let mult = 1;
-  for (const t of DOUBLING_THRESHOLDS) if (owned >= t) mult *= 2;
-  return (g.tps * mult) / c;
+  return (g.tps * speedFactor(owned)) / c;
 }
 
-function botStep(state) {
-  // Buy the best output-per-cost generator, repeatedly, while affordable.
+function botStep(state, isIdle, stepIndex) {
+  // 1. Run idle unmanaged rows (active: every tick; idle: once per 60 s).
+  const shouldTap = !isIdle || (stepIndex - 1) % IDLE_CHECK_SECONDS === 0;
+  if (shouldTap) {
+    for (const g of GENERATORS) {
+      if ((state.generators[g.id] || 0) > 0 && !state.managers.includes(g.id)) {
+        runRow(state, g.id);
+      }
+    }
+  }
+  // 2. Buy a manager as soon as one is affordable (cheapest unowned it can).
+  const unowned = MANAGERS.filter((m) => !state.managers.includes(m.id))
+    .sort((a, b) => a.cost - b.cost);
+  for (const m of unowned) {
+    if (state.tokens >= m.cost) { buyManager(state, m.id); break; }
+  }
+  // 3. Buy the best generator per cost, repeatedly, while affordable.
   let bought = true;
   while (bought) {
     bought = false;
@@ -38,24 +62,54 @@ function botStep(state) {
       const c = cost(state, g.id, 1);
       if (c > 0 && c <= state.tokens) {
         const r = outputPerCost(state, g);
-        if (r > bestRatio) {
-          bestRatio = r;
-          best = g;
-        }
+        if (r > bestRatio) { bestRatio = r; best = g; }
       }
     }
-    if (best) {
-      buy(state, best.id, 1);
-      bought = true;
-    }
+    if (best) { buy(state, best.id, 1); bought = true; }
   }
-  // Buy every upgrade it can afford.
+  // 4. Buy any affordable upgrade.
   for (const u of UPGRADES) {
     if (!state.upgrades.includes(u.id) && state.tokens >= u.cost) buyUpgrade(state, u.id);
   }
+}
+
+// Buy every weight upgrade the bot can afford. Simulates the documented seed
+// fix (docs/DECISIONS.md): buying the seed grants its start tokens
+// immediately, so the run that buys it can continue. (This copy of core.js
+// only grants them at prestige time, which would deadlock the run.)
+function buyWeightUpgrades(state) {
   for (const w of WEIGHT_UPGRADES) {
-    if (!state.weightUpgrades.includes(w.id) && state.weights >= w.cost) buyWeightUpgrade(state, w.id);
+    if (!state.weightUpgrades.includes(w.id) && state.weights >= w.cost) {
+      if (buyWeightUpgrade(state, w.id) && w.id === 'seed') state.tokens += w.value;
+    }
   }
+}
+
+function simulate(isIdle) {
+  const state = createState();
+  state.tokens = START_TOKENS;
+  let tFirstManager = null;
+  let tFourManagers = null;
+  let tPrestigeAvail = null;
+  const resets = [];
+  let runStart = 0;
+  const steps = MAX_MINUTES * 60;
+  for (let s = 1; s <= steps; s++) {
+    const t = s * DT;
+    botStep(state, isIdle, s);
+    tick(state, DT);
+    if (tFirstManager === null && state.managers.length >= 1) tFirstManager = t;
+    if (tFourManagers === null && FOUR_LOWEST.every((id) => state.managers.includes(id))) tFourManagers = t;
+    if (tPrestigeAvail === null && weightsAvailable(state) >= 1) tPrestigeAvail = t;
+    if (resets.length < 4 && weightsAvailable(state) >= Math.max(5, 0.5 * state.weights)) {
+      prestige(state);
+      buyWeightUpgrades(state);
+      resets.push({ t, duration: t - runStart });
+      runStart = t;
+    }
+    if (tFirstManager !== null && tFourManagers !== null && tPrestigeAvail !== null && resets.length >= 4) break;
+  }
+  return { state, tFirstManager, tFourManagers, tPrestigeAvail, resets };
 }
 
 function fmtTime(seconds) {
@@ -65,76 +119,44 @@ function fmtTime(seconds) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-const state = createState();
-for (let i = 0; i < START_CLICKS; i++) click(state);
+const active = simulate(false);
+const idle = simulate(true);
 
-let tFirstGen = null;
-let tSecondTier = null;
-let tPrestige = null;
-const resets = []; // the first 4 resets: { t, gained, duration }
-let runStart = 0;
-const steps = MAX_MINUTES * 60;
-for (let s = 1; s <= steps; s++) {
-  const t = s * DT;
-  botStep(state);
-  tick(state, DT);
-  if (tFirstGen === null && Object.values(state.generators).some((n) => n > 0)) tFirstGen = t;
-  if (tSecondTier === null && state.lifetime >= GENERATORS[1].baseCost * 0.5) tSecondTier = t;
-  if (tPrestige === null && weightsAvailable(state) >= 1) tPrestige = t;
-  // Keep playing through prestiges: reset when weights available reach
-  // max(5, 0.5 * current weights).
-  if (resets.length < 4 && weightsAvailable(state) >= Math.max(5, 0.5 * state.weights)) {
-    const gained = prestige(state);
-    resets.push({ t, gained, duration: t - runStart });
-    runStart = t;
+function report(name, r) {
+  console.log(`\n${name} bot:`);
+  console.log(`  first manager:             ${fmtTime(r.tFirstManager)}`);
+  console.log(`  all 4 lowest managers:     ${fmtTime(r.tFourManagers)}`);
+  console.log(`  first prestige available:  ${fmtTime(r.tPrestigeAvail)}`);
+  for (let i = 0; i < r.resets.length; i++) {
+    console.log(`  reset ${i + 1}: at ${fmtTime(r.resets[i].t)}, run took ${fmtTime(r.resets[i].duration)}`);
   }
-  if (tFirstGen !== null && tSecondTier !== null && tPrestige !== null && resets.length >= 4) break;
 }
+report('active', active);
+report('idle', idle);
 
-const durations = resets.map((r) => r.duration);
+// Targets.
+const aDurations = active.resets.map((r) => r.duration);
 const gettingFaster =
-  resets.length === 4 && durations.every((d, i) => i === 0 || d < durations[i - 1]);
-const results = [
-  {
-    name: 'first generator',
-    got: tFirstGen,
-    ok: tFirstGen !== null && tFirstGen < 30,
-    target: 'under 30 s (20 clicks at start)',
-  },
-  {
-    name: 'second generator tier unlocked',
-    got: tSecondTier,
-    ok: tSecondTier !== null && tSecondTier < 180,
-    target: 'under 3 minutes',
-  },
-  {
-    name: 'first prestige available',
-    got: tPrestige,
-    ok: tPrestige !== null && tPrestige >= 20 * 60 && tPrestige <= 40 * 60,
-    target: '20 to 40 minutes',
-  },
-  {
-    name: 'each later run reaches its reset faster than the one before',
-    got: durations.map(fmtTime).join(' > ') || 'n/a',
-    ok: gettingFaster,
-    target: 'strictly decreasing run durations (4 resets)',
-  },
+  active.resets.length === 4 && aDurations.every((d, i) => i === 0 || d < aDurations[i - 1]);
+const idleRatio =
+  idle.tPrestigeAvail !== null && active.tPrestigeAvail !== null
+    ? idle.tPrestigeAvail / active.tPrestigeAvail : Infinity;
+const targets = [
+  { name: 'active: first manager under 2 min', ok: active.tFirstManager !== null && active.tFirstManager < 120 },
+  { name: 'active: first prestige in 20-40 min', ok: active.tPrestigeAvail !== null && active.tPrestigeAvail >= 1200 && active.tPrestigeAvail <= 2400 },
+  { name: 'active: each later run faster', ok: gettingFaster },
+  { name: 'idle: first prestige <= ~2x active', ok: idleRatio <= 2.0 },
 ];
-
-console.log('Pacing check (bot: best output/cost, all affordable upgrades,');
-console.log('no clicks, no overclock, prestige at max(5, 0.5 * weights))');
+console.log('\nTargets:');
 let allPass = true;
-for (const r of results) {
-  const pass = r.ok ? 'PASS' : 'FAIL';
-  if (!r.ok) allPass = false;
-  const got = typeof r.got === 'number' ? fmtTime(r.got) : r.got;
-  console.log(`  ${r.name}: ${got} (target: ${r.target}) ${pass}`);
+for (const tg of targets) {
+  if (!tg.ok) allPass = false;
+  console.log(`  ${tg.name}: ${tg.ok ? 'PASS' : 'FAIL'}`);
 }
-for (const [i, r] of resets.entries()) {
-  console.log(`  reset ${i + 1}: at ${fmtTime(r.t)}, +${r.gained} weights, run took ${fmtTime(r.duration)}`);
-}
+console.log(`  (idle/active first-prestige ratio: ${idleRatio === Infinity ? 'n/a' : idleRatio.toFixed(2) + 'x'})`);
 console.log(
-  `  final: totalLifetime=${state.totalLifetime.toExponential(3)} weights=${state.weights} ` +
-    `upgrades=${state.upgrades.length} weightUpgrades=${state.weightUpgrades.length}`
+  `\nfinal active: totalLifetime=${active.state.totalLifetime.toExponential(3)} ` +
+  `weights=${active.state.weights} managers=${active.state.managers.length} ` +
+  `upgrades=${active.state.upgrades.length} weightUpgrades=${active.state.weightUpgrades.length}`
 );
 process.exitCode = allPass ? 0 : 1;

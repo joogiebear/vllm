@@ -2,8 +2,8 @@
 // and docs/CYCLES-DESIGN.md. No logic: exported constants only.
 
 export const GENERATORS = [
-  { id: 'pi', name: 'Raspberry Pi', baseCost: 15, tps: 1, cycleSeconds: 1 },
-  { id: 'gamer', name: 'Gaming GPU', baseCost: 220, tps: 8, cycleSeconds: 3 },
+  { id: 'pi', name: 'Raspberry Pi', baseCost: 15, tps: 1, cycleSeconds: 7 },
+  { id: 'gamer', name: 'Gaming GPU', baseCost: 500, tps: 8, cycleSeconds: 3 },
   { id: 'workstation', name: 'Workstation', baseCost: 2400, tps: 47, cycleSeconds: 6 },
   { id: 'rack', name: 'Rack Server', baseCost: 26000, tps: 260, cycleSeconds: 12 },
   { id: 'cluster', name: 'GPU Cluster', baseCost: 140000, tps: 1400, cycleSeconds: 24 },
@@ -26,7 +26,7 @@ export const GENERATOR_REVEAL_FRACTION = 0.5;
 // One manager per generator. Bought with tokens on the Upgrades tab; resets
 // on prestige like regular upgrades. A managed row restarts itself forever.
 export const MANAGERS = [
-  { id: 'pi', name: 'Cron Job', cost: 1000 },
+  { id: 'pi', name: 'Cron Job', cost: 100 },
   { id: 'gamer', name: 'Driver Daemon', cost: 15000 },
   { id: 'workstation', name: 'Build Bot', cost: 100000 },
   { id: 'rack', name: 'Load Balancer', cost: 1000000 },
