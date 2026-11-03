@@ -1,6 +1,6 @@
 // Achievement checks (docs/COMPLETION.md). Pure: the only mutation is
 // appending newly met ids to state.achievements.
-import { ACHIEVEMENTS, MANAGERS, REGION_PERKS } from './data.js?v=20261103183009';
+import { ACHIEVEMENTS, GENERATORS, MANAGERS, REGION_PERKS, TIER_GATES } from './data.js?v=20261103183009';
 
 // Evaluate one JSON-safe test descriptor against the state.
 function met(test, state) {
@@ -28,6 +28,20 @@ function met(test, state) {
     }
     case 'allManagers':
       return MANAGERS.every((m) => managers.includes(m.id));
+    case 'anyOwned':
+      // First N of any tier (docs/LATE-GAME-DESIGN.md, section 3).
+      return Object.values(generators).some((count) => count >= test.n);
+    case 'allTiers': {
+      // Global milestone: every UNLOCKED tier at N (docs/LATE-GAME-DESIGN.md,
+      // section 3). Tiers 9-12 unlock through Regions (TIER_GATES); a locked
+      // tier is not counted, so it cannot block the milestone.
+      const regions = state.regionsEarned || 0;
+      return GENERATORS.every((g) => {
+        const gate = TIER_GATES.find((t) => t.id === g.id);
+        if (gate && regions < gate.regions) return true;
+        return (generators[g.id] || 0) >= test.n;
+      });
+    }
     default:
       return false;
   }

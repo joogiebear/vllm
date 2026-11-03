@@ -203,8 +203,8 @@ export const EVENT_SPIKE_MULTIPLIER = 3;
 export const EVENT_TURBO_SPEED = 2; // cycle time is divided by this
 export const EVENT_WINDFALL_SECONDS = 180;
 
-// Achievements (docs/COMPLETION.md, docs/REGIONS-DESIGN.md). 66 entries,
-// generated:
+// Achievements (docs/COMPLETION.md, docs/REGIONS-DESIGN.md,
+// docs/LATE-GAME-DESIGN.md). 71 entries, generated:
 // - every generator at 1, 25, 100 and 400 owned: 12 * 4 = 48
 // - lifetime-in-run tokens of 1M, 1B, 1T and 1Qa: 4
 // - prestiges 1, 5 and 25: 3
@@ -214,6 +214,8 @@ export const EVENT_WINDFALL_SECONDS = 180;
 // - timed events claimed 1 and 25: 2
 // - regions earned 1, 3 and 10: 3
 // - all 6 region perks bought: 1
+// - first 500 and 1,000 of any tier: 2
+// - all unlocked tiers at 100, 250 and 500: 3
 // Each test is a JSON-safe descriptor (no functions), evaluated by
 // checkAchievements() in achievements.js.
 const ACH_TIER_NAMES = { 1: 'First Boot', 25: '25 Online', 100: 'Server Farm', 400: 'Overkill' };
@@ -244,6 +246,17 @@ export const ACHIEVEMENTS = [
   { id: 'regions-3', name: '3 Regions', desc: 'Earn 3 Regions', test: { kind: 'regions', n: 3 } },
   { id: 'regions-10', name: '10 Regions', desc: 'Earn 10 Regions', test: { kind: 'regions', n: 10 } },
   { id: 'perks-all', name: 'All Perks', desc: 'Buy all 6 Region perks', test: { kind: 'allPerks' } },
+  // Late-game milestones (docs/LATE-GAME-DESIGN.md, section 3): the first
+  // 500 and 1,000 of any tier, and every global milestone (every unlocked
+  // tier at 100, 250 or 500). Each pays +1% like the others.
+  { id: 'any-500', name: 'First 500', desc: 'Own 500 of any tier', test: { kind: 'anyOwned', n: 500 } },
+  { id: 'any-1000', name: 'First 1,000', desc: 'Own 1,000 of any tier', test: { kind: 'anyOwned', n: 1000 } },
+  ...GLOBAL_MILESTONES.map((m) => ({
+    id: `global-${m.owned}`,
+    name: `All tiers at ${m.owned}`,
+    desc: `Every unlocked tier at ${m.owned} owned (x${m.value} all production)`,
+    test: { kind: 'allTiers', n: m.owned },
+  })),
 ];
 
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;
