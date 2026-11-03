@@ -27,6 +27,36 @@ function safeRemove(key) {
   }
 }
 
+// Backup slots (docs/STABILITY-DESIGN.md section 3): b1 is the newest,
+// b3 the oldest. Each stores { savedAt, lifetime, data } where data is
+// the main save payload.
+export const BACKUP_KEYS = [SAVE_KEY + ':b1', SAVE_KEY + ':b2', SAVE_KEY + ':b3'];
+export const BACKUP_GAP_MS = 5 * 60 * 1000; // at most one backup per 5 minutes of play
+
+// Read one backup slot. Returns the slot object, or null when the slot
+// is missing, unparseable or malformed.
+function readBackup(key) {
+  const raw = safeGet(key);
+  if (raw === null) return null;
+  let slot;
+  try {
+    slot = JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+  if (
+    slot === null ||
+    typeof slot !== 'object' ||
+    Array.isArray(slot) ||
+    typeof slot.savedAt !== 'number' ||
+    !Number.isFinite(slot.savedAt) ||
+    !validSaveShape(slot.data)
+  ) {
+    return null;
+  }
+  return slot;
+}
+
 // Merge a saved state over fresh defaults: missing fields get defaults,
 // wrong-typed fields get defaults, unknown fields are kept so that saves
 // from a future version do not break this one.
@@ -99,33 +129,97 @@ export function save(state, now) {
   safeSet(SAVE_KEY, JSON.stringify({ version: SAVE_VERSION, savedAt: now, state }));
 }
 
-// Read the save. Returns { state, savedAt }. A missing save gives a fresh
-// state; a corrupt one is kept under the corrupt key and also starts a new
-// game.
+// Copy the current state into the backup slots, rotating b1 <- b2 <- b3
+// (b1 is always the newest). `force` bypasses the 5-minute gap (used by
+// prestige and Region expansion). Returns true when a backup was written.
+export function backupNow(state, now, force) {
+  const b1 = readBackup(BACKUP_KEYS[0]);
+  if (!force && b1 !== null && now - b1.savedAt < BACKUP_GAP_MS) return false;
+  const b2 = readBackup(BACKUP_KEYS[1]);
+  // Old b2 becomes b3, old b1 becomes b2, the new backup is b1.
+  if (b2 === null) safeRemove(BACKUP_KEYS[2]);
+  else safeSet(BACKUP_KEYS[2], JSON.stringify(b2));
+  if (b1 === null) safeRemove(BACKUP_KEYS[1]);
+  else safeSet(BACKUP_KEYS[1], JSON.stringify(b1));
+  safeSet(
+    BACKUP_KEYS[0],
+    JSON.stringify({
+      savedAt: now,
+      lifetime: typeof state.lifetime === 'number' && Number.isFinite(state.lifetime) ? state.lifetime : 0,
+      data: { version: SAVE_VERSION, savedAt: now, state },
+    })
+  );
+  return true;
+}
+
+// Turn a parsed save payload into a playable state, or null when it
+// cannot be migrated (migrate() refuses invalid states).
+function hydrate(data) {
+  if (!validSaveShape(data)) return null;
+  const state = ensureStarter(migrate(data.state));
+  if (state === null) return null;
+  const savedAt =
+    typeof data.savedAt === 'number' && Number.isFinite(data.savedAt) ? data.savedAt : null;
+  return { state, savedAt };
+}
+
+// Read the save. Returns { state, savedAt, restoredFrom }. A missing save
+// gives a fresh state; a corrupt one is kept under the corrupt key, and
+// the backups are tried in order b1, b2, b3 (restoredFrom is the slot
+// name, or null when the main save was used or nothing was restored).
+// A restored backup is written back to the main save so the next load
+// reads it directly.
 export function load() {
   const raw = safeGet(SAVE_KEY);
-  if (raw === null) return { state: ensureStarter(createState()), savedAt: null };
+  if (raw === null) return { state: ensureStarter(createState()), savedAt: null, restoredFrom: null };
   let data;
   try {
     data = JSON.parse(raw);
   } catch (err) {
     data = null;
   }
-  if (!validSaveShape(data)) {
-    safeSet(SAVE_CORRUPT_KEY, raw);
-    return { state: ensureStarter(createState()), savedAt: null };
+  const main = hydrate(data);
+  if (main !== null) return { ...main, restoredFrom: null };
+  // The main save fails to parse or migrate: keep it for diagnosis and
+  // fall back to the newest backup that works.
+  safeSet(SAVE_CORRUPT_KEY, raw);
+  for (let i = 0; i < BACKUP_KEYS.length; i++) {
+    const slot = readBackup(BACKUP_KEYS[i]);
+    if (slot === null) continue;
+    const restored = hydrate(slot.data);
+    if (restored === null) continue;
+    safeSet(SAVE_KEY, JSON.stringify(slot.data));
+    return { ...restored, restoredFrom: 'b' + (i + 1) };
   }
-  // Old saves are migrated (removed upgrades refunded at cost); current and
-  // newer saves are merged with forward compatibility.
-  const version = typeof data.version === 'number' ? data.version : 1;
-  const state = ensureStarter(migrate(data.state));
-  if (state === null) {
-    safeSet(SAVE_CORRUPT_KEY, raw);
-    return { state: ensureStarter(createState()), savedAt: null };
-  }
-  const savedAt =
-    typeof data.savedAt === 'number' && Number.isFinite(data.savedAt) ? data.savedAt : null;
-  return { state, savedAt };
+  return { state: ensureStarter(createState()), savedAt: null, restoredFrom: null };
+}
+
+// For the Settings "Backups" section: the three slots, b1 (newest)
+// first; null entries are empty slots.
+export function listBackups() {
+  return BACKUP_KEYS.map((key, i) => {
+    const slot = readBackup(key);
+    if (slot === null) return null;
+    return {
+      slot: 'b' + (i + 1),
+      savedAt: slot.savedAt,
+      lifetime:
+        typeof slot.lifetime === 'number' && Number.isFinite(slot.lifetime) ? slot.lifetime : 0,
+    };
+  });
+}
+
+// Manual restore (Settings): load a slot over the main save and return
+// the resulting state, or null when the slot is empty or unreadable.
+export function restoreBackup(slot) {
+  const i = slot === 'b1' ? 0 : slot === 'b2' ? 1 : slot === 'b3' ? 2 : -1;
+  if (i < 0) return null;
+  const backup = readBackup(BACKUP_KEYS[i]);
+  if (backup === null) return null;
+  const restored = hydrate(backup.data);
+  if (restored === null) return null;
+  safeSet(SAVE_KEY, JSON.stringify(backup.data));
+  return restored.state;
 }
 
 // Export as base64 text. `now` is the caller's timestamp (milliseconds).
@@ -149,7 +243,9 @@ export function importSave(text) {
   return ensureStarter(migrate(data.state));
 }
 
-// Hard reset: remove the save (the corrupt copy is left for inspection).
+// Hard reset: remove the save and the backup slots (the corrupt copy is
+// left for inspection).
 export function hardReset() {
   safeRemove(SAVE_KEY);
+  for (const key of BACKUP_KEYS) safeRemove(key);
 }
