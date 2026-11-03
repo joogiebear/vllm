@@ -311,7 +311,7 @@ export function createUI(state, io) {
     buyBtn.addEventListener('click', () => buyUpgrade(state, u.id));
     card.append(name, effect, now, bar, buyBtn);
     els.upGrid.appendChild(card);
-    return { u, card, now, barFill, buyBtn, bCost, moved: false, gain: 0 };
+    return { u, card, now, barFill, buyBtn, bCost, li: null, gain: 0 };
   });
 
   // --- build weight upgrade rows (once) ------------------------------------
@@ -515,39 +515,46 @@ export function createUI(state, io) {
     // Generators (immediate updates on mode change / purchase call this too).
     updateGenRows(state, true);
 
-    // Upgrades: reveal at 25% of cost (lifetime or tokens); purchased move to
-    // the collapsed list.
+    // Upgrades: reveal at 25% of cost (lifetime or tokens); owned cards are
+    // hidden and listed in the collapsed list. Both directions follow state
+    // on every pass, so a prestige, import or reset that clears (or changes)
+    // state.upgrades brings the cards back and the list back in sync.
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
-      if (owned && !r.moved) {
-        r.moved = true;
-        r.buyBtn.disabled = true;
-        r.buyBtn.textContent = 'OWNED';
-        const li = document.createElement('li');
-        li.textContent = `${r.u.name} - ${upgradeWords(r.u)}`;
-        els.purchasedList.appendChild(li);
-        r.card.remove();
+      if (owned) {
+        // Hide the card and keep exactly one line in the list.
+        r.card.hidden = true;
+        if (!r.li) {
+          r.li = document.createElement('li');
+          r.li.textContent = `${r.u.name} - ${upgradeWords(r.u)}`;
+          els.purchasedList.appendChild(r.li);
+        }
+        continue;
       }
-      if (!owned) {
-        const hidden =
-          state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION &&
-          state.tokens < r.u.cost * UPGRADE_REVEAL_FRACTION;
-        r.card.hidden = hidden;
-        if (hidden) continue;
-        // The before/after figure is computed here, at the 10 Hz pass, for
-        // visible cards only.
-        if (r.u.kind === 'production') r.gain = upgradeGain(state, r.u);
-        // What it means now: production shows the tps delta; cooling and
-        // click upgrades just repeat their effect in words.
-        r.now.textContent =
-          r.u.kind === 'production' ? `+${fmt(r.gain)}/s` : upgradeWords(r.u);
-        const affordable = state.tokens >= r.u.cost;
-        r.buyBtn.disabled = !affordable;
-        r.buyBtn.classList.toggle('afford', affordable);
-        r.bCost.classList.toggle('amber', !affordable);
-        r.bCost.textContent = fmt(r.u.cost);
-        r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
+      // Not owned: drop the list line (if any) and show the card per the
+      // reveal rule.
+      if (r.li) {
+        r.li.remove();
+        r.li = null;
       }
+      const hidden =
+        state.lifetime < r.u.cost * UPGRADE_REVEAL_FRACTION &&
+        state.tokens < r.u.cost * UPGRADE_REVEAL_FRACTION;
+      r.card.hidden = hidden;
+      if (hidden) continue;
+      // The before/after figure is computed here, at the 10 Hz pass, for
+      // visible cards only.
+      if (r.u.kind === 'production') r.gain = upgradeGain(state, r.u);
+      // What it means now: production shows the tps delta; cooling and
+      // click upgrades just repeat their effect in words.
+      r.now.textContent =
+        r.u.kind === 'production' ? `+${fmt(r.gain)}/s` : upgradeWords(r.u);
+      const affordable = state.tokens >= r.u.cost;
+      r.buyBtn.disabled = !affordable;
+      r.buyBtn.classList.toggle('afford', affordable);
+      r.bCost.classList.toggle('amber', !affordable);
+      r.bCost.textContent = fmt(r.u.cost);
+      r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
     }
 
     // Prestige: hidden until the first weight is in reach or already earned;
@@ -568,7 +575,7 @@ export function createUI(state, io) {
     // Prestige when a weight is available.
     let upAffordable = false;
     for (const r of upRefs) {
-      if (!r.moved && !r.card.hidden && state.tokens >= r.u.cost) {
+      if (!state.upgrades.includes(r.u.id) && !r.card.hidden && state.tokens >= r.u.cost) {
         upAffordable = true;
         break;
       }
