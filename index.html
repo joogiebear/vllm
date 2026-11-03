@@ -60,17 +60,20 @@
       color: #0b0f17; font-weight: 700;
     }
 
-    /* Tabs */
+    /* Tabs (bottom menu) */
     #tabs {
-      display: flex; gap: 4px; padding: 8px 12px 0;
-      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      display: flex;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
     }
     #tabs button {
-      position: relative; min-height: 44px; padding: 0 14px;
-      border-radius: 8px 8px 0 0;
-      border: 1px solid var(--border); border-bottom: none;
-      background: var(--card); color: var(--dim);
-      font-size: 14px; cursor: pointer; white-space: nowrap;
+      position: relative; flex: 1 1 0; min-width: 0;
+      min-height: 44px; padding: 0 4px;
+      border: none; border-radius: 0;
+      background: transparent; color: var(--dim);
+      font-size: 13px; cursor: pointer; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
     #tabs button[aria-current="page"] {
       background: var(--bg); color: var(--text); font-weight: 700;
@@ -281,14 +284,6 @@
       </div>
     </header>
 
-    <nav id="tabs" aria-label="Sections">
-      <button type="button" data-tab="game" aria-current="page">Game</button>
-      <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="shop">Shop</button>
-      <button type="button" data-tab="settings">Settings</button>
-    </nav>
-
     <main id="tab-scroll">
       <section id="tab-game" aria-label="Game">
         <div id="banner" hidden></div>
@@ -340,6 +335,14 @@
         <p id="settings-msg" role="status"></p>
       </section>
     </main>
+
+    <nav id="tabs" aria-label="Sections">
+      <button type="button" data-tab="game" aria-current="page">Game</button>
+      <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="shop">Shop</button>
+      <button type="button" data-tab="settings">Settings</button>
+    </nav>
   </div>
   <script type="module" src="/src/idle/app.js"></script>
 </body>
