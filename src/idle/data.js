@@ -59,6 +59,15 @@ export const MANAGERS = [
   { id: 'singularity', name: 'Event Horizon', cost: 3.2e16 },
 ];
 
+// Manager portraits (docs/ART-PORTRAITS.md): the tier ids that have a file
+// in icons/managers/<id>.webp, in tier order. A manager without an entry
+// keeps the SVG icon. PORTRAIT_V is bumped whenever any portrait changes.
+export const PORTRAITS = [
+  'pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter',
+  'campus', 'swarm', 'orbital', 'lunar', 'matrioshka', 'singularity',
+];
+export const PORTRAIT_V = 1;
+
 // kind: 'production' multiplies every row's output; 'productionTier'
 // multiplies one tier's output; 'cacheRate' adds to the rate multiplier.
 export const UPGRADES = [

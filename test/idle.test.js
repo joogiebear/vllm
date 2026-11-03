@@ -46,7 +46,12 @@ import {
   GLOBAL_MILESTONES,
   UPGRADES,
   X5_UPGRADES,
+  PORTRAITS,
+  PORTRAIT_V,
 } from '../src/idle/data.js';
+import { readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { checkAchievements } from '../src/idle/achievements.js';
 
 test('createState: fresh state has the right fields', () => {
@@ -1825,4 +1830,18 @@ test('globalMilestone: next threshold, lowest tier and count', () => {
     if (!TIER_GATES.some((t) => t.id === g.id)) s.generators[g.id] = 100;
   }
   assert.deepEqual(globalMilestone(s), { next: { owned: 250, value: 3 }, lowestTier: 'pi', lowestCount: 100 });
+});
+
+// Manager portraits (docs/ART-PORTRAITS.md)
+
+test('PORTRAITS: all 12 tier ids in tier order, and every listed file exists on disk', () => {
+  assert.equal(PORTRAIT_V, 1);
+  assert.equal(PORTRAITS.length, 12);
+  // every id is a tier id, in the same order as GENERATORS
+  assert.deepEqual(PORTRAITS, GENERATORS.map((g) => g.id));
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons', 'managers');
+  const onDisk = readdirSync(dir);
+  for (const id of PORTRAITS) {
+    assert.ok(onDisk.includes(`${id}.webp`), `icons/managers/${id}.webp missing`);
+  }
 });
