@@ -90,6 +90,7 @@ export function createUI(state, io) {
     genRows: $('gen-rows'),
     upGrid: $('up-grid'),
     purchasedList: $('purchased-list'),
+    purchased: $('purchased'),
     wAvail: $('w-avail'),
     prestige: $('prestige'),
     prestigeHint: $('prestige-hint'),
@@ -321,6 +322,13 @@ export function createUI(state, io) {
     els.upGrid.appendChild(card);
     return { u, card, now, barFill, buyBtn, bCost, li: null, gain: 0 };
   });
+
+  // Shown while no upgrade card is revealed (e.g. right after a prestige).
+  const upEmpty = document.createElement('p');
+  upEmpty.className = 'dim';
+  upEmpty.textContent = 'New upgrades appear as your token total grows.';
+  upEmpty.hidden = true;
+  els.upGrid.insertAdjacentElement('afterend', upEmpty);
 
   // --- build weight upgrade rows (once) ------------------------------------
   // Sorted by cost, cheapest first, like the token upgrades.
@@ -568,6 +576,10 @@ export function createUI(state, io) {
       r.bCost.textContent = fmt(r.u.cost);
       r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
     }
+    // Empty state: the message shows while no card is visible (e.g. right
+    // after a prestige), and the purchased section hides while it is empty.
+    upEmpty.hidden = upRefs.some((r) => !r.card.hidden);
+    els.purchased.hidden = els.purchasedList.children.length === 0;
 
     // Prestige: hidden until the first weight is in reach or already earned;
     // a hint line takes its place in the meantime.
