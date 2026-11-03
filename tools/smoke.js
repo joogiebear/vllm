@@ -530,6 +530,42 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
 
+  // Upgrades tab, Managers segment: the Pi manager row (Cron Job) shows a
+  // portrait img that finished loading (docs/ART-PORTRAITS.md, task 5).
+  await check(
+    'late save: Pi manager portrait loaded (Upgrades > Managers)',
+    () =>
+      evalIn(
+        `(async () => {
+          const tab = document.querySelector('#tabs [data-tab="upgrades"]');
+          if (!tab) return false;
+          tab.click();
+          await new Promise((r) => setTimeout(r, 50));
+          const sec = document.getElementById('tab-upgrades');
+          if (!sec || sec.hidden) return false;
+          const seg = document.querySelector('#up-seg button[data-seg="managers"]');
+          if (!seg) return false;
+          seg.click();
+          await new Promise((r) => setTimeout(r, 50));
+          const grid = document.getElementById('man-grid');
+          if (!grid || grid.hidden) return false;
+          let row = null;
+          for (const r of grid.querySelectorAll('.up-row')) {
+            const n = r.querySelector('.name');
+            if (n && n.textContent === 'Cron Job') { row = r; break; }
+          }
+          if (!row) return false;
+          const img = row.querySelector('.portrait img');
+          if (!img) return false;
+          const t0 = Date.now();
+          while (img.naturalWidth === 0 && Date.now() - t0 < 5000) {
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return img.naturalWidth > 0;
+        })()`
+      )
+  );
+
   // --- offline ---------------------------------------------------------------
   // The service worker (registered by app.js on 127.0.0.1) is active after
   // the first load and its install precached the shell, the module graph
