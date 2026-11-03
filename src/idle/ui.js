@@ -409,13 +409,19 @@ export function createUI(state, io) {
     settings: document.getElementById('tab-settings'),
   };
   const tabBtns = document.querySelectorAll('#tabs button');
+  const tabScrollEl = document.getElementById('tab-scroll');
+  const tabScrollPos = {}; // per-tab scroll position in the shared middle region
+  let currentTab = null;
   function showTab(name) {
     if (!tabPanels[name]) name = 'game';
+    if (currentTab !== null) tabScrollPos[currentTab] = tabScrollEl.scrollTop;
+    currentTab = name;
     for (const [key, panel] of Object.entries(tabPanels)) panel.hidden = key !== name;
     tabBtns.forEach((b) => {
       if (b.dataset.tab === name) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
+    tabScrollEl.scrollTop = tabScrollPos[name] || 0;
     try {
       localStorage.setItem(TAB_KEY, name);
     } catch (err) {

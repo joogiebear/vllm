@@ -20,7 +20,16 @@
       --red: #ff5050;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--bg); }
+    /* Fixed app layout: html and body fill the screen (100dvh, with 100vh
+       as the fallback) and do not scroll. #app is a flex column of three
+       regions: the header, the scrolling middle region and the bottom menu. */
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
     body {
       color: var(--text);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -29,12 +38,19 @@
     #app {
       max-width: 960px;
       margin: 0 auto;
+      height: 100%;
       padding: 12px;
-      /* Clearance so the fixed bottom bar never covers content. */
-      padding-bottom: calc(56px + env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    /* Middle region: the active tab, the only thing that scrolls. */
+    #tab-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .panel {
       background: var(--panel);
@@ -255,14 +271,11 @@
     #settings-msg { color: var(--lime); min-height: 1.2em; }
     #reset-btn.armed { background: var(--red); color: #04050a; }
 
-    /* Bottom navigation */
+    /* Bottom navigation: a flex child of #app, not fixed. The background is
+       solid and opaque, so nothing shows through or behind it. */
     .tab-panel[hidden] { display: none; }
     #tabs {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 10;
+      flex: 0 0 auto;
       display: flex;
       background: var(--panel);
       border-top: 1px solid var(--border);
@@ -306,119 +319,122 @@
       <div>weights <span id="weights-value">0</span></div>
     </header>
 
-    <div id="tab-game" class="tab-panel">
-      <div id="banner" class="panel" hidden></div>
+    <main id="tab-scroll">
+      <div id="tab-game" class="tab-panel">
+        <div id="banner" class="panel" hidden></div>
 
-      <div id="serve-wrap">
-        <button id="serve" type="button">SERVE</button>
+        <div id="serve-wrap">
+          <button id="serve" type="button">SERVE</button>
+        </div>
+
+        <section id="heat" class="panel">
+          <h2>HEAT</h2>
+          <div id="heat-row">
+            <div id="heat-bar"><div id="heat-fill"></div></div>
+            <span id="heat-num">0</span>
+            <span id="oc-state">COOLING</span>
+            <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
+          </div>
+        </section>
+
+        <section id="generators" class="panel">
+          <h2>GENERATORS</h2>
+          <div class="buy-sel" role="group" aria-label="buy amount">
+            <button type="button" data-mode="1" class="active">x1</button>
+            <button type="button" data-mode="10">x10</button>
+            <button type="button" data-mode="max">MAX</button>
+          </div>
+          <div id="gen-rows"></div>
+        </section>
+
+        <section id="rush-card" class="panel">
+          <h2>RUSH</h2>
+          <p class="dim">Bonus arcade mode. Run the GPUs by hand for a token payout. Better scores pay more.</p>
+          <p class="dim">Payout: up to 10 minutes of your current production.</p>
+          <a id="rush" href="rush.html">Play Rush</a>
+        </section>
       </div>
 
-      <section id="heat" class="panel">
-        <h2>HEAT</h2>
-        <div id="heat-row">
-          <div id="heat-bar"><div id="heat-fill"></div></div>
-          <span id="heat-num">0</span>
-          <span id="oc-state">COOLING</span>
-          <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
-        </div>
-      </section>
+      <div id="tab-upgrades" class="tab-panel" hidden>
+        <section id="upgrades" class="panel">
+          <h2>UPGRADES</h2>
+          <div id="up-grid"></div>
+          <details id="purchased">
+            <summary>purchased</summary>
+            <ul id="purchased-list"></ul>
+          </details>
+        </section>
+      </div>
 
-      <section id="generators" class="panel">
-        <h2>GENERATORS</h2>
-        <div class="buy-sel" role="group" aria-label="buy amount">
-          <button type="button" data-mode="1" class="active">x1</button>
-          <button type="button" data-mode="10">x10</button>
-          <button type="button" data-mode="max">MAX</button>
-        </div>
-        <div id="gen-rows"></div>
-      </section>
-
-      <section id="rush-card" class="panel">
-        <h2>RUSH</h2>
-        <p class="dim">Bonus arcade mode. Run the GPUs by hand for a token payout. Better scores pay more.</p>
-        <p class="dim">Payout: up to 10 minutes of your current production.</p>
-        <a id="rush" href="rush.html">Play Rush</a>
-      </section>
-    </div>
-
-    <div id="tab-upgrades" class="tab-panel" hidden>
-      <section id="upgrades" class="panel">
-        <h2>UPGRADES</h2>
-        <div id="up-grid"></div>
-        <details id="purchased">
-          <summary>purchased</summary>
-          <ul id="purchased-list"></ul>
-        </details>
-      </section>
-    </div>
-
-    <div id="tab-prestige" class="tab-panel" hidden>
-      <section id="prestige" class="panel">
-        <h2>PRESTIGE</h2>
-        <div id="prestige-box">
-          <div>weights available <span id="w-avail" class="value">0</span></div>
-          <div class="dim">resets: tokens, generators, upgrades, heat</div>
-          <button id="prestige-btn" type="button" disabled>PRESTIGE</button>
-        </div>
-        <div id="prestige-grid"></div>
-      </section>
-      <div id="prestige-hint" class="panel" hidden></div>
-    </div>
-
-    <div id="tab-shop" class="tab-panel" hidden>
-      <section id="shop" class="panel">
-        <h2>SHOP</h2>
-        <p class="dim">Coming soon. Nothing here is for sale yet, and no payment is taken.</p>
-        <div id="shop-grid">
-          <div class="card">
-            <span class="name">Supporter Badge</span>
-            <span class="effect">A badge next to your name, with thanks.</span>
-            <button type="button" disabled>Coming soon</button>
+      <div id="tab-prestige" class="tab-panel" hidden>
+        <section id="prestige" class="panel">
+          <h2>PRESTIGE</h2>
+          <div id="prestige-box">
+            <div>weights available <span id="w-avail" class="value">0</span></div>
+            <div class="dim">resets: tokens, generators, upgrades, heat</div>
+            <button id="prestige-btn" type="button" disabled>PRESTIGE</button>
           </div>
-          <div class="card">
-            <span class="name">Neon Theme Pack</span>
-            <span class="effect">Extra colour themes for the server room.</span>
-            <button type="button" disabled>Coming soon</button>
-          </div>
-          <div class="card">
-            <span class="name">Rack Skins</span>
-            <span class="effect">Cosmetic looks for your hardware.</span>
-            <button type="button" disabled>Coming soon</button>
-          </div>
-          <div class="card">
-            <span class="name">Tip Jar</span>
-            <span class="effect">Help keep the game free and open source.</span>
-            <button type="button" disabled>Coming soon</button>
-          </div>
-        </div>
-      </section>
-    </div>
+          <div id="prestige-grid"></div>
+        </section>
+        <div id="prestige-hint" class="panel" hidden></div>
+      </div>
 
-    <div id="tab-settings" class="tab-panel" hidden>
-      <section id="settings" class="panel">
-        <h2>SETTINGS</h2>
-        <label for="export-area">export (copy this text)</label>
-        <textarea id="export-area" readonly></textarea>
-        <div class="row-actions">
-          <button id="export-btn" type="button">EXPORT</button>
-        </div>
-        <label for="import-area">import (paste save text)</label>
-        <textarea id="import-area"></textarea>
-        <div class="row-actions">
-          <button id="import-btn" type="button">IMPORT</button>
-          <button id="reset-btn" type="button">HARD RESET</button>
-        </div>
-        <div id="settings-msg" role="status"></div>
-      </section>
-    </div>
+      <div id="tab-shop" class="tab-panel" hidden>
+        <section id="shop" class="panel">
+          <h2>SHOP</h2>
+          <p class="dim">Coming soon. Nothing here is for sale yet, and no payment is taken.</p>
+          <div id="shop-grid">
+            <div class="card">
+              <span class="name">Supporter Badge</span>
+              <span class="effect">A badge next to your name, with thanks.</span>
+              <button type="button" disabled>Coming soon</button>
+            </div>
+            <div class="card">
+              <span class="name">Neon Theme Pack</span>
+              <span class="effect">Extra colour themes for the server room.</span>
+              <button type="button" disabled>Coming soon</button>
+            </div>
+            <div class="card">
+              <span class="name">Rack Skins</span>
+              <span class="effect">Cosmetic looks for your hardware.</span>
+              <button type="button" disabled>Coming soon</button>
+            </div>
+            <div class="card">
+              <span class="name">Tip Jar</span>
+              <span class="effect">Help keep the game free and open source.</span>
+              <button type="button" disabled>Coming soon</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="tab-settings" class="tab-panel" hidden>
+        <section id="settings" class="panel">
+          <h2>SETTINGS</h2>
+          <label for="export-area">export (copy this text)</label>
+          <textarea id="export-area" readonly></textarea>
+          <div class="row-actions">
+            <button id="export-btn" type="button">EXPORT</button>
+          </div>
+          <label for="import-area">import (paste save text)</label>
+          <textarea id="import-area"></textarea>
+          <div class="row-actions">
+            <button id="import-btn" type="button">IMPORT</button>
+            <button id="reset-btn" type="button">HARD RESET</button>
+          </div>
+          <div id="settings-msg" role="status"></div>
+        </section>
+      </div>
+    </main>
+
+    <nav id="tabs" aria-label="sections">
+      <button type="button" data-tab="game" aria-current="page">Game</button>
+      <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="shop">Shop</button>
+      <button type="button" data-tab="settings">Settings</button>
+    </nav>
   </div>
-  <nav id="tabs" aria-label="sections">
-    <button type="button" data-tab="game" aria-current="page">Game</button>
-    <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
-    <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
-    <button type="button" data-tab="shop">Shop</button>
-    <button type="button" data-tab="settings">Settings</button>
-  </nav>
   <script type="module" src="src/idle/app.js"></script>
 </body>
 </html>
