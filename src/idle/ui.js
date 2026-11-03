@@ -231,7 +231,9 @@ export function createUI(state, io) {
         state.tokens >= r.g.baseCost * GENERATOR_REVEAL_FRACTION;
       r.row.hidden = !revealed;
       if (!revealed) continue;
-      const owned = state.generators[r.g.id];
+      // A missing key (e.g. an imported save predating this generator)
+      // counts as 0, so the producing line hides for it as well.
+      const owned = state.generators[r.g.id] || 0;
       if (recompute) {
         const total = tokensPerSecond(state);
         r.eff.producing = genContribution(state, r.g);
