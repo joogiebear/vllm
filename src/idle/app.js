@@ -1,7 +1,7 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
 import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261103164738';
 import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103164738';
-import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261103164738';
+import { load, save, exportSave, importSave, hardReset, backupNow, BACKUP_GAP_MS } from './save.js?v=20261103164738';
 import { get } from './settings.js?v=20261103164738';
 import { createUI } from './ui.js?v=20261103164738';
 import { fmt } from './fmt.js?v=20261103164738';
@@ -9,14 +9,36 @@ import { showWelcome } from './welcome.js?v=20261103164738';
 import { toast } from './toast.js?v=20261103164738';
 import { initFeedback } from './feedback.js?v=20261103164738';
 
-const { state, savedAt } = load();
+const { state, savedAt, restoredFrom } = load();
 initFeedback();
+
+// The main save was unreadable and load() fell back to a backup: tell
+// the player, with the backup's time (HH:MM).
+if (restoredFrom !== null) {
+  const when =
+    savedAt !== null
+      ? String(new Date(savedAt).getHours()).padStart(2, '0') +
+        ':' +
+        String(new Date(savedAt).getMinutes()).padStart(2, '0')
+      : 'the last backup';
+  toast(`Your save couldn't be read, so we restored the backup from ${when}.`);
+}
 
 // The UI holds a reference to this state object, so import and reset
 // replace its fields in place instead of swapping the object.
+// Prestige/Region detection: stats.prestiges and regionsEarned only ever
+// grow (expandRegion resets weights to 0, so weights is not a usable
+// signal).
+let prevPrestiges = state.stats && typeof state.stats.prestiges === 'number' ? state.stats.prestiges : 0;
+let prevRegions = state.regionsEarned || 0;
+function refreshMilestones() {
+  prevPrestiges = state.stats && typeof state.stats.prestiges === 'number' ? state.stats.prestiges : 0;
+  prevRegions = state.regionsEarned || 0;
+}
 function replaceState(s) {
   for (const k of Object.keys(state)) delete state[k];
   for (const k of Object.keys(s)) state[k] = s[k];
+  refreshMilestones();
 }
 
 const io = {
@@ -90,6 +112,7 @@ function saveNow() {
 let last = Date.now();
 let lastRender = 0;
 let lastSave = last;
+let lastBackup = last;
 function step() {
   const now = Date.now();
   const dt = Math.max(0, (now - last) / 1000);
@@ -118,6 +141,19 @@ function step() {
   if (now - lastSave >= AUTOSAVE_SECONDS * 1000) {
     lastSave = now;
     saveNow();
+  }
+  // Backups (docs/STABILITY-DESIGN.md section 3): a forced backup when a
+  // prestige or Region expansion just happened, otherwise at most one
+  // per 5 minutes of play (the gap itself is enforced inside backupNow).
+  const prestiges = state.stats && typeof state.stats.prestiges === 'number' ? state.stats.prestiges : 0;
+  const regions = state.regionsEarned || 0;
+  if (prestiges > prevPrestiges || regions > prevRegions) {
+    refreshMilestones();
+    backupNow(state, now, true);
+  }
+  if (now - lastBackup >= BACKUP_GAP_MS) {
+    lastBackup = now;
+    backupNow(state, now, false);
   }
 }
 
