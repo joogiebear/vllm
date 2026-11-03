@@ -139,12 +139,34 @@ wait on it; changes the owner asks for after seeing it are a follow-up pass.
 Animated icons, backgrounds or illustrations, a new font, and Shop art (the
 Shop is still placeholders).
 
+## 3. Buy button shows the count (owner, 2026-11-03)
+
+Today the Max button reads `Buy xMax · 1.20M`, which looks like a cost in
+millions with no idea how many levels you get. Every buy button now names the
+number of levels and the cost separately:
+
+- x1, x10, x100: `Buy 10` on the left, cost on the right (`1.20M`), as two
+  spans in the button (the layout in the approved mockup).
+- Max: `Buy 37` with the real affordable count from `maxAffordable`, cost on
+  the right. With nothing affordable, show `Buy 1` and the single-level cost,
+  disabled, so the next target is still visible.
+- Under the button row, in the milestone line's small dim text, show the
+  result: `112 → 149 owned`. If the buy crosses a milestone, add
+  "· x2 speed!" in the tier colour.
+- Locked rows stay `Unlock` plus cost.
+- The cost always carries the token unit icon or the word "tokens" in
+  aria-label, so screen readers say "Buy 37 Raspberry Pi for 1.2 million
+  tokens".
+
+Files: `ui.js` only (plus a CSS line in `index.html`). Do it in pass 1 with
+the hints.
+
 ## Build passes
 
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
 each push.
 
-1. Hints and the row text cleanup: `hints.js`, hooks in `ui.js`, `save.js`,
+1. Hints, the row text cleanup and the buy-count button: `hints.js`, hooks in `ui.js`, `save.js`,
    `settings.js`, tests.
 2. `icons.js` with the 12 tier icons and `TIER_COLORS`; run buttons use them;
    `tools/icon-sheet.html`.
