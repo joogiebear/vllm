@@ -1,6 +1,6 @@
 // Achievement checks (docs/COMPLETION.md). Pure: the only mutation is
 // appending newly met ids to state.achievements.
-import { ACHIEVEMENTS, MANAGERS } from './data.js?v=20261103050553';
+import { ACHIEVEMENTS, MANAGERS, REGION_PERKS } from './data.js?v=20261103050553';
 
 // Evaluate one JSON-safe test descriptor against the state.
 function met(test, state) {
@@ -20,6 +20,12 @@ function met(test, state) {
       return (stats.rushGames || 0) >= test.n;
     case 'events':
       return (stats.eventsClaimed || 0) >= test.n;
+    case 'regions':
+      return (state.regionsEarned || 0) >= test.n;
+    case 'allPerks': {
+      const perks = Array.isArray(state.regionPerks) ? state.regionPerks : [];
+      return REGION_PERKS.every((p) => perks.includes(p.id));
+    }
     case 'allManagers':
       return MANAGERS.every((m) => managers.includes(m.id));
     default:
