@@ -18,6 +18,8 @@ function met(test, state) {
       return (stats.taps || 0) >= test.n;
     case 'rushGames':
       return (stats.rushGames || 0) >= test.n;
+    case 'events':
+      return (stats.eventsClaimed || 0) >= test.n;
     case 'allManagers':
       return MANAGERS.every((m) => managers.includes(m.id));
     default:
