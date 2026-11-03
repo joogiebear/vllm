@@ -146,6 +146,9 @@ export function createUI(state, io) {
     wAvail: $('w-avail'),
     prestige: $('prestige'),
     prestigeHint: $('prestige-hint'),
+    prestigeHintFill: $('prestige-hint-fill'),
+    prestigeHintText: $('prestige-hint-text'),
+    prestigeHintBonus: $('prestige-hint-bonus'),
     prestigeBtn: $('prestige-btn'),
     prestigeGrid: $('prestige-grid'),
     rush: $('rush'),
@@ -440,28 +443,38 @@ export function createUI(state, io) {
   els.upGrid.parentNode.insertBefore(buyAllBtn, els.upGrid);
 
   // --- build weight upgrade rows (once) ------------------------------------
-  // Sorted by cost, cheapest first, like the token upgrades.
+  // One-line rows, like the Upgrades tab: name and the effect in words on
+  // the left, a button with the weight price on the right. Sorted by cost,
+  // cheapest first.
   const wuRefs = [...WEIGHT_UPGRADES]
     .sort((a, b) => a.cost - b.cost)
     .map((wu) => {
     const row = document.createElement('div');
     row.className = 'wu';
+    const left = document.createElement('div');
+    left.className = 'wu-left';
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = wu.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
     effect.textContent = WU_WORDS[wu.id] || '';
-    const costEl = document.createElement('span');
-    costEl.className = 'cost';
-    costEl.textContent = wu.cost === 1 ? '1 weight' : `${wu.cost} weights`;
+    left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
-    buyBtn.textContent = 'BUY';
+    buyBtn.className = 'buy';
+    const bc = document.createElement('span');
+    bc.className = 'bc';
+    bc.textContent = wu.cost === 1 ? '1 weight' : `${wu.cost} weights`;
+    buyBtn.append(bc);
     buyBtn.addEventListener('click', () => buyWeightUpgrade(state, wu.id));
-    row.append(name, effect, costEl, buyBtn);
+    const check = document.createElement('span');
+    check.className = 'check';
+    check.hidden = true;
+    check.textContent = '✓';
+    row.append(left, buyBtn, check);
     els.prestigeGrid.appendChild(row);
-    return { wu, buyBtn };
+    return { wu, buyBtn, check };
   });
 
   // --- buy amount selector (applies to all generator rows) ------------------
