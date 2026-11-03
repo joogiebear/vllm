@@ -276,6 +276,12 @@ export function migrate(saveState) {
       (x) => typeof x === 'string' && MANAGERS.some((m) => m.id === x)
     );
   }
+  if (saveState.cycles !== null && typeof saveState.cycles === 'object' && !Array.isArray(saveState.cycles)) {
+    for (const id of Object.keys(s.cycles)) {
+      const v = saveState.cycles[id];
+      s.cycles[id] = isFiniteNumber(v) && v >= 0 ? v : null;
+    }
+  }
   s.rushCooldownUntil =
     isFiniteNumber(saveState.rushCooldownUntil) ? saveState.rushCooldownUntil : null;
   return s;
@@ -302,8 +308,8 @@ export function cost(state, id, max = 1) {
   return total;
 }
 
-export function buy(state, id, max = 1) {
-  if (!validState(state) || !isFiniteNumber(max) || max < 1) return 0;
+export function buy(state, id, max = Infinity) {
+  if (!validState(state) || typeof max !== 'number' || Number.isNaN(max) || max < 1) return 0;
   const g = GENERATORS.find((x) => x.id === id);
   if (!g) return 0;
   let bought = 0;
