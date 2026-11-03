@@ -287,6 +287,24 @@
     #heat-fill { height: 100%; width: 0%; background: var(--heat-color, var(--cyan)); }
     #overclock { min-height: 44px; }
 
+    /* Advice: the single highlighted card above the generators. A fixed
+       minimum height, so the card never causes a layout jump. */
+    #advice-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-height: 56px;
+      margin: 8px 0;
+      padding: 8px 12px;
+      background: var(--panel);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 12px -6px var(--cyan);
+    }
+    #advice-card #advice-text { flex: 1; min-width: 0; }
+    #advice-buy { min-height: 44px; }
+    #advice-goal { color: var(--amber); font-size: 12px; letter-spacing: 1px; }
+
     /* Generators: compact one-line rows (at most 56px tall), a segmented
        x1/x10/Max control as the section header, a thin progress bar along
        each row's bottom edge. */
@@ -568,6 +586,12 @@
         <div id="heat-slim">
           <div id="heat-bar"><div id="heat-fill"></div></div>
           <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
+        </div>
+
+        <div id="advice-card" hidden>
+          <span id="advice-text"></span>
+          <button id="advice-buy" type="button">BUY</button>
+          <span id="advice-goal"></span>
         </div>
 
         <section id="generators" class="panel">
