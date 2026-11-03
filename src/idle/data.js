@@ -89,6 +89,39 @@ export const RUSH_COOLDOWN_SECONDS = 600; // 10 minutes
 export const RUSH_MAX_SECONDS = 600; // payout = tokensPerSecond * min(600, score / 50)
 export const RUSH_SCORE_DIVISOR = 50;
 
+// Achievements (docs/COMPLETION.md). 44 entries, generated:
+// - every generator at 1, 25, 100 and 400 owned: 8 * 4 = 32
+// - lifetime-in-run tokens of 1M, 1B, 1T and 1Qa: 4
+// - prestiges 1, 5 and 25: 3
+// - all 8 managers hired in one run: 1
+// - taps 100 and 1,000: 2
+// - rush games 1 and 10: 2
+// Each test is a JSON-safe descriptor (no functions), evaluated by
+// checkAchievements() in achievements.js.
+const ACH_TIER_NAMES = { 1: 'First Boot', 25: '25 Online', 100: 'Server Farm', 400: 'Overkill' };
+export const ACHIEVEMENTS = [
+  ...GENERATORS.flatMap((g) =>
+    [1, 25, 100, 400].map((n) => ({
+      id: `gen-${g.id}-${n}`,
+      name: `${g.name}: ${ACH_TIER_NAMES[n]}`,
+      desc: `Own ${n} ${g.name}${n === 1 ? '' : 's'}`,
+      test: { kind: 'owned', gen: g.id, n },
+    }))
+  ),
+  { id: 'lifetime-1m', name: '1M This Run', desc: 'Earn 1M tokens this run', test: { kind: 'lifetime', n: 1e6 } },
+  { id: 'lifetime-1b', name: '1B This Run', desc: 'Earn 1B tokens this run', test: { kind: 'lifetime', n: 1e9 } },
+  { id: 'lifetime-1t', name: '1T This Run', desc: 'Earn 1T tokens this run', test: { kind: 'lifetime', n: 1e12 } },
+  { id: 'lifetime-1qa', name: '1Qa This Run', desc: 'Earn 1Qa tokens this run', test: { kind: 'lifetime', n: 1e15 } },
+  { id: 'prestige-1', name: 'First Prestige', desc: 'Prestige 1 time', test: { kind: 'prestiges', n: 1 } },
+  { id: 'prestige-5', name: '5 Prestiges', desc: 'Prestige 5 times', test: { kind: 'prestiges', n: 5 } },
+  { id: 'prestige-25', name: '25 Prestiges', desc: 'Prestige 25 times', test: { kind: 'prestiges', n: 25 } },
+  { id: 'managers-all', name: 'Full Management', desc: 'Hire all 8 managers in one run', test: { kind: 'allManagers' } },
+  { id: 'taps-100', name: '100 Taps', desc: 'Start 100 rows by hand', test: { kind: 'taps', n: 100 } },
+  { id: 'taps-1000', name: '1,000 Taps', desc: 'Start 1,000 rows by hand', test: { kind: 'taps', n: 1000 } },
+  { id: 'rush-1', name: 'First Rush', desc: 'Play 1 rush game', test: { kind: 'rushGames', n: 1 } },
+  { id: 'rush-10', name: '10 Rushes', desc: 'Play 10 rush games', test: { kind: 'rushGames', n: 10 } },
+];
+
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;
 
 export const SAVE_VERSION = 2;
