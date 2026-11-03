@@ -42,6 +42,21 @@ export function createState() {
     managers: [],
     cycles,
     rushCooldownUntil: null,
+    stats: {
+      allTimeTokens: 0,
+      bestRunTokens: 0,
+      playSeconds: 0,
+      offlineSeconds: 0,
+      offlineTokens: 0,
+      prestiges: 0,
+      managersHired: 0,
+      taps: 0,
+      generatorsBought: 0,
+      upgradesBought: 0,
+      rushGames: 0,
+      bestRushScore: 0,
+      runStartedAt: 0,
+    },
   };
 }
 
@@ -155,6 +170,10 @@ function addTokens(state, amount) {
   state.tokens += amount;
   state.lifetime += amount;
   state.totalLifetime += amount;
+  if (state.stats) {
+    state.stats.allTimeTokens += amount;
+    if (state.lifetime > state.stats.bestRunTokens) state.stats.bestRunTokens = state.lifetime;
+  }
 }
 
 // --- public API ----------------------------------------------------------------
@@ -178,6 +197,7 @@ export function tokensPerSecond(state) {
 // - A row with 0 owned cannot run.
 export function tick(state, seconds) {
   if (!validState(state) || !isFiniteNumber(seconds) || seconds <= 0) return state;
+  state.stats.playSeconds += seconds;
   for (const g of GENERATORS) {
     const owned = state.generators[g.id] || 0;
     if (owned <= 0) continue;
@@ -219,6 +239,7 @@ export function runRow(state, id) {
   if ((state.generators[g.id] || 0) <= 0) return false;
   if (state.cycles[g.id] !== null && state.cycles[g.id] !== undefined) return false;
   state.cycles[g.id] = 0;
+  state.stats.taps += 1;
   return true;
 }
 
@@ -230,6 +251,7 @@ export function buyManager(state, id) {
   if (state.tokens < m.cost) return false;
   state.tokens -= m.cost;
   state.managers.push(id);
+  state.stats.managersHired += 1;
   return true;
 }
 
@@ -322,6 +344,7 @@ export function buy(state, id, max = Infinity) {
     state.generators[id] += 1;
     bought++;
   }
+  state.stats.generatorsBought += bought;
   return bought;
 }
 
@@ -332,6 +355,7 @@ export function buyUpgrade(state, id) {
   if (state.tokens < u.cost) return false;
   state.tokens -= u.cost;
   state.upgrades.push(id);
+  state.stats.upgradesBought += 1;
   return true;
 }
 
@@ -353,6 +377,7 @@ export function buyAllUpgrades(state) {
       }
     }
   }
+  state.stats.upgradesBought += bought;
   return bought;
 }
 
@@ -375,6 +400,8 @@ export function prestige(state) {
   if (!validState(state)) return 0;
   const gained = weightsAvailable(state);
   if (gained < 1) return 0;
+  state.stats.prestiges += 1;
+  state.stats.runStartedAt = state.stats.playSeconds;
   const seed = WEIGHT_UPGRADES.find((u) => u.id === 'seed');
   const startTokens = hasWeightUpgrade(state, 'seed') ? seed.value : 0;
   state.weights += gained;
@@ -410,6 +437,8 @@ export function applyOffline(state, seconds) {
   }
   const offlineRate = hasWeightUpgrade(state, 'night') ? night.value : OFFLINE_RATE;
   const earned = rate * capped * offlineRate;
+  state.stats.offlineSeconds += capped;
+  state.stats.offlineTokens += earned;
   addTokens(state, earned);
   return earned;
 }
@@ -420,6 +449,8 @@ export function applyRush(state, score, now) {
   const nowN = isFiniteNumber(now) ? now : null;
   if (state.rushCooldownUntil !== null && nowN !== null && nowN < state.rushCooldownUntil) return 0;
   if (scoreN <= 0) return 0;
+  state.stats.rushGames += 1;
+  if (scoreN > state.stats.bestRushScore) state.stats.bestRushScore = scoreN;
   const seconds = Math.min(RUSH_MAX_SECONDS, scoreN / RUSH_SCORE_DIVISOR);
   const earned = tokensPerSecond(state) * seconds;
   addTokens(state, earned);

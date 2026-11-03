@@ -56,6 +56,12 @@ function mergeState(saved) {
     }
   }
   s.rushCooldownUntil = timeOrNull('rushCooldownUntil');
+  if (saved.stats && typeof saved.stats === 'object' && !Array.isArray(saved.stats)) {
+    for (const k of Object.keys(s.stats)) {
+      const v = saved.stats[k];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) s.stats[k] = v;
+    }
+  }
   if (Array.isArray(saved.upgrades)) {
     s.upgrades = saved.upgrades.filter((x) => typeof x === 'string');
   }
