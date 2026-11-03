@@ -8,7 +8,7 @@ import {
 } from './core.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
-  GENERATOR_REVEAL_FRACTION, UPGRADE_REVEAL_FRACTION,
+  GENERATOR_REVEAL_FRACTION, UPGRADE_REVEAL_FRACTION, PRESTIGE_DIVISOR,
 } from './data.js';
 
 // --- number formatting ----------------------------------------------------
@@ -98,6 +98,8 @@ export function createUI(state, io) {
     upGrid: $('up-grid'),
     purchasedList: $('purchased-list'),
     wAvail: $('w-avail'),
+    prestige: $('prestige'),
+    prestigeHint: $('prestige-hint'),
     prestigeBtn: $('prestige-btn'),
     prestigeGrid: $('prestige-grid'),
     rush: $('rush'),
@@ -335,8 +337,17 @@ export function createUI(state, io) {
       }
     }
 
-    // Prestige.
+    // Prestige: hidden until the first weight is in reach or already earned;
+    // a hint line takes its place in the meantime.
     const w = weightsAvailable(state);
+    const revealed = w >= 1 || state.weights > 0 || state.weightsEarnedThisCycle > 0;
+    els.prestige.hidden = !revealed;
+    els.prestigeHint.hidden = revealed;
+    if (!revealed) {
+      const target = PRESTIGE_DIVISOR * Math.pow(state.weightsEarnedThisCycle + 1, 2);
+      els.prestigeHint.textContent =
+        `New Model Generation unlocks at ${fmt(target)} lifetime tokens`;
+    }
     els.wAvail.textContent = fmt(w);
     els.prestigeBtn.disabled = w < 1;
 
