@@ -1604,6 +1604,43 @@ test('migrate: keeps valid x5Upgrades, drops invalid ones', () => {
   assert.deepEqual(s.x5Upgrades, ['pi5']);
 });
 
+test('buyAllUpgrades: buys an available x5 upgrade, mixed with normal upgrades by cost', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1.5e7;
+  s.upgrades = UPGRADES.filter((u) => u.cost <= 2e6).map((u) => u.id);
+  assert.equal(buyAllUpgrades(s), 2); // pi5 (2e6) then cluster3 (1e7)
+  assert.ok(s.upgrades.includes('cluster3'));
+  assert.ok(s.x5Upgrades.includes('pi5'));
+  assert.ok(!s.x5Upgrades.includes('gamer5')); // 1e7, only 3e6 left after the two
+  assert.equal(s.tokens, 3e6);
+  assert.equal(s.stats.upgradesBought, 2);
+});
+
+test('buyAllUpgrades: skips an x5 upgrade whose tier is locked', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1e20;
+  // 16 normal (lunar3/matrioshka3/singularity3 locked) + 9 x5 (8 ungated + orbital, gate 1).
+  assert.equal(buyAllUpgrades(s), 25);
+  assert.ok(s.x5Upgrades.includes('pi5'));
+  assert.ok(s.x5Upgrades.includes('orbital5'));
+  assert.ok(!s.x5Upgrades.includes('lunar5')); // gate 3 Regions
+  assert.ok(!s.x5Upgrades.includes('matrioshka5')); // gate 5 Regions
+  assert.ok(!s.x5Upgrades.includes('singularity5')); // gate 8 Regions
+  assert.equal(s.stats.upgradesBought, 25);
+});
+
+test('buyAllUpgrades: skips x5 upgrades before minRegions, still buys normal upgrades', () => {
+  const s = createState();
+  s.regionsEarned = 1;
+  s.tokens = 1e20;
+  s.upgrades = UPGRADES.filter((u) => u.cost > 10000).map((u) => u.id);
+  assert.equal(buyAllUpgrades(s), 5); // the five normal upgrades up to 10,000
+  assert.deepEqual(s.x5Upgrades, []);
+  assert.equal(s.stats.upgradesBought, 5);
+});
+
 test('REGION_BASE and REGION_GROWTH', () => {
   assert.equal(REGION_BASE, 4000);
   assert.equal(REGION_GROWTH, 6.5);

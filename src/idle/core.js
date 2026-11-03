@@ -649,20 +649,28 @@ export function buyUpgrade(state, id) {
 }
 
 // Procurement Bot: buy every affordable upgrade, cheapest first, until one
-// is unaffordable. Returns how many were bought.
+// is unaffordable. Includes the second-round x5 upgrades under the same
+// rules as buyX5Upgrade (minRegions reached, tier unlocked, not owned) —
+// docs/LATE-GAME-DESIGN.md, section 4. Returns how many were bought.
 export function buyAllUpgrades(state) {
   if (!validState(state)) return 0;
   let bought = 0;
   let again = true;
   while (again) {
     again = false;
-    const sorted = UPGRADES.filter(
+    const normal = UPGRADES.filter(
       (u) => !state.upgrades.includes(u.id) && (!u.tier || isTierUnlocked(state, u.tier)),
-    ).sort((a, b) => a.cost - b.cost);
-    for (const u of sorted) {
-      if (state.tokens >= u.cost) {
-        state.tokens -= u.cost;
-        state.upgrades.push(u.id);
+    ).map((u) => ({ u, list: state.upgrades }));
+    const second = X5_UPGRADES.filter(
+      (u) => !hasX5Upgrade(state, u.id)
+        && (state.regionsEarned || 0) >= u.minRegions
+        && isTierUnlocked(state, u.tier),
+    ).map((u) => ({ u, list: state.x5Upgrades }));
+    const sorted = [...normal, ...second].sort((a, b) => a.u.cost - b.u.cost);
+    for (const c of sorted) {
+      if (state.tokens >= c.u.cost) {
+        state.tokens -= c.u.cost;
+        c.list.push(c.u.id);
         bought++;
         again = true;
       }

@@ -1,5 +1,5 @@
 import {
-  buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
+  buy, buyUpgrade, buyX5Upgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
@@ -7,7 +7,7 @@ import {
   maxBuyable, isTierUnlocked, nextMilestone, regionTarget, globalMilestone,
 } from './core.js?v=20261103183009';
 import {
-  GENERATORS, UPGRADES, WEIGHT_UPGRADES,
+  GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS, REGION_UNLOCK_WEIGHTS,
@@ -282,8 +282,16 @@ export function createUI(state, io) {
     return { g, card, icon, iconCount, manMark, name, milestone, bar, barFill, barPayout, buyBtn, l1, l2, status };
   });
 
-  // Upgrades tab (Upgrades segment).
-  const upRefs = UPGRADES.map((u) => {
+  // Upgrades tab (Upgrades segment). Rows are created once, interleaved
+  // in cost order (both data tables are cost-sorted), so the DOM stays
+  // stable; only row state and x5 visibility change afterwards. The
+  // second-round x5 rows (docs/LATE-GAME-DESIGN.md, section 4) are
+  // hidden until available (minRegions reached and tier unlocked).
+  const rowDefs = [
+    ...UPGRADES.map((u) => ({ u, x5: false })),
+    ...X5_UPGRADES.map((u) => ({ u, x5: true })),
+  ].sort((a, b) => a.u.cost - b.u.cost);
+  const upRefs = rowDefs.map(({ u, x5 }) => {
     const row = document.createElement('div');
     row.className = 'up-row';
     const left = document.createElement('div');
@@ -299,15 +307,17 @@ export function createUI(state, io) {
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
     buyBtn.addEventListener('click', () => {
-      if (buyUpgrade(state, u.id)) {
+      const ok = x5 ? buyX5Upgrade(state, u.id) : buyUpgrade(state, u.id);
+      if (ok) {
         flash(row);
         play('buy');
       }
       updateUpgrades(state);
     });
     row.append(left, buyBtn);
+    if (x5) row.style.display = 'none';
     els.upGrid.appendChild(row);
-    return { u, row, buyBtn };
+    return { u, row, buyBtn, x5 };
   });
   // Global milestone line at the top of the Upgrades list (docs/
   // LATE-GAME-DESIGN.md, section 3): "All tiers at 250: x3 production.
@@ -1076,9 +1086,23 @@ export function createUI(state, io) {
     }
   }
 
+  // A second-round x5 upgrade is available once minRegions Regions are
+  // earned and its tier is unlocked (docs/LATE-GAME-DESIGN.md, section 4).
+  function x5Available(u) {
+    return (state.regionsEarned || 0) >= u.minRegions && isTierUnlocked(state, u.tier);
+  }
+  // The row's upgrade is a buy candidate: not owned, available (for x5
+  // rows) and affordable.
+  function upgradeCandidate(r) {
+    const owned = r.x5 ? state.x5Upgrades.includes(r.u.id) : state.upgrades.includes(r.u.id);
+    if (owned) return false;
+    if (r.x5 && !x5Available(r.u)) return false;
+    return r.u.cost <= state.tokens;
+  }
   function updateUpgrades() {
     for (const r of upRefs) {
-      const owned = state.upgrades.includes(r.u.id);
+      if (r.x5) r.row.style.display = x5Available(r.u) ? '' : 'none';
+      const owned = r.x5 ? state.x5Upgrades.includes(r.u.id) : state.upgrades.includes(r.u.id);
       r.row.classList.toggle('owned', owned);
       r.row.classList.toggle('dim', !owned);
       if (owned) {
@@ -1093,7 +1117,7 @@ export function createUI(state, io) {
         r.buyBtn.classList.toggle('afford', afford);
       }
     }
-    const affordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
+    const affordable = upRefs.some(upgradeCandidate);
     buyAllBtn.disabled = !affordable;
   }
 
@@ -1183,7 +1207,7 @@ export function createUI(state, io) {
   }
 
   function updateTabDots() {
-    const upAffordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
+    const upAffordable = upRefs.some(upgradeCandidate);
     const manAffordable = manRefs.some(
       (r) => !hasManager(state, r.m.id)
         && (state.generators[r.m.id] || 0) > 0
