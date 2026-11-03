@@ -503,21 +503,22 @@ export function maxBuyable(state, id) {
   return { count, total };
 }
 
+// Buy up to `max` units of a generator (Infinity or 'max' = as many as
+// affordable). One step: the count is capped by maxBuyable, the total is
+// subtracted once, the count added once, and stats updated once.
 export function buy(state, id, max = Infinity) {
   if (max === 'max') max = Infinity;
   if (!validState(state) || typeof max !== 'number' || Number.isNaN(max) || max < 1) return 0;
   const g = GENERATORS.find((x) => x.id === id);
   if (!g) return 0;
-  let bought = 0;
-  while (bought < max) {
-    const c = cost(state, id, 1);
-    if (!Number.isFinite(c) || state.tokens < c) break;
-    state.tokens -= c;
-    state.generators[id] += 1;
-    bought++;
-  }
-  state.stats.generatorsBought += bought;
-  return bought;
+  const { count: affordable } = maxBuyable(state, id);
+  const count = max === Infinity ? affordable : Math.min(Math.floor(max), affordable);
+  if (count <= 0) return 0;
+  const total = cost(state, id, count);
+  state.tokens -= total;
+  state.generators[id] += count;
+  state.stats.generatorsBought += count;
+  return count;
 }
 
 export function buyUpgrade(state, id) {
