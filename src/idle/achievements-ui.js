@@ -1,10 +1,12 @@
 // Achievements screen (docs/COMPLETION.md).
 // mountAchievements(container, getState) is called once at start by ui.js:
 // a progress line ("12 of 44 · +12% production"), then one-line rows with
-// name and a short condition, unlocked first, locked ones dim. Rows are
+// a badge (28 px), name and a short condition, unlocked first, locked ones
+// dim. Rows are
 // built once; the refresh pass only updates text and classes and reorders
 // the existing nodes, at most once a second.
 import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261103140732';
+import { badge } from './icons.js?v=20261103140732';
 
 const STYLE_ID = 'overclock-achievements-style';
 
@@ -34,7 +36,7 @@ function injectStyle() {
       color: var(--text, #eef3f9);
     }
     .ach-row.dim { color: var(--dim, #93a3b8); }
-    .ach-check { width: 18px; color: var(--affordable, #ffb547); font-weight: 700; }
+    .ach-badge { width: 28px; flex-shrink: 0; display: flex; }
     .ach-name { font-weight: 600; white-space: nowrap; }
     .ach-cond {
       min-width: 0;
@@ -89,21 +91,24 @@ export function mountAchievements(container, getState) {
   const list = document.createElement('div');
   list.className = 'ach-list';
 
-  // Build the rows once; refresh never rebuilds them.
+  // Build the rows once; refresh only swaps the badge when state flips.
   const refs = ACHIEVEMENTS.map((a) => {
     const row = document.createElement('div');
     row.className = 'ach-row';
-    const check = document.createElement('span');
-    check.className = 'ach-check';
+    // Its badge at 28 px, locked or unlocked
+    // (docs/ART-DESIGN.md "Achievement badges").
+    const badgeEl = document.createElement('span');
+    badgeEl.className = 'ach-badge';
+    badgeEl.appendChild(badge(a, false, 28));
     const name = document.createElement('span');
     name.className = 'ach-name';
     name.textContent = a.name;
     const cond = document.createElement('span');
     cond.className = 'ach-cond';
     cond.textContent = conditionText(a.test);
-    row.append(check, name, cond);
+    row.append(badgeEl, name, cond);
     list.appendChild(row);
-    return { a, row, check };
+    return { a, row, badgeEl, done: false };
   });
   container.append(progress, list);
 
@@ -119,7 +124,10 @@ export function mountAchievements(container, getState) {
     for (const r of refs) {
       const done = unlocked.includes(r.a.id);
       r.row.classList.toggle('dim', !done);
-      r.check.textContent = done ? '✓' : '';
+      if (r.done !== done) {
+        r.done = done;
+        r.badgeEl.replaceChildren(badge(r.a, done, 28));
+      }
     }
     // Unlocked first; stable order within each group.
     const ordered = refs.filter((r) => unlocked.includes(r.a.id))
