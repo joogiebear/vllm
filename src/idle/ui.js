@@ -177,9 +177,19 @@ export function createUI(state, io) {
   let advice = null;
   els.adviceBuy.addEventListener('click', () => {
     if (!advice || !advice.affordable) return;
-    if (advice.kind === 'generator') buy(state, advice.id, 1);
-    else buyUpgrade(state, advice.id);
+    const ok = advice.kind === 'generator'
+      ? buy(state, advice.id, 1) > 0
+      : buyUpgrade(state, advice.id);
+    if (ok) flash(els.adviceCard);
   });
+
+  // Purchase flash: a brief green pulse on the row/card that was bought.
+  // Re-triggered by removing the class, forcing a reflow, re-adding it.
+  function flash(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
 
   // --- build generator rows (once) -----------------------------------------
   // Each row is one line, at most 56px tall: "Name  x12" on the left
@@ -209,7 +219,8 @@ export function createUI(state, io) {
     bCost.className = 'bc';
     buyBtn.append(bEffect, bCost);
     buyBtn.addEventListener('click', () => {
-      buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
+      const bought = buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
+      if (bought > 0) flash(row);
       updateGenRows(state, false); // immediate, without waiting for the next 10 Hz pass
     });
     const bar = document.createElement('div');
@@ -387,7 +398,9 @@ export function createUI(state, io) {
     gainEl.className = 'gain';
     gainEl.hidden = true;
     buyBtn.append(bc, gainEl);
-    buyBtn.addEventListener('click', () => buyUpgrade(state, u.id));
+    buyBtn.addEventListener('click', () => {
+      if (buyUpgrade(state, u.id)) flash(card);
+    });
     const check = document.createElement('span');
     check.className = 'check';
     check.hidden = true;
