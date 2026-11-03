@@ -5,8 +5,10 @@ import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261
 import { createUI, fmt } from './ui.js?v=20261103041805';
 import { showWelcome } from './welcome.js?v=20261103041805';
 import { toast } from './toast.js?v=20261103041805';
+import { initFeedback } from './feedback.js?v=20261103041805';
 
 const { state, savedAt } = load();
+initFeedback();
 
 // The UI holds a reference to this state object, so import and reset
 // replace its fields in place instead of swapping the object.
