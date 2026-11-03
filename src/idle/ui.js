@@ -98,6 +98,7 @@ export function createUI(state, io) {
     prestigeSeg: 'weights',
     prestigeArmed: false,
     expandArmed: false,
+    regionDotSeen: false,
     resetArmed: false,
     lastNow: Date.now(),
   };
@@ -462,7 +463,10 @@ export function createUI(state, io) {
       }
     }
   }
-  psegBtns.forEach((b) => b.addEventListener('click', () => setPrestigeSeg(b.dataset.seg, true)));
+  psegBtns.forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.seg === 'regions') view.regionDotSeen = true;
+    setPrestigeSeg(b.dataset.seg, true);
+  }));
   let savedPseg = null;
   try {
     const s = localStorage.getItem(PSEG_KEY);
@@ -470,6 +474,7 @@ export function createUI(state, io) {
   } catch (err) {
     // private mode: default segment
   }
+  if (savedPseg === 'regions') view.regionDotSeen = true;
   setPrestigeSeg(savedPseg || 'weights', false);
 
   // Tabs.
@@ -916,7 +921,8 @@ export function createUI(state, io) {
     const unlocked =
       (state.weightsEverEarned || 0) + (state.weightsEarnedThisCycle || 0) >= REGION_UNLOCK_WEIGHTS;
     els.regionsSegBtn.hidden = !unlocked;
-    els.regionDot.hidden = !unlocked;
+    // The dot marks the Regions segment once, until it has been viewed.
+    els.regionDot.hidden = !unlocked || view.regionDotSeen;
     if (!unlocked && view.prestigeSeg === 'regions') setPrestigeSeg('weights', false);
     updateRegions();
   }
