@@ -4,13 +4,14 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
-  maxBuyable,
+  maxBuyable, isTierUnlocked, nextMilestone,
 } from './core.js?v=20261103183009';
 import {
-  GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
+  GENERATORS, UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS, REGION_DIVISOR, REGION_UNLOCK_WEIGHTS,
+  TIER_GATES,
 } from './data.js?v=20261103183009';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261103183009';
 import { play } from './feedback.js?v=20261103183009';
@@ -930,15 +931,21 @@ export function createUI(state, io) {
 
   function updateGenCards() {
     let nextUnowned = null;
+    // Only the next locked tier is shown (docs/LATE-GAME-DESIGN.md,
+    // section 1), so the list doesn't fill with locked rows.
+    let nextLocked = null;
     for (const r of genRefs) {
       if ((state.generators[r.g.id] || 0) === 0 && nextUnowned === null) {
         nextUnowned = r.g.id;
+      }
+      if (!isTierUnlocked(state, r.g.id) && nextLocked === null) {
+        nextLocked = r.g.id;
       }
     }
     for (const r of genRefs) {
       const g = r.g;
       const owned = state.generators[g.id] || 0;
-      const visible = owned > 0 || g.id === nextUnowned;
+      const visible = owned > 0 || g.id === nextUnowned || g.id === nextLocked;
       r.card.hidden = !visible;
       if (!visible) continue;
 
@@ -963,8 +970,11 @@ export function createUI(state, io) {
 
       r.iconCount.textContent = fmt(owned);
 
-      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
-      r.milestone.textContent = next === undefined ? '' : `x2 speed at ${next}`;
+      // The row's milestone text shows whichever reward is next
+      // (docs/LATE-GAME-DESIGN.md, section 3): "x2 speed at 25",
+      // "x2 payout at 300", ...
+      const m = nextMilestone(state, g.id);
+      r.milestone.textContent = m === null ? '' : `x${m.value} ${m.kind} at ${m.owned}`;
 
       let fill;
       if (continuous) fill = 1;
@@ -982,15 +992,27 @@ export function createUI(state, io) {
       r.card.classList.toggle('locked', isLocked);
       r.bar.hidden = isLocked;
       r.milestone.hidden = isLocked;
-      let c;
       let disabled;
-      if (isLocked) {
-        c = cost(state, g.id, 1);
+      // Locked tier (docs/LATE-GAME-DESIGN.md, section 1): the dimmed
+      // icon and the gate text instead of a Buy button. The button
+      // stays in the DOM (stable) and is disabled.
+      const gateLocked = isLocked && !isTierUnlocked(state, g.id);
+      if (gateLocked) {
+        const gate = TIER_GATES.find((t) => t.id === g.id);
+        const n = gate.regions;
+        setLines(
+          r,
+          `Unlocks at ${regionName({ ...state, regionsEarned: n })} (${n} Region${n === 1 ? '' : 's'})`,
+          null,
+        );
+        disabled = true;
+      } else if (isLocked) {
+        const c = cost(state, g.id, 1);
         disabled = c > state.tokens;
         setLines(r, `Unlock · ${fmtCost(c)} tokens`, null);
       } else if (view.buyMode === 'max') {
         const m = maxBuyable(state, g.id);
-        c = m.count > 0 ? m.total : cost(state, g.id, 1);
+        const c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
         setLines(
           r,
@@ -1001,7 +1023,7 @@ export function createUI(state, io) {
         );
       } else {
         const n = Number(view.buyMode);
-        c = cost(state, g.id, n);
+        const c = cost(state, g.id, n);
         disabled = c > state.tokens;
         setLines(r, `Buy ${n} level${n === 1 ? '' : 's'}`, `${fmtCost(c)} tokens`);
       }
