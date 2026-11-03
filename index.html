@@ -68,8 +68,16 @@
     .dim { color: var(--dim); }
     .value { color: var(--cyan); }
 
-    /* Header */
+    /* Header: tokens as the largest text, the rate beside it, and the heat
+       multiplier (x2 amber / x0.5 red) next to the rate. */
     #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+    #hud-main { display: flex; align-items: baseline; gap: 12px; }
+    #tokens { font-size: 32px; line-height: 1; }
+    #rate { font-size: 16px; }
+    #tps-mult { font-size: 14px; }
+    #tps-mult[hidden] { display: none; }
+    #tps-mult.oc { color: var(--amber); }
+    #tps-mult.throttle { color: var(--red); }
     #weights-value { color: var(--magenta); }
 
     /* Notification banners (offline earnings, rush payout) */
@@ -289,8 +297,11 @@
 <body>
   <div id="app">
     <header id="hud" class="panel">
-      <div>tokens <span id="tokens" class="value">0</span></div>
-      <div><span id="tps" class="value">0</span>/s</div>
+      <div id="hud-main">
+        <span id="tokens" class="value">0</span>
+        <span id="rate"><span id="tps" class="value">+0/s</span></span>
+        <span id="tps-mult" hidden></span>
+      </div>
       <div>weights <span id="weights-value">0</span></div>
     </header>
 

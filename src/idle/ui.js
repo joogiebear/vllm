@@ -78,6 +78,7 @@ export function createUI(state, io) {
   const els = {
     tokens: $('tokens'),
     tps: $('tps'),
+    tpsMult: $('tps-mult'),
     weights: $('weights-value'),
     banner: $('banner'),
     serve: $('serve'),
@@ -480,7 +481,21 @@ export function createUI(state, io) {
   function update(state, now) {
     view.lastNow = now;
     els.tokens.textContent = fmt(state.tokens);
-    els.tps.textContent = fmt(tokensPerSecond(state));
+    // The rate carries the heat multiplier next to it: "x2" amber while
+    // overclocked, "x0.5" red while throttled, hidden otherwise.
+    els.tps.textContent = `+${fmt(tokensPerSecond(state))}/s`;
+    if (state.throttled) {
+      els.tpsMult.hidden = false;
+      els.tpsMult.textContent = 'x0.5';
+      els.tpsMult.className = 'throttle';
+    } else if (state.overclock) {
+      els.tpsMult.hidden = false;
+      els.tpsMult.textContent = 'x2';
+      els.tpsMult.className = 'oc';
+    } else {
+      els.tpsMult.hidden = true;
+      els.tpsMult.className = '';
+    }
     els.weights.textContent = fmt(state.weights);
 
     // Heat panel.
