@@ -12,6 +12,7 @@ import {
   buyWeightUpgrade,
   weightsAvailable,
   prestige,
+  ensureStarter,
   cost,
   applyOffline,
   applyRush,
@@ -244,7 +245,7 @@ test('prestige: resets generators, tokens, upgrades, keeps weights', () => {
   assert.equal(s.weightsEarnedThisCycle, 10);
   assert.equal(s.tokens, 0);
   assert.equal(s.lifetime, 0);
-  assert.equal(s.generators.pi, 0);
+  assert.equal(s.generators.pi, 1); // every run starts with one Pi
   assert.equal(s.upgrades.length, 0);
   assert.equal(s.totalLifetime, 10000000000000);
 });
@@ -368,4 +369,25 @@ test('migrate: a fresh state (no version) is left alone', () => {
   const empty = migrate({});
   assert.equal(empty.tokens, 0);
   assert.equal(empty.upgrades.length, 0);
+});
+
+test('a new run and a prestige both start with one Raspberry Pi', () => {
+  const s = ensureStarter(createState());
+  assert.equal(s.generators.pi, 1);
+  assert.ok(tokensPerSecond(s) > 0);
+  s.totalLifetime = s.lifetime = 1e13;
+  prestige(s);
+  assert.equal(s.generators.pi, 1);
+  assert.equal(s.generators.gamer, 0);
+});
+
+test('ensureStarter restores a pi only when nothing is owned', () => {
+  const s = createState();
+  s.generators.pi = 0;
+  ensureStarter(s);
+  assert.equal(s.generators.pi, 1);
+  s.generators.pi = 0;
+  s.generators.gamer = 3;
+  ensureStarter(s);
+  assert.equal(s.generators.pi, 0);
 });

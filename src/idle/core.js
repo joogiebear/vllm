@@ -2,6 +2,7 @@
 // Table values come from ./data.js. Invalid arguments are ignored and never throw.
 import {
   GENERATORS,
+  STARTER_GENERATOR,
   COST_GROWTH,
   DOUBLING_THRESHOLDS,
   UPGRADES,
@@ -383,7 +384,7 @@ export function prestige(state) {
   state.tokens = startTokens;
   state.lifetime = 0;
   for (const g of GENERATORS) {
-    state.generators[g.id] = 0;
+    state.generators[g.id] = g.id === STARTER_GENERATOR ? 1 : 0;
     state.cycles[g.id] = null;
   }
   state.upgrades = [];
@@ -424,4 +425,12 @@ export function applyRush(state, score, now) {
   addTokens(state, earned);
   if (nowN !== null) state.rushCooldownUntil = nowN + RUSH_COOLDOWN_SECONDS;
   return earned;
+}
+
+// A run with no generators at all could never earn again, since there is no
+// click. Saves made while that was possible get their starter back.
+export function ensureStarter(state) {
+  if (!validState(state)) return state;
+  if (GENERATORS.every((g) => !(state.generators[g.id] > 0))) state.generators[STARTER_GENERATOR] = 1;
+  return state;
 }

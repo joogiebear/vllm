@@ -92,6 +92,9 @@ export const RUSH_SCORE_DIVISOR = 50;
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;
 
 export const SAVE_VERSION = 2;
+
+// Every run starts with one of these, so a new or reset run can earn without clicking.
+export const STARTER_GENERATOR = 'pi';
 export const SAVE_KEY = 'overclock.idle.v1';
 export const SAVE_CORRUPT_KEY = 'overclock.idle.corrupt';
 export const RUSH_RESULT_KEY = 'overclock.rush';

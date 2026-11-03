@@ -1,6 +1,6 @@
 import {
   buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
-  tokensPerSecond, cost, weightsAvailable, createState,
+  tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
 } from './core.js';
 import {
@@ -356,7 +356,7 @@ export function createUI(state, io) {
     els.resetBtn.classList.remove('armed');
     els.resetBtn.textContent = 'HARD RESET';
     io.hardReset();
-    io.replaceState(createState());
+    io.replaceState(ensureStarter(createState()));
     showBanner('Hard reset. Fresh run.', 'Reset');
   });
 
