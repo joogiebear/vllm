@@ -18,21 +18,8 @@ import { mountStats } from './stats-ui.js?v=20261103140732';
 import { mountEvents } from './events-ui.js?v=20261103140732';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103140732';
 
-// Tier colours (data.js is owned by the balance pass, so colours live here).
-const TIER_COLORS = {
-  pi: '#4fd1c5',
-  gamer: '#63b3ed',
-  workstation: '#b794f4',
-  rack: '#f6ad55',
-  cluster: '#f687b3',
-  datacenter: '#68d391',
-  campus: '#f6e05e',
-  swarm: '#fc8181',
-  orbital: '#9b5cf6',
-  lunar: '#38bdf8',
-  matrioshka: '#f43f5e',
-  singularity: '#eab308',
-};
+// Tier colours live in icons.js (one source); imported back here.
+import { TIER_COLORS } from './icons.js?v=20261103140732';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
