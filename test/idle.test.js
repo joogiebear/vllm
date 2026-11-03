@@ -29,10 +29,15 @@ import {
   buyRegionPerk,
   autoProcureDue,
   cycleTime,
+  rowRate,
+  cyclePayout,
+  nextMilestone,
+  globalMilestone,
 } from '../src/idle/core.js';
 import {
   ACHIEVEMENTS,
   GENERATORS,
+  DOUBLING_THRESHOLDS,
   REGION_BASE,
   REGION_GROWTH,
   TIER_GATES,
@@ -295,7 +300,8 @@ test('tick: a cycle under 0.25s is continuous (bar full, pays every tick)', () =
   s.generators.pi = 400;
   s.managers.push('pi');
   tick(s, 2);
-  assert.equal(s.tokens, 25600);
+  // 400 owned: speed x32 (5 milestones) and payout x2 (the 300 milestone)
+  assert.equal(s.tokens, 51200);
   assert.equal(s.cycles.pi, 0.21875);
 });
 
@@ -1600,4 +1606,117 @@ test('buyAllUpgrades: skips gated upgrades, still buys the ungated ones', () => 
   for (const g of TIER_GATES) assert.ok(!s.upgrades.includes(`${g.id}3`), `${g.id}3 must stay gated`);
   assert.ok(s.upgrades.includes('quant'), 'ungated upgrades still bought');
   assert.ok(s.upgrades.includes('rack3'), 'ungated tier upgrades still bought');
+});
+
+// Late-game milestones (docs/LATE-GAME-DESIGN.md, section 3)
+
+const sf = (n) => DOUBLING_THRESHOLDS.reduce((f, t) => (n >= t ? f * 2 : f), 1);
+
+test('payout milestones: each threshold multiplies the tier output, at the exact count', () => {
+  const pm = (n) => PAYOUT_MILESTONES.reduce((m, t) => (n >= t.owned ? m * t.value : m), 1);
+  for (const m of PAYOUT_MILESTONES) {
+    const s = createState();
+    s.generators.pi = m.owned - 1;
+    assert.equal(tokensPerSecond(s), (m.owned - 1) * sf(m.owned - 1) * pm(m.owned - 1), `pi ${m.owned - 1} below ${m.owned}`);
+    s.generators.pi = m.owned;
+    assert.equal(tokensPerSecond(s), m.owned * sf(m.owned) * pm(m.owned), `pi ${m.owned} at ${m.owned}`);
+    assert.equal(pm(m.owned) / pm(m.owned - 1), m.value, `the jump at ${m.owned} is x${m.value}`);
+  }
+});
+
+test('payout milestones: stack (2 x 3 x 3 x 5 = 90 at 1000 owned)', () => {
+  const s = createState();
+  s.generators.pi = 1000;
+  assert.equal(tokensPerSecond(s), 1000 * sf(1000) * 2 * 3 * 3 * 5);
+});
+
+test('payout milestones: multiply the cycle payout too', () => {
+  const s = createState();
+  const g = GENERATORS.find((x) => x.id === 'pi');
+  // the payout lump carries the payout milestone but not the speed factor
+  // (the speed shortens the cycle time instead)
+  s.generators.pi = 300;
+  assert.equal(cyclePayout(s, g), 300 * g.tps * g.cycleSeconds * 2);
+  s.generators.pi = 299;
+  assert.equal(cyclePayout(s, g), 299 * g.tps * g.cycleSeconds);
+});
+
+test('global milestones: every unlocked tier at the threshold, x2 x3 x5', () => {
+  const sumTps = GENERATORS.reduce((a, g) => a + g.tps, 0);
+  const gm = (n) => GLOBAL_MILESTONES.reduce((m, t) => (n >= t.owned ? m * t.value : m), 1);
+  const pm = (n) => PAYOUT_MILESTONES.reduce((m, t) => (n >= t.owned ? m * t.value : m), 1);
+  for (const n of [99, 100, 249, 250, 499, 500]) {
+    const s = createState();
+    s.regionsEarned = 8; // all 12 tiers unlocked (x256 Region multiplier)
+    for (const g of GENERATORS) s.generators[g.id] = n;
+    assert.equal(tokensPerSecond(s), n * sumTps * sf(n) * gm(n) * pm(n) * 256, `all tiers at ${n}`);
+  }
+});
+
+test('global milestones: the rule uses unlocked tiers only', () => {
+  const sumTps8 = GENERATORS.filter((g) => !TIER_GATES.some((t) => t.id === g.id)).reduce((a, g) => a + g.tps, 0);
+  const s = createState();
+  s.regionsEarned = 0; // tiers 9-12 locked
+  for (const g of GENERATORS) {
+    if (!TIER_GATES.some((t) => t.id === g.id)) s.generators[g.id] = 250;
+  }
+  // the 8 unlocked tiers are all at 250 -> x2 x3, even though the locked
+  // tiers sit at 0
+  assert.equal(tokensPerSecond(s), 250 * sumTps8 * sf(250) * 6);
+  // a gated tier the player owns stays usable and joins the rule: at 100
+  // it meets the 100 milestone but blocks the 250 one -> x2 only
+  s.generators.orbital = 100;
+  assert.equal(tokensPerSecond(s), 250 * sumTps8 * sf(250) * 2 + 100 * 1.5e6 * sf(100) * 2);
+  // at 250 the 250 milestone is met again -> x2 x3
+  s.generators.orbital = 250;
+  assert.equal(tokensPerSecond(s), (250 * sumTps8 * sf(250) + 250 * 1.5e6 * sf(250)) * 6);
+});
+
+test('nextMilestone: the next speed or payout reward for a row', () => {
+  const cases = [
+    [0, { kind: 'speed', value: 2, owned: 25 }],
+    [24, { kind: 'speed', value: 2, owned: 25 }],
+    [25, { kind: 'speed', value: 2, owned: 50 }],
+    [100, { kind: 'speed', value: 2, owned: 200 }],
+    [200, { kind: 'payout', value: 2, owned: 300 }],
+    [250, { kind: 'payout', value: 2, owned: 300 }],
+    [400, { kind: 'payout', value: 3, owned: 500 }],
+    [499, { kind: 'payout', value: 3, owned: 500 }],
+    [500, { kind: 'payout', value: 3, owned: 750 }],
+    [750, { kind: 'payout', value: 5, owned: 1000 }],
+    [1000, null],
+  ];
+  for (const [owned, expected] of cases) {
+    const s = createState();
+    s.generators.pi = owned;
+    assert.deepEqual(nextMilestone(s, 'pi'), expected, `pi ${owned}`);
+  }
+  assert.equal(nextMilestone(createState(), 'nope'), null);
+  assert.equal(nextMilestone(null, 'pi'), null);
+});
+
+test('globalMilestone: next threshold, lowest tier and count', () => {
+  const all = (n) => {
+    const s = createState();
+    s.regionsEarned = 8; // all 12 tiers unlocked
+    for (const g of GENERATORS) s.generators[g.id] = n;
+    return s;
+  };
+  let s = all(99);
+  assert.deepEqual(globalMilestone(s), { next: { owned: 100, value: 2 }, lowestTier: 'pi', lowestCount: 99 });
+  s = all(100);
+  assert.deepEqual(globalMilestone(s), { next: { owned: 250, value: 3 }, lowestTier: 'pi', lowestCount: 100 });
+  s = all(500);
+  assert.deepEqual(globalMilestone(s), { next: null, lowestTier: 'pi', lowestCount: 500 });
+  // an uneven run: the slowest unlocked tier is reported
+  s = all(250);
+  s.generators.lunar = 212;
+  assert.deepEqual(globalMilestone(s), { next: { owned: 250, value: 3 }, lowestTier: 'lunar', lowestCount: 212 });
+  // locked tiers do not block: 8 unlocked at 100, 4 locked at 0
+  s = createState();
+  s.regionsEarned = 0;
+  for (const g of GENERATORS) {
+    if (!TIER_GATES.some((t) => t.id === g.id)) s.generators[g.id] = 100;
+  }
+  assert.deepEqual(globalMilestone(s), { next: { owned: 250, value: 3 }, lowestTier: 'pi', lowestCount: 100 });
 });

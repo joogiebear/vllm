@@ -5,6 +5,8 @@ import {
   STARTER_GENERATOR,
   COST_GROWTH,
   DOUBLING_THRESHOLDS,
+  PAYOUT_MILESTONES,
+  GLOBAL_MILESTONES,
   UPGRADES,
   WEIGHT_UPGRADES,
   MANAGERS,
@@ -168,7 +170,9 @@ function productionMultiplier(state) {
   for (const u of UPGRADES) {
     if (u.kind === 'production' && state.upgrades.includes(u.id)) m *= u.value;
   }
-  return m;
+  // Global milestones multiply all production (docs/LATE-GAME-DESIGN.md,
+  // section 3).
+  return m * globalMilestoneMultiplier(state);
 }
 
 function tierMultiplier(state, g) {
@@ -192,6 +196,35 @@ function speedFactor(owned) {
   return f;
 }
 
+// The tiers that count for the global milestones (docs/LATE-GAME-DESIGN.md,
+// section 1 and 3): tiers 1-8 always, gated tiers once their gate is met
+// or the player already owns them.
+function unlockedTiers(state) {
+  return GENERATORS.filter((g) => isTierUnlocked(state, g.id));
+}
+
+// Payout milestones per tier (docs/LATE-GAME-DESIGN.md, section 3): once
+// a tier reaches `owned`, its output is multiplied by `value`.
+function payoutMilestoneMultiplier(state, g) {
+  const owned = state.generators[g.id] || 0;
+  let m = 1;
+  for (const t of PAYOUT_MILESTONES) {
+    if (owned >= t.owned) m *= t.value;
+  }
+  return m;
+}
+
+// Global milestones (docs/LATE-GAME-DESIGN.md, section 3): when every
+// unlocked tier reaches `owned`, all production is multiplied by `value`.
+function globalMilestoneMultiplier(state) {
+  const tiers = unlockedTiers(state);
+  let m = 1;
+  for (const t of GLOBAL_MILESTONES) {
+    if (tiers.every((g) => (state.generators[g.id] || 0) >= t.owned)) m *= t.value;
+  }
+  return m;
+}
+
 // Multipliers shared by every row: cache rate, weight bonus (based on
 // weightsEarnedThisCycle, not total weights, so prestige resets the bonus
 // to 0.1 * weightsEarnedThisCycle) and global production.
@@ -209,13 +242,13 @@ function rateMultiplier(state) {
 // Equals the old continuous rate, so existing balance holds.
 export function rowRate(state, g) {
   const owned = state.generators[g.id] || 0;
-  return owned * g.tps * speedFactor(owned) * tierMultiplier(state, g) * rateMultiplier(state);
+  return owned * g.tps * speedFactor(owned) * tierMultiplier(state, g) * payoutMilestoneMultiplier(state, g) * rateMultiplier(state);
 }
 
 // The lump a cycle pays: owned * tps * cycleSeconds * multipliers.
 export function cyclePayout(state, g) {
   const owned = state.generators[g.id] || 0;
-  return owned * g.tps * g.cycleSeconds * tierMultiplier(state, g) * rateMultiplier(state);
+  return owned * g.tps * g.cycleSeconds * tierMultiplier(state, g) * payoutMilestoneMultiplier(state, g) * rateMultiplier(state);
 }
 
 // Cycle time in seconds; milestones halve it (speed x2). Overclocked
@@ -521,6 +554,52 @@ export function isTierUnlocked(state, id) {
   if (!gate) return true;
   if ((state.regionsEarned || 0) >= gate.regions) return true;
   return (state.generators[id] || 0) > 0;
+}
+
+// The next speed or payout milestone for a row (docs/LATE-GAME-DESIGN.md,
+// section 3): the smallest threshold above the owned count, from the
+// doubling (speed x2) and payout tables. Returns { kind, value, owned },
+// or null when the row has reached every milestone.
+export function nextMilestone(state, id) {
+  if (!validState(state)) return null;
+  const g = GENERATORS.find((x) => x.id === id);
+  if (!g) return null;
+  const owned = state.generators[id] || 0;
+  let best = null;
+  for (const t of DOUBLING_THRESHOLDS) {
+    if (t > owned && (best === null || t < best.owned)) best = { kind: 'speed', value: 2, owned: t };
+  }
+  for (const p of PAYOUT_MILESTONES) {
+    if (p.owned > owned && (best === null || p.owned < best.owned)) best = { kind: 'payout', value: p.value, owned: p.owned };
+  }
+  return best;
+}
+
+// The next global milestone (docs/LATE-GAME-DESIGN.md, section 3): the
+// first threshold not yet met by every unlocked tier, plus the unlocked
+// tier with the fewest owned ("Lowest now: Lunar 212"). Returns
+// { next, lowestTier, lowestCount }; next is null once every threshold
+// is met.
+export function globalMilestone(state) {
+  if (!validState(state)) return { next: null, lowestTier: null, lowestCount: null };
+  const tiers = unlockedTiers(state);
+  let next = null;
+  for (const t of GLOBAL_MILESTONES) {
+    if (!tiers.every((g) => (state.generators[g.id] || 0) >= t.owned)) {
+      next = { owned: t.owned, value: t.value };
+      break;
+    }
+  }
+  let lowestTier = null;
+  let lowestCount = null;
+  for (const g of tiers) {
+    const n = state.generators[g.id] || 0;
+    if (lowestCount === null || n < lowestCount) {
+      lowestCount = n;
+      lowestTier = g.id;
+    }
+  }
+  return { next, lowestTier, lowestCount };
 }
 
 // Buy up to `max` units of a generator (Infinity or 'max' = as many as
