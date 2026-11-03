@@ -18,6 +18,16 @@ import {
   WEIGHT_BONUS_PER_WEIGHT,
   CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
+  EVENT_KINDS,
+  EVENT_RNG_SEED,
+  EVENT_FIRST_DELAY,
+  EVENT_GAP_MIN,
+  EVENT_GAP_MAX,
+  EVENT_CLAIM_WINDOW,
+  EVENT_DURATION,
+  EVENT_SPIKE_MULTIPLIER,
+  EVENT_TURBO_SPEED,
+  EVENT_WINDFALL_SECONDS,
 } from './data.js?v=20261103044134';
 import { ACHIEVEMENTS } from './data.js?v=20261103044134';
 import { checkAchievements } from './achievements.js?v=20261103044134';
@@ -45,6 +55,10 @@ export function createState() {
     cycles,
     achievements: [],
     rushCooldownUntil: null,
+    rng: EVENT_RNG_SEED,
+    nextEventIn: EVENT_FIRST_DELAY,
+    eventOffer: null,
+    eventActive: null,
     stats: {
       allTimeTokens: 0,
       bestRunTokens: 0,
@@ -59,6 +73,7 @@ export function createState() {
       rushGames: 0,
       bestRushScore: 0,
       runStartedAt: 0,
+      eventsClaimed: 0,
     },
   };
 }
@@ -103,6 +118,15 @@ function cacheRate(state) {
   return upgradeSum(state, 'cacheRate') + weightUpgradeSum(state, 'cacheRate');
 }
 
+// mulberry32: the generator's state is state.rng, so core stays pure.
+// Returns a number in [0, 1).
+function rngNext(state) {
+  state.rng = (state.rng + 0x6d2b79f5) | 0;
+  let t = Math.imul(state.rng ^ (state.rng >>> 15), 1 | state.rng);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 // Global production multiplier (kind 'production'). Per-tier multipliers
 // (kind 'productionTier') are applied per row in tierMultiplier().
 function productionMultiplier(state) {
@@ -138,11 +162,13 @@ function speedFactor(owned) {
 // weightsEarnedThisCycle, not total weights, so prestige resets the bonus
 // to 0.1 * weightsEarnedThisCycle) and global production.
 function rateMultiplier(state) {
-  return (
+  let m =
     (1 + cacheRate(state)) *
     (1 + weightBonusPer(state) * (state.weightsEarnedThisCycle || 0)) *
-    productionMultiplier(state)
-  );
+    productionMultiplier(state);
+  // Spike multiplies tokensPerSecond, and so the cycle payout.
+  if (state.eventActive && state.eventActive.kind === 'spike') m *= EVENT_SPIKE_MULTIPLIER;
+  return m;
 }
 
 // The steady-state rate of a row: what a managed row pays per second.
@@ -202,10 +228,39 @@ export function tokensPerSecond(state) {
 export function tick(state, seconds) {
   if (!validState(state) || !isFiniteNumber(seconds) || seconds <= 0) return state;
   state.stats.playSeconds += seconds;
+  // Timed events: one at a time. An offer on screen drains its claim window;
+  // the countdown only runs when no offer is on screen (and resumes in the
+  // same tick once the offer expires).
+  let eventTime = seconds;
+  if (state.eventOffer) {
+    const drain = Math.min(state.eventOffer.claimBy, eventTime);
+    eventTime -= drain;
+    state.eventOffer.claimBy -= drain;
+    if (state.eventOffer.claimBy <= 0) state.eventOffer = null;
+  }
+  if (state.eventOffer === null && eventTime > 0 && isFiniteNumber(state.nextEventIn)) {
+    const left = state.nextEventIn - eventTime;
+    if (left > 0) {
+      state.nextEventIn = left;
+    } else {
+      // The offer is alive for -left seconds of this tick, so its window
+      // may already be partly spent (or gone).
+      const kind = EVENT_KINDS[Math.floor(rngNext(state) * EVENT_KINDS.length)];
+      const claimBy = EVENT_CLAIM_WINDOW + left;
+      state.nextEventIn = EVENT_GAP_MIN + rngNext(state) * (EVENT_GAP_MAX - EVENT_GAP_MIN);
+      state.eventOffer = claimBy > 0 ? { kind: kind.id, claimBy } : null;
+    }
+  }
+  if (state.eventActive) {
+    state.eventActive.remaining -= seconds;
+    if (state.eventActive.remaining <= 0) state.eventActive = null;
+  }
   for (const g of GENERATORS) {
     const owned = state.generators[g.id] || 0;
     if (owned <= 0) continue;
-    const ct = cycleTime(state, g);
+    let ct = cycleTime(state, g);
+    // Turbo halves the effective cycle time.
+    if (state.eventActive && state.eventActive.kind === 'turbo') ct /= EVENT_TURBO_SPEED;
     if (ct < CONTINUOUS_CYCLE_MAX) {
       addTokens(state, rowRate(state, g) * seconds);
       state.cycles[g.id] = ct; // bar shows full
@@ -319,6 +374,13 @@ export function migrate(saveState) {
   }
   s.rushCooldownUntil =
     isFiniteNumber(saveState.rushCooldownUntil) ? saveState.rushCooldownUntil : null;
+  s.rng = isFiniteNumber(saveState.rng) ? saveState.rng : EVENT_RNG_SEED;
+  s.nextEventIn =
+    isFiniteNumber(saveState.nextEventIn) && saveState.nextEventIn >= 0
+      ? saveState.nextEventIn
+      : EVENT_FIRST_DELAY;
+  // eventOffer and eventActive are not persisted: they are cleared on load,
+  // like by applyOffline.
   return s;
 }
 
@@ -434,10 +496,34 @@ export function prestige(state) {
   return gained;
 }
 
+// Claim the offer on screen. Returns the kind, or null when there is no
+// offer (or it expired). Windfall pays instantly; timed kinds set
+// state.eventActive, replacing a running event.
+export function claimEvent(state) {
+  if (!validState(state) || !state.eventOffer) return null;
+  if (state.eventOffer.claimBy <= 0) {
+    state.eventOffer = null;
+    return null;
+  }
+  const kind = state.eventOffer.kind;
+  state.eventOffer = null;
+  if (kind === 'windfall') {
+    addTokens(state, tokensPerSecond(state) * EVENT_WINDFALL_SECONDS);
+  } else {
+    state.eventActive = { kind, remaining: EVENT_DURATION };
+  }
+  state.stats.eventsClaimed += 1;
+  checkAchievements(state);
+  return kind;
+}
+
 // Offline earnings: rate * min(seconds, cap hours) * offline rate.
-// Counts only managed rows.
+// Counts only managed rows. Events never spawn offline: the offer and the
+// active event are cleared and nextEventIn does not count down.
 export function applyOffline(state, seconds) {
   if (!validState(state) || !isFiniteNumber(seconds) || seconds < 0) return 0;
+  state.eventOffer = null;
+  state.eventActive = null;
   const long = WEIGHT_UPGRADES.find((u) => u.id === 'long');
   const capHours = hasWeightUpgrade(state, 'long') ? long.value : OFFLINE_CAP_HOURS;
   const capped = Math.min(seconds, capHours * 3600);
