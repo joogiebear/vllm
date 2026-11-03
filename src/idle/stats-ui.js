@@ -1,7 +1,7 @@
 // Stats screen (docs/COMPLETION.md, "Stats"). mountStats(container, getState)
 // is called once at start by ui.js. Rows are built once; a 1 Hz interval
 // updates only the value cells, never rebuilding the DOM.
-import { fmt } from './ui.js?v=20261103043954';
+import { fmt } from './ui.js?v=20261103044134';
 
 const CSS = `
     /* Stats screen */

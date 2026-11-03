@@ -4,7 +4,7 @@
 // name and a short condition, unlocked first, locked ones dim. Rows are
 // built once; the refresh pass only updates text and classes and reorders
 // the existing nodes, at most once a second.
-import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261103043954';
+import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261103044134';
 
 const STYLE_ID = 'overclock-achievements-style';
 
@@ -128,13 +128,5 @@ export function mountAchievements(container, getState) {
   }
 
   refresh();
-  if (typeof requestAnimationFrame === 'function') {
-    const loop = () => {
-      refresh();
-      requestAnimationFrame(loop);
-    };
-    requestAnimationFrame(loop);
-  } else {
-    setInterval(refresh, 1000);
-  }
+  setInterval(refresh, 1000);
 }

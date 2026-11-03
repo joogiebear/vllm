@@ -18,9 +18,9 @@ import {
   WEIGHT_BONUS_PER_WEIGHT,
   CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
-} from './data.js?v=20261103043954';
-import { ACHIEVEMENTS } from './data.js?v=20261103043954';
-import { checkAchievements } from './achievements.js?v=20261103043954';
+} from './data.js?v=20261103044134';
+import { ACHIEVEMENTS } from './data.js?v=20261103044134';
+import { checkAchievements } from './achievements.js?v=20261103044134';
 
 // --- state -------------------------------------------------------------------
 
