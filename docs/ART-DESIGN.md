@@ -1,0 +1,149 @@
+# Art pass and first-run hints
+
+Status: APPROVED (owner approved the art pass and first-run hints as part of
+phase 1; "I trust your recommendation" on the details). Design owner: thread
+Claude. Builder: RC with Qwen, in the passes listed at the end.
+
+Two pieces of work. First-run hints come first because they are small and
+touch few files. The art pass follows in four passes.
+
+## 1. First-run hints
+
+Three tips, shown once each, one at a time, only to new players.
+
+| # | Shows when | Text | Points at | Goes away when |
+| --- | --- | --- | --- | --- |
+| 1 | A fresh game loads (lifetime 0, no taps) | "Tap the Pi to run it. When the bar fills, you get tokens." | Raspberry Pi row's round run button | First tap on that button, or "Got it" |
+| 2 | Hint 1 done and tokens >= cost of the next Pi | "Buy more Pis to earn more each run. Every 25 owned makes them faster." | Pi row's Buy button | First generator purchase, or "Got it" |
+| 3 | Hint 2 done and tokens >= Cron Job cost (100) and no manager hired | "Hire a manager in Upgrades. It runs the row for you, even while you're away." | Upgrades tab in the bottom menu | Any manager hired, or the Upgrades tab is opened, or "Got it" |
+
+Rules:
+
+- Save key `hints: { seen: [] }`, ids `run`, `buy`, `manager`. Kept across
+  prestige and Regions. The save migration marks all three seen for any save
+  with lifetime > 0, so existing players never see them.
+- The callout is a small bubble (max 260 px wide, the app's card colours,
+  14 px text) with an arrow toward its target and a "Got it" text button. It
+  sits above or below the target, whichever has room. No dimmed overlay and no
+  blocked input: the game stays fully playable.
+- Only one hint at a time. If the target is off screen (another tab is open),
+  wait until it is visible again.
+- No animation beyond a 150 ms fade, and none when reduced motion is on.
+- Settings gets a "Show tips again" button that clears `hints.seen`.
+- A hint never appears in the same second as the welcome-back card or an
+  achievement toast; it waits for those to close.
+- Files: new `src/idle/hints.js` (pure `nextHint(state)` plus the DOM
+  callout), small hooks in `ui.js`, `save.js` and `settings.js`. Tests for
+  `nextHint` and the migration.
+
+## 2. Art pass
+
+### Style
+
+One icon family for everything, so the game reads as one product:
+
+- Hand-written inline SVG, `viewBox="0 0 24 24"`, stroke only, stroke width
+  1.8, round caps and joins, `fill="none"`, colour from `currentColor`.
+  This matches the bottom menu icons already in the game.
+- No image files, fonts or build step for in-game icons. They live in one
+  module, `src/idle/icons.js`, as `export const ICONS = { id: '<path d>' }`
+  plus `icon(id, size)` that returns an `<svg>` element.
+- Colour comes from the existing `TIER_COLORS` in `ui.js` (move it into
+  `icons.js` and import it back, so there is one source).
+- Each icon must read at 20 px on a phone: at most about 6 path segments, no
+  detail under 2 units.
+
+### Tier icons (12)
+
+Shown in the round run button of each row, replacing the plain circle.
+
+| Tier | Drawing |
+| --- | --- |
+| Raspberry Pi | Small board: rectangle with 4 pin dots along the top edge |
+| Gaming GPU | Card outline with one fan circle and a bracket on the left |
+| Workstation | Tower case with a front slot and a power dot |
+| Rack Server | Three stacked rounded slabs, each with an LED dot |
+| GPU Cluster | 2x2 grid of small squares joined by short lines |
+| Datacenter | Building with three rows of windows |
+| Fusion Campus | Atom: one dot with two crossing ellipses |
+| Dyson Inference Swarm | Sun circle ringed by 6 small dots |
+| Orbital Compute Ring | Planet circle with a tilted ring across it |
+| Lunar Datacenter | Crescent moon with a small building on its curve |
+| Matrioshka Brain | Three nested circles, the inner one solid |
+| Inference Singularity | Spiral into a centre dot |
+
+### Manager icons (12)
+
+One shared person silhouette (head circle plus shoulders arc), drawn in the
+row's tier colour, with the tier icon as a small badge at the lower right
+(10 px, on a dark disc). That gives 12 distinct managers from one drawing plus
+the tier set, which keeps the work small and consistent. Hired managers also
+show the silhouette inside the run button's corner on the Game tab.
+
+### Achievement badges
+
+One glyph per achievement kind, inside a shared hexagon frame:
+
+| Kind | Glyph |
+| --- | --- |
+| owned | That tier's icon (tinted in its tier colour) |
+| lifetime | Stacked coins |
+| prestiges | The Weights diamond already used on the Prestige tab |
+| taps | Pointer finger |
+| rushGames | Lightning bolt |
+| events | Clock with an exclamation mark |
+| regions | Globe with one meridian |
+| allPerks | Star |
+| allManagers | Two person silhouettes |
+
+Locked: frame and glyph in `#2a3446`, no fill. Unlocked: frame in the
+achievement's colour (gold `#ffb547` for non-tier kinds), glyph in `#eef3f9`.
+
+### App icon, home-screen install and splash
+
+- `icons/app-icon.svg`: the Inference Singularity spiral in gold `#ffb547`
+  on a `#0b0f17` rounded square, with the word mark omitted (icons read
+  better without text). This is the master for every size.
+- `tools/make-icons.js` renders the SVG to PNG with the Playwright already on
+  the build box: 180 (`apple-touch-icon.png`), 192, 512 and 1024. The PNGs are
+  committed so Pages needs no build.
+- `manifest.webmanifest` with name "OVERCLOCK", `display: standalone`,
+  `background_color` and `theme_color` `#0b0f17`, the 192 and 512 icons, and
+  `start_url: "./"`. Add `<link rel="manifest">`, `<link rel="apple-touch-icon">`,
+  `<meta name="theme-color">` and `apple-mobile-web-app-capable` to
+  `index.html`. Paths stay relative (the site is served under `/vllm/`).
+  Result: "Add to Home Screen" on the owner's phone gives a real icon and a
+  full-screen game without the browser bar.
+- Splash: a `#boot` div in `index.html` (the app icon, 96 px, centred on
+  `#0b0f17`) that `app.js` removes once the first frame renders. It replaces
+  the empty shell a slow load shows today. The native iOS launch screen comes
+  later with the Capacitor phase and reuses the same SVG.
+
+### Sample sheet
+
+`tools/icon-sheet.html` renders every icon (tiers, managers, all badge
+states, the app icon at 3 sizes) on one dark page at 20, 32 and 64 px. It is
+for the owner to look at on a phone and for review. Building the game does not
+wait on it; changes the owner asks for after seeing it are a follow-up pass.
+
+### Out of scope
+
+Animated icons, backgrounds or illustrations, a new font, and Shop art (the
+Shop is still placeholders).
+
+## Build passes
+
+Keep each Qwen pass to a few files; check the live site under `/vllm/` after
+each push.
+
+1. Hints: `hints.js`, hooks in `ui.js`, `save.js`, `settings.js`, tests.
+2. `icons.js` with the 12 tier icons and `TIER_COLORS`; run buttons use them;
+   `tools/icon-sheet.html`.
+3. Manager silhouettes and achievement badges, wired into the Upgrades and
+   Achievements views.
+4. App icon SVG, `tools/make-icons.js`, PNGs, manifest, `index.html` head
+   tags and the boot splash.
+
+Acceptance: all tests pass; at 390 px wide every icon is recognisable and
+nothing overlaps; the version stamp script covers `icons.js` and `hints.js`;
+Add to Home Screen on iPhone shows the app icon.
