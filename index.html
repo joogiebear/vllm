@@ -203,6 +203,22 @@
     .up-row.owned .buy { display: none; }
 
     /* Prestige tab */
+    #prestige-seg { display: flex; gap: 4px; margin-bottom: 10px; }
+    #prestige-seg button {
+      position: relative; flex: 1; min-height: 44px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--dim); font-size: 14px; cursor: pointer;
+    }
+    #prestige-seg button.active {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    .seg-dot {
+      position: absolute; top: 6px; right: 8px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--affordable);
+    }
+    #prestige-seg button.active .seg-dot { background: #0b0f17; }
     #tab-prestige h2 { font-size: 18px; color: var(--text); margin: 0; }
     #tab-prestige p { font-size: 13px; color: var(--dim); margin: 4px 0 0; }
     #prestige-hint { margin-bottom: 12px; }
@@ -255,6 +271,27 @@
     }
     .wu .buy:disabled { opacity: 0.5; cursor: default; }
     .wu .check { color: var(--affordable); font-size: 18px; }
+    #region-mult { font-size: 12px; color: var(--dim); margin-top: 2px; }
+    #region-expand {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; margin-top: 12px;
+    }
+    #expand-btn {
+      width: 100%; min-height: 48px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); font-size: 16px; font-weight: 800;
+      letter-spacing: 0.08em; cursor: pointer;
+    }
+    #expand-btn:not(:disabled) {
+      background: var(--affordable); border-color: var(--affordable); color: #0b0f17;
+    }
+    #expand-btn.armed { background: #fc8181; border-color: #fc8181; color: #0b0f17; }
+    #expand-btn:disabled { opacity: 0.5; cursor: default; }
+    #expand-note {
+      margin-top: 10px; font-size: 12px; color: var(--dim);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    #region-perks { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
     /* Shop tab */
     .shop-note { font-size: 14px; color: var(--dim); }
@@ -328,25 +365,46 @@
       </section>
 
       <section id="tab-prestige" aria-label="Prestige" hidden>
-        <div id="prestige-hint">
-          <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
-          <div id="prestige-hint-text">…</div>
-          <div id="prestige-hint-bonus"></div>
+        <div id="prestige-seg" role="tablist" aria-label="Prestige section">
+          <button type="button" data-seg="weights">Weights</button>
+          <button type="button" data-seg="regions" hidden>Regions<span class="seg-dot" hidden></span></button>
         </div>
-        <section id="prestige">
-          <div class="p-head">
-            <div>
-              <h2>Prestige</h2>
-              <p>Reset the run, keep your Weights.</p>
-            </div>
-            <div class="p-avail">
-              <span>+<span id="w-avail">0</span></span>
-              <span>weights available</span>
-            </div>
+        <div id="prestige-weights">
+          <div id="prestige-hint">
+            <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
+            <div id="prestige-hint-text">…</div>
+            <div id="prestige-hint-bonus"></div>
           </div>
-          <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
-          <div id="prestige-grid"></div>
-        </section>
+          <section id="prestige">
+            <div class="p-head">
+              <div>
+                <h2>Prestige</h2>
+                <p>Reset the run, keep your Weights.</p>
+              </div>
+              <div class="p-avail">
+                <span>+<span id="w-avail">0</span></span>
+                <span>weights available</span>
+              </div>
+            </div>
+            <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
+            <div id="prestige-grid"></div>
+          </section>
+        </div>
+        <div id="prestige-regions" hidden>
+          <div id="region-hint">
+            <div class="hint-bar"><div id="region-hint-fill"></div></div>
+            <div id="region-hint-text">…</div>
+          </div>
+          <div id="region-mult"></div>
+          <section id="region-expand">
+            <button type="button" id="expand-btn" disabled>EXPAND</button>
+            <div id="expand-note" hidden>
+              <div>Resets: the run, Weights, Weight upgrades, lifetime totals</div>
+              <div>Kept: Regions, Region perks, achievements, stats, settings, Rush cooldown</div>
+            </div>
+          </section>
+          <div id="region-perks"></div>
+        </div>
       </section>
 
       <section id="tab-shop" aria-label="Shop" hidden>

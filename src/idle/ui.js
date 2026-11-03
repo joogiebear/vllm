@@ -3,11 +3,13 @@ import {
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
+  expandRegion, regionsAvailable, regionName, buyRegionPerk,
 } from './core.js?v=20261103050553';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
+  REGION_PERKS, REGION_DIVISOR, REGION_UNLOCK_WEIGHTS,
 } from './data.js?v=20261103050553';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261103050553';
 import { play } from './feedback.js?v=20261103050553';
@@ -93,7 +95,9 @@ export function createUI(state, io) {
   const view = {
     buyMode: '1',
     upSegment: 'upgrades',
+    prestigeSeg: 'weights',
     prestigeArmed: false,
+    expandArmed: false,
     resetArmed: false,
     lastNow: Date.now(),
   };
@@ -123,6 +127,16 @@ export function createUI(state, io) {
     settingsMsg: document.getElementById('settings-msg'),
     upDot: document.querySelector('#tabs [data-tab="upgrades"] .tab-dot'),
     prestigeDot: document.querySelector('#tabs [data-tab="prestige"] .tab-dot'),
+    prestigeWeights: document.getElementById('prestige-weights'),
+    prestigeRegions: document.getElementById('prestige-regions'),
+    regionHintFill: document.getElementById('region-hint-fill'),
+    regionHintText: document.getElementById('region-hint-text'),
+    regionMult: document.getElementById('region-mult'),
+    expandBtn: document.getElementById('expand-btn'),
+    expandNote: document.getElementById('expand-note'),
+    regionPerksGrid: document.getElementById('region-perks'),
+    regionsSegBtn: document.querySelector('#prestige-seg [data-seg="regions"]'),
+    regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
   };
 
   // Buy-mode switch (header): x1 / x10 / x100 / Max.
@@ -369,6 +383,93 @@ export function createUI(state, io) {
       'New run',
     );
   });
+
+  // Region perks (Prestige tab, Regions segment): one row per perk, bought
+  // with Regions, kept forever (docs/REGIONS-DESIGN.md).
+  const PERK_WORDS = {
+    headStart: 'Every run starts with Seed Funding, Procurement Bot, Standing Orders and the first 3 managers',
+    fresh: 'Each new region starts with 5 Weights',
+    overclock: 'All cycles 20% faster',
+    autoProcure: 'Buy All runs by itself every 10 s (toggle in Settings)',
+    eventDesk: 'Timed events come twice as often and last 50% longer',
+    longHaul: 'Offline cap 24 h and offline rate 100%',
+  };
+  const perkRefs = REGION_PERKS.map((p) => {
+    const row = document.createElement('div');
+    row.className = 'wu';
+    const left = document.createElement('div');
+    left.className = 'wu-left';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = p.name;
+    const effect = document.createElement('span');
+    effect.className = 'effect';
+    effect.textContent = PERK_WORDS[p.id] || '';
+    left.append(name, effect);
+    const buyBtn = document.createElement('button');
+    buyBtn.type = 'button';
+    buyBtn.className = 'buy';
+    buyBtn.addEventListener('click', () => {
+      if (buyRegionPerk(state, p.id)) {
+        flash(row);
+        play('buy');
+      }
+      updateRegions();
+    });
+    row.append(left, buyBtn);
+    els.regionPerksGrid.appendChild(row);
+    return { p, row, buyBtn };
+  });
+
+  // Expand (the second prestige layer). The second confirm is skipped when
+  // confirmPrestige is off, like prestige.
+  els.expandBtn.addEventListener('click', () => {
+    if (getSetting('confirmPrestige') !== false && !view.expandArmed) {
+      view.expandArmed = true;
+      els.expandBtn.classList.add('armed');
+      els.expandBtn.textContent = 'CONFIRM EXPAND';
+      els.expandNote.hidden = false;
+      return;
+    }
+    view.expandArmed = false;
+    els.expandBtn.classList.remove('armed');
+    els.expandBtn.textContent = 'EXPAND';
+    els.expandNote.hidden = true;
+    const gained = expandRegion(state);
+    if (gained > 0) play('prestige');
+    showBanner(
+      `New region: ${regionName(state)}. +${gained} Region${gained === 1 ? '' : 's'}.`,
+      'New region',
+    );
+  });
+
+  // Prestige tab (Weights | Regions segments), remembered across visits.
+  // The Regions segment stays hidden until the unlock threshold, then a dot
+  // marks it (docs/REGIONS-DESIGN.md).
+  const PSEG_KEY = 'overclock.idle.prestigeSegment';
+  const psegBtns = Array.from(document.querySelectorAll('#prestige-seg button'));
+  function setPrestigeSeg(seg, persist) {
+    view.prestigeSeg = seg;
+    psegBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
+    els.prestigeWeights.hidden = seg !== 'weights';
+    els.prestigeRegions.hidden = seg !== 'regions';
+    if (persist) {
+      try {
+        localStorage.setItem(PSEG_KEY, seg);
+      } catch (err) {
+        // private mode: the segment just does not persist
+      }
+    }
+  }
+  psegBtns.forEach((b) => b.addEventListener('click', () => setPrestigeSeg(b.dataset.seg, true)));
+  let savedPseg = null;
+  try {
+    const s = localStorage.getItem(PSEG_KEY);
+    if (s === 'weights' || s === 'regions') savedPseg = s;
+  } catch (err) {
+    // private mode: default segment
+  }
+  setPrestigeSeg(savedPseg || 'weights', false);
 
   // Tabs.
   const tabs = Array.from(document.querySelectorAll('#tabs button'));
@@ -770,6 +871,49 @@ export function createUI(state, io) {
     els.prestigeBtn.disabled = avail < 1;
   }
 
+  function updateRegions() {
+    const total = (state.weightsEverEarned || 0) + (state.weightsEarnedThisCycle || 0);
+    const earned = state.regionsEarned || 0;
+    const target = (earned + 1) * (earned + 1) * REGION_DIVISOR;
+    const prev = earned * earned * REGION_DIVISOR;
+    const avail = regionsAvailable(state);
+    let pct;
+    let text;
+    if (avail >= 1) {
+      pct = 100;
+      text = `Ready: ${avail} Region${avail === 1 ? '' : 's'} available`;
+    } else if (total >= target) {
+      pct = 100;
+      text = `100% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmt(total)} / ${fmt(target)} Weights)`;
+    } else {
+      pct = Math.round(((total - prev) / (target - prev)) * 100);
+      text = `You're ${pct}% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmt(total)} / ${fmt(target)} Weights)`;
+    }
+    els.regionHintFill.style.width = `${pct}%`;
+    els.regionHintText.textContent = text;
+    els.regionMult.textContent = `Current multiplier x${fmt(Math.pow(2, earned))} — each Region doubles all production`;
+    els.expandBtn.disabled = avail < 1;
+    for (const r of perkRefs) {
+      const owned = (state.regionPerks || []).includes(r.p.id);
+      if (owned) {
+        r.buyBtn.textContent = 'Owned';
+        r.buyBtn.disabled = true;
+      } else {
+        r.buyBtn.textContent = `Buy · ${r.p.cost}`;
+        r.buyBtn.disabled = (state.regions || 0) < r.p.cost;
+      }
+    }
+  }
+
+  function updatePrestigeSeg() {
+    const unlocked =
+      (state.weightsEverEarned || 0) + (state.weightsEarnedThisCycle || 0) >= REGION_UNLOCK_WEIGHTS;
+    els.regionsSegBtn.hidden = !unlocked;
+    els.regionDot.hidden = !unlocked;
+    if (!unlocked && view.prestigeSeg === 'regions') setPrestigeSeg('weights', false);
+    updateRegions();
+  }
+
   function updateTabDots() {
     const upAffordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
     const manAffordable = manRefs.some(
@@ -807,6 +951,7 @@ export function createUI(state, io) {
     updateUpgrades();
     updateManagers();
     updatePrestige();
+    updatePrestigeSeg();
     updateTabDots();
     updateWeightUpgrades();
     updateRushChip();
