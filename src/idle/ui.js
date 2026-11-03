@@ -1,12 +1,12 @@
 import {
   buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState,
-  runRow, rowRate, cyclePayout, cycleTime, hasManager,
+  runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
 } from './core.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
-  CONTINUOUS_CYCLE_MAX,
+  CONTINUOUS_CYCLE_MAX, MANAGERS,
 } from './data.js';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
@@ -79,6 +79,7 @@ const WU_WORDS = {
 export function createUI(state, io) {
   const view = {
     buyMode: '1',
+    upSegment: 'upgrades',
     prestigeArmed: false,
     resetArmed: false,
     lastNow: Date.now(),
@@ -92,6 +93,7 @@ export function createUI(state, io) {
     banner: document.getElementById('banner'),
     genCards: document.getElementById('gen-cards'),
     upGrid: document.getElementById('up-grid'),
+    manGrid: document.getElementById('man-grid'),
     wAvail: document.getElementById('w-avail'),
     prestigeHintFill: document.getElementById('prestige-hint-fill'),
     prestigeHintText: document.getElementById('prestige-hint-text'),
@@ -175,7 +177,7 @@ export function createUI(state, io) {
     return { g, card, icon, iconCount, name, milestone, bar, barFill, barPayout, buyBtn, status };
   });
 
-  // Upgrades tab (no Managers segment — that is the next pass).
+  // Upgrades tab (Upgrades segment).
   const upRefs = UPGRADES.map((u) => {
     const row = document.createElement('div');
     row.className = 'up-row';
@@ -209,6 +211,61 @@ export function createUI(state, io) {
     updateUpgrades(state);
   });
   els.upGrid.prepend(buyAllBtn);
+
+  // Managers (Upgrades tab, Managers segment): one row per manager, tier order.
+  const manRefs = MANAGERS.map((m) => {
+    const g = GENERATORS.find((x) => x.id === m.id);
+    const row = document.createElement('div');
+    row.className = 'up-row';
+    const left = document.createElement('div');
+    left.className = 'up-left';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = m.name;
+    const effect = document.createElement('span');
+    effect.className = 'effect';
+    effect.textContent = `Runs ${g.name} automatically`;
+    left.append(name, effect);
+    const buyBtn = document.createElement('button');
+    buyBtn.type = 'button';
+    buyBtn.className = 'buy';
+    buyBtn.addEventListener('click', () => {
+      if (buyManager(state, m.id)) {
+        flash(row);
+        updateGenCards();
+      }
+      updateManagers();
+    });
+    row.append(left, buyBtn);
+    els.manGrid.appendChild(row);
+    return { m, g, row, buyBtn };
+  });
+
+  // Segmented control: Managers | Upgrades, remembered across visits.
+  const SEG_KEY = 'overclock.idle.upSegment';
+  const segBtns = Array.from(document.querySelectorAll('#up-seg button'));
+  function setSegment(seg, persist) {
+    view.upSegment = seg;
+    segBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
+    els.manGrid.hidden = seg !== 'managers';
+    els.upGrid.hidden = seg !== 'upgrades';
+    if (persist) {
+      try {
+        localStorage.setItem(SEG_KEY, seg);
+      } catch (err) {
+        // private mode: the segment just does not persist
+      }
+    }
+  }
+  segBtns.forEach((b) => b.addEventListener('click', () => setSegment(b.dataset.seg, true)));
+  let savedSeg = null;
+  try {
+    const s = localStorage.getItem(SEG_KEY);
+    if (s === 'managers' || s === 'upgrades') savedSeg = s;
+  } catch (err) {
+    // private mode: default segment
+  }
+  setSegment(savedSeg || 'upgrades', false);
 
   // Weight upgrades (prestige tab).
   const wuRefs = WEIGHT_UPGRADES.map((u) => {
@@ -409,6 +466,28 @@ export function createUI(state, io) {
     }
   }
 
+  function updateManagers() {
+    for (const r of manRefs) {
+      const hired = hasManager(state, r.m.id);
+      const owned = state.generators[r.m.id] || 0;
+      r.row.classList.toggle('dim', hired);
+      if (hired) {
+        r.buyBtn.textContent = 'Hired';
+        r.buyBtn.disabled = true;
+        r.buyBtn.classList.remove('afford');
+      } else if (owned === 0) {
+        r.buyBtn.textContent = `Need ${r.g.name}`;
+        r.buyBtn.disabled = true;
+        r.buyBtn.classList.remove('afford');
+      } else {
+        const afford = r.m.cost <= state.tokens;
+        r.buyBtn.textContent = `Hire · ${fmt(r.m.cost)}`;
+        r.buyBtn.disabled = !afford;
+        r.buyBtn.classList.toggle('afford', afford);
+      }
+    }
+  }
+
   function updateUpgrades() {
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
@@ -459,7 +538,12 @@ export function createUI(state, io) {
 
   function updateTabDots() {
     const upAffordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
-    els.upDot.hidden = !upAffordable;
+    const manAffordable = manRefs.some(
+      (r) => !hasManager(state, r.m.id)
+        && (state.generators[r.m.id] || 0) > 0
+        && r.m.cost <= state.tokens,
+    );
+    els.upDot.hidden = !(upAffordable || manAffordable);
     els.prestigeDot.hidden = weightsAvailable(state) < 1;
   }
 
@@ -487,6 +571,7 @@ export function createUI(state, io) {
 
     updateGenCards();
     updateUpgrades();
+    updateManagers();
     updatePrestige();
     updateTabDots();
     updateWeightUpgrades();

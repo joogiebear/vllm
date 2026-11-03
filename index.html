@@ -154,6 +154,17 @@
     .gen-status { font-size: 13px; color: var(--dim); white-space: nowrap; }
 
     /* Upgrades tab */
+    #up-seg { display: flex; gap: 4px; margin-bottom: 10px; }
+    #up-seg button {
+      flex: 1; min-height: 44px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--dim); font-size: 14px; cursor: pointer;
+    }
+    #up-seg button.active {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    #man-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
     #up-grid { display: flex; flex-direction: column; gap: 8px; }
     #buy-all {
       min-height: 44px; width: 100%; border-radius: 8px; margin-bottom: 4px;
@@ -292,6 +303,11 @@
       </section>
 
       <section id="tab-upgrades" aria-label="Upgrades" hidden>
+        <div id="up-seg" role="tablist" aria-label="Upgrades section">
+          <button type="button" data-seg="managers">Managers</button>
+          <button type="button" data-seg="upgrades">Upgrades</button>
+        </div>
+        <div id="man-grid"></div>
         <div id="up-grid"></div>
       </section>
 
