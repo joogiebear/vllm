@@ -19,7 +19,7 @@ import { mountEvents } from './events-ui.js?v=20261103140732';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103140732';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon } from './icons.js?v=20261103140732';
+import { TIER_COLORS, icon as tierIcon, managerIcon } from './icons.js?v=20261103140732';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
@@ -162,6 +162,14 @@ export function createUI(state, io) {
     });
     icon.append(tier);
     icon.append(iconCount);
+    // A small person mark at the run button's corner while a manager is
+    // hired (docs/ART-DESIGN.md "Manager icons").
+    const manMark = tierIcon('person', 16);
+    manMark.style.position = 'absolute';
+    manMark.style.right = '-3px';
+    manMark.style.bottom = '-3px';
+    manMark.style.color = TIER_COLORS[g.id];
+    icon.append(manMark);
     icon.addEventListener('click', () => {
       if (runRow(state, g.id)) {
         naturalDismiss('run', state);
@@ -216,7 +224,7 @@ export function createUI(state, io) {
 
     card.append(top, bar, bottom);
     els.genCards.appendChild(card);
-    return { g, card, icon, iconCount, name, milestone, bar, barFill, barPayout, buyBtn, status };
+    return { g, card, icon, iconCount, manMark, name, milestone, bar, barFill, barPayout, buyBtn, status };
   });
 
   // Upgrades tab (Upgrades segment).
@@ -265,6 +273,9 @@ export function createUI(state, io) {
     const g = GENERATORS.find((x) => x.id === m.id);
     const row = document.createElement('div');
     row.className = 'up-row';
+    // managerIcon at 32 px on the left (docs/ART-DESIGN.md "Manager icons").
+    const manIcon = managerIcon(m.id, 32);
+    manIcon.style.flexShrink = '0';
     const left = document.createElement('div');
     left.className = 'up-left';
     const name = document.createElement('span');
@@ -286,7 +297,7 @@ export function createUI(state, io) {
       }
       updateManagers();
     });
-    row.append(left, buyBtn);
+    row.append(manIcon, left, buyBtn);
     els.manGrid.appendChild(row);
     return { m, g, row, buyBtn };
   });
@@ -771,6 +782,7 @@ export function createUI(state, io) {
       if (!visible) continue;
 
       const managed = hasManager(state, g.id);
+      r.manMark.hidden = !managed;
       const progress = state.cycles[g.id];
       const prev = prevCycles[g.id];
       // A cycle completed since the previous update when progress wrapped
