@@ -17,8 +17,8 @@ so the set can ship before all 12 exist.
   `TIER_COLORS`. **Driver Daemon (`gamer`) is blue #63b3ed with a hot pink
   accent**, matching its ring. The purple hard-hat bot is Build Bot
   (`workstation`).
-- Received 2026-11-03: pi (v1), workstation, rack, cluster, datacenter,
-  campus, swarm, orbital, lunar, matrioshka, singularity. Missing: gamer.
+- Received 2026-11-03, all 12: pi (v1), gamer, workstation, rack, cluster, datacenter,
+  campus, swarm, orbital, lunar, matrioshka, singularity.
   Masters live in the project files under `overclock-art/` (not in the repo).
 
 ## Files
@@ -58,9 +58,8 @@ background scenes.
 
 ## Acceptance
 
-- Managers list on the phone shows the 11 portraits in their tier rings and
-  the old icon for Driver Daemon until its file lands.
-- Adding Driver Daemon later is: drop the WebP, add `gamer` to `PORTRAITS`,
+- Managers list on the phone shows all 12 portraits in their tier rings.
+- Replacing a portrait later is: drop in the new WebP,
   bump `PORTRAIT_V`, release.
 - Offline after one online load: portraits still show.
 - `tools/release.sh` passes.
