@@ -636,6 +636,9 @@ export function createUI(state, io) {
     return row;
   }
 
+  // The Auto-Procure toggle is only shown when the perk is owned.
+  let autoProcureRow = null;
+
   function buildSettings() {
     injectSettingsStyle();
 
@@ -646,6 +649,9 @@ export function createUI(state, io) {
       { value: 'sci', label: 'Scientific' },
     ]));
     prefs.appendChild(makeToggleRow('Confirm before prestige', 'confirmPrestige'));
+    autoProcureRow = makeToggleRow('Auto-Procure', 'autoProcure', 'Buy All runs by itself every 10 s');
+    autoProcureRow.hidden = true;
+    prefs.appendChild(autoProcureRow);
     prefs.appendChild(makeChoiceRow('Reduce motion', 'reduceMotion', [
       { value: 'auto', label: 'Auto' },
       { value: 'on', label: 'On' },
@@ -960,6 +966,11 @@ export function createUI(state, io) {
     const tint = Math.min(12 * earnedRegions, 120);
     const tintFilter = tint > 0 ? `hue-rotate(${tint}deg)` : '';
     for (const r of genRefs) r.icon.style.filter = tintFilter;
+
+    // The Auto-Procure toggle is only shown when the perk is owned.
+    if (autoProcureRow) {
+      autoProcureRow.hidden = !(state.regionPerks || []).includes('autoProcure');
+    }
 
     updateGenCards();
     updateUpgrades();

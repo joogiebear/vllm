@@ -10,6 +10,7 @@ const DEFAULTS = {
   reduceMotion: 'auto',
   sound: true,
   haptics: true,
+  autoProcure: true,
 };
 
 function readAll() {
