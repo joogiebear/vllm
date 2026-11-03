@@ -101,13 +101,33 @@ export const RUSH_COOLDOWN_SECONDS = 600; // 10 minutes
 export const RUSH_MAX_SECONDS = 600; // payout = tokensPerSecond * min(600, score / 50)
 export const RUSH_SCORE_DIVISOR = 50;
 
-// Achievements (docs/COMPLETION.md). 60 entries, generated:
+// Timed events (docs/TIERS-EVENTS.md). Short bonuses that reward checking in;
+// they never spawn offline, and one exists at a time.
+export const EVENT_KINDS = [
+  { id: 'spike', name: 'Traffic spike', effect: 'Production x3 for 30 seconds', duration: 30 },
+  { id: 'turbo', name: 'Turbo clocks', effect: 'Every cycle runs 2 times as fast for 30 seconds', duration: 30 },
+  { id: 'windfall', name: 'Enterprise contract', effect: 'Instantly pays 180 seconds of the current tokensPerSecond', duration: 0 },
+];
+// The mulberry32 state lives in state.rng, seeded once from this fixed
+// constant so core stays pure.
+export const EVENT_RNG_SEED = 42;
+export const EVENT_FIRST_DELAY = 120; // seconds until the first offer
+export const EVENT_GAP_MIN = 180; // seconds between offers, drawn in [min, max]
+export const EVENT_GAP_MAX = 360;
+export const EVENT_CLAIM_WINDOW = 20; // seconds an offer stays on screen
+export const EVENT_DURATION = 30; // seconds a timed kind runs
+export const EVENT_SPIKE_MULTIPLIER = 3;
+export const EVENT_TURBO_SPEED = 2; // cycle time is divided by this
+export const EVENT_WINDFALL_SECONDS = 180;
+
+// Achievements (docs/COMPLETION.md). 62 entries, generated:
 // - every generator at 1, 25, 100 and 400 owned: 12 * 4 = 48
 // - lifetime-in-run tokens of 1M, 1B, 1T and 1Qa: 4
 // - prestiges 1, 5 and 25: 3
 // - all 12 managers hired in one run: 1
 // - taps 100 and 1,000: 2
 // - rush games 1 and 10: 2
+// - timed events claimed 1 and 25: 2
 // Each test is a JSON-safe descriptor (no functions), evaluated by
 // checkAchievements() in achievements.js.
 const ACH_TIER_NAMES = { 1: 'First Boot', 25: '25 Online', 100: 'Server Farm', 400: 'Overkill' };
@@ -132,6 +152,8 @@ export const ACHIEVEMENTS = [
   { id: 'taps-1000', name: '1,000 Taps', desc: 'Start 1,000 rows by hand', test: { kind: 'taps', n: 1000 } },
   { id: 'rush-1', name: 'First Rush', desc: 'Play 1 rush game', test: { kind: 'rushGames', n: 1 } },
   { id: 'rush-10', name: '10 Rushes', desc: 'Play 10 rush games', test: { kind: 'rushGames', n: 10 } },
+  { id: 'events-1', name: 'First Event', desc: 'Claim 1 timed event', test: { kind: 'events', n: 1 } },
+  { id: 'events-25', name: 'Event Regular', desc: 'Claim 25 timed events', test: { kind: 'events', n: 25 } },
 ];
 
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;
