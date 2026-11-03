@@ -94,6 +94,26 @@ export const WEIGHT_UPGRADES = [
 // weightsAvailable = floor(sqrt(totalLifetime / PRESTIGE_DIVISOR)) - weightsEarnedThisCycle
 export const PRESTIGE_DIVISOR = 100000000000;
 
+// regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
+// First Region at 50 Weights, 2nd at 200, 3rd at 450 (docs/REGIONS-DESIGN.md).
+export const REGION_DIVISOR = 50;
+// The Regions view appears once this many Weights have been earned in total.
+export const REGION_UNLOCK_WEIGHTS = 25;
+// The server room moves per Region earned; after the list ends it is
+// numbered ("Region 11", ...).
+export const REGION_NAMES = [
+  'Home Lab',
+  'Iowa',
+  'Oregon',
+  'Frankfurt',
+  'Tokyo',
+  'São Paulo',
+  'Arctic',
+  'Low Orbit',
+  'Lunar Base',
+  'Mars Relay',
+];
+
 export const OFFLINE_CAP_HOURS = 8;
 export const OFFLINE_RATE = 0.5;
 
@@ -158,7 +178,7 @@ export const ACHIEVEMENTS = [
 
 export const WEIGHT_BONUS_PER_WEIGHT = 0.1;
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 // Every run starts with one of these, so a new or reset run can earn without clicking.
 export const STARTER_GENERATOR = 'pi';
