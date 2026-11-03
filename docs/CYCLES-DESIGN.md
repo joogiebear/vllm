@@ -10,8 +10,10 @@ names or text. Theme stays GPUs and servers.
 ### Cycles
 - Each generator runs in cycles. One cycle takes `cycleSeconds` and pays
   `owned * tps * cycleSeconds * multipliers` in one lump at the end.
-- Base cycle times: pi 1, gamer 3, workstation 6, rack 12, cluster 24,
-  datacenter 48, campus 96, swarm 192 seconds.
+- Base cycle times: pi 7, gamer 3, workstation 6, rack 12, cluster 24,
+  datacenter 48, campus 96, swarm 192 seconds. (pi tuned from 1 to 7 so an
+  idle player who taps every 60s still completes a cycle per tap; 7s keeps
+  400 pi under the 0.25s continuous threshold.)
 - The steady-state rate of a managed row equals the old continuous rate, so
   existing balance (costs, tps, prestige divisor) mostly holds.
 - Milestones at 25/50/100/200/400 owned now HALVE the cycle time (speed x2),
@@ -28,10 +30,11 @@ names or text. Theme stays GPUs and servers.
 
 ### Managers (new)
 - One per generator, bought with tokens on the Upgrades tab, Managers segment.
-- Names and costs: Cron Job (pi) 1K, Driver Daemon (gamer) 15K,
+- Names and costs: Cron Job (pi) 100, Driver Daemon (gamer) 15K,
   Build Bot (workstation) 100K, Load Balancer (rack) 1M, Scheduler (cluster) 25M,
   Orchestrator (datacenter) 500M, Fleet Controller (campus) 10B,
-  Swarm Mind (swarm) 200B. Tune after a bot run.
+  Swarm Mind (swarm) 200B. (Cron Job tuned from 1K to 100 so the first
+  manager lands under 2 min for an active player.)
 - Managers reset on prestige, like regular upgrades.
 - Offline earnings count only managed rows.
 
