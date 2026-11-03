@@ -271,6 +271,35 @@ export function createUI(state, io) {
   }
   setSegment(savedSeg || 'upgrades', false);
 
+  // More tab: Achievements | Stats | Settings, remembered across visits.
+  const MORE_SEG_KEY = 'overclock.idle.moreSegment';
+  const moreSegBtns = Array.from(document.querySelectorAll('#more-seg button'));
+  const morePanels = {
+    achievements: document.getElementById('more-achievements'),
+    stats: document.getElementById('more-stats'),
+    settings: document.getElementById('more-settings'),
+  };
+  function setMoreSegment(seg, persist) {
+    moreSegBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
+    for (const k of Object.keys(morePanels)) morePanels[k].hidden = k !== seg;
+    if (persist) {
+      try {
+        localStorage.setItem(MORE_SEG_KEY, seg);
+      } catch (err) {
+        // private mode: the segment just does not persist
+      }
+    }
+  }
+  moreSegBtns.forEach((b) => b.addEventListener('click', () => setMoreSegment(b.dataset.seg, true)));
+  let savedMoreSeg = null;
+  try {
+    const s = localStorage.getItem(MORE_SEG_KEY);
+    if (s === 'achievements' || s === 'stats' || s === 'settings') savedMoreSeg = s;
+  } catch (err) {
+    // private mode: default segment
+  }
+  setMoreSegment(savedMoreSeg || 'achievements', false);
+
   // Weight upgrades (prestige tab).
   const wuRefs = WEIGHT_UPGRADES.map((u) => {
     const row = document.createElement('div');
@@ -321,7 +350,7 @@ export function createUI(state, io) {
     upgrades: document.getElementById('tab-upgrades'),
     prestige: document.getElementById('tab-prestige'),
     shop: document.getElementById('tab-shop'),
-    settings: document.getElementById('tab-settings'),
+    more: document.getElementById('tab-more'),
   };
   tabs.forEach((t) => {
     t.addEventListener('click', () => {

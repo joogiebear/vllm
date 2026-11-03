@@ -259,8 +259,18 @@
     /* Shop tab */
     .shop-note { font-size: 14px; color: var(--dim); }
 
-    /* Settings tab */
-    #tab-settings { display: flex; flex-direction: column; gap: 12px; }
+    /* More tab */
+    #tab-more { display: flex; flex-direction: column; gap: 12px; }
+    #more-seg { display: flex; gap: 4px; margin-bottom: 10px; }
+    #more-seg button {
+      flex: 1; min-height: 44px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--dim); font-size: 14px; cursor: pointer;
+    }
+    #more-seg button.active {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
     .settings-row { display: flex; flex-direction: column; gap: 6px; }
     .settings-row button {
       min-height: 44px; border-radius: 8px; border: 1px solid var(--border);
@@ -269,7 +279,7 @@
     .settings-row button.armed {
       background: #fc8181; border-color: #fc8181; color: #0b0f17; font-weight: 700;
     }
-    #tab-settings textarea {
+    #more-settings textarea {
       width: 100%; min-height: 70px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--bg);
       color: var(--text); font-size: 12px; padding: 8px; resize: vertical;
@@ -343,19 +353,28 @@
         <p class="shop-note">The arcade is the shop: play Rush, come back with a score.</p>
       </section>
 
-      <section id="tab-settings" aria-label="Settings" hidden>
-        <div class="settings-row">
-          <button type="button" id="export-btn">Export save</button>
-          <textarea id="export-area" rows="3" readonly></textarea>
+      <section id="tab-more" aria-label="More" hidden>
+        <div id="more-seg" role="tablist" aria-label="More section">
+          <button type="button" data-seg="achievements">Achievements</button>
+          <button type="button" data-seg="stats">Stats</button>
+          <button type="button" data-seg="settings">Settings</button>
         </div>
-        <div class="settings-row">
-          <button type="button" id="import-btn">Import save</button>
-          <textarea id="import-area" rows="3" placeholder="Paste a save string"></textarea>
+        <div id="more-achievements"></div>
+        <div id="more-stats"></div>
+        <div id="more-settings">
+          <div class="settings-row">
+            <button type="button" id="export-btn">Export save</button>
+            <textarea id="export-area" rows="3" readonly></textarea>
+          </div>
+          <div class="settings-row">
+            <button type="button" id="import-btn">Import save</button>
+            <textarea id="import-area" rows="3" placeholder="Paste a save string"></textarea>
+          </div>
+          <div class="settings-row">
+            <button type="button" id="reset-btn">HARD RESET</button>
+          </div>
+          <p id="settings-msg" role="status"></p>
         </div>
-        <div class="settings-row">
-          <button type="button" id="reset-btn">HARD RESET</button>
-        </div>
-        <p id="settings-msg" role="status"></p>
       </section>
     </main>
 
@@ -364,7 +383,7 @@
       <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="shop">Shop</button>
-      <button type="button" data-tab="settings">Settings</button>
+      <button type="button" data-tab="more">More</button>
     </nav>
   </div>
   <script type="module" src="src/idle/app.js?v=20261103041805"></script>
