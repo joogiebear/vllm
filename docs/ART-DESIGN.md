@@ -13,9 +13,17 @@ Three tips, shown once each, one at a time, only to new players.
 
 | # | Shows when | Text | Points at | Goes away when |
 | --- | --- | --- | --- | --- |
-| 1 | A fresh game loads (lifetime 0, no taps) | "Tap the Pi to run it. When the bar fills, you get tokens." | Raspberry Pi row's round run button | First tap on that button, or "Got it" |
+| 1 | A fresh game loads (lifetime 0, no taps) | "Tap the Pi icon to run it. When the bar fills, you get tokens." | Raspberry Pi row's round run button | First tap on that button, or "Got it" |
 | 2 | Hint 1 done and tokens >= cost of the next Pi | "Buy more Pis to earn more each run. Every 25 owned makes them faster." | Pi row's Buy button | First generator purchase, or "Got it" |
 | 3 | Hint 2 done and tokens >= Cron Job cost (100) and no manager hired | "Hire a manager in Upgrades. It runs the row for you, even while you're away." | Upgrades tab in the bottom menu | Any manager hired, or the Upgrades tab is opened, or "Got it" |
+
+Row text cleanup (owner, 2026-11-03): the "Tap to run" status text goes
+away. Only the round tier icon runs a row, so the text pointed at the wrong
+place; hint 1 teaches the tap instead. A row that is idle and has no manager
+shows its cycle time (for example `0:07`) in the status box, dimmed. Running
+rows keep the countdown, managed rows keep "Auto", continuous rows keep the
+per-second rate. The idle run button gets a slow, subtle pulse on its tier
+colour ring (off with reduced motion) so it reads as the thing to tap.
 
 Rules:
 
@@ -136,7 +144,8 @@ Shop is still placeholders).
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
 each push.
 
-1. Hints: `hints.js`, hooks in `ui.js`, `save.js`, `settings.js`, tests.
+1. Hints and the row text cleanup: `hints.js`, hooks in `ui.js`, `save.js`,
+   `settings.js`, tests.
 2. `icons.js` with the 12 tier icons and `TIER_COLORS`; run buttons use them;
    `tools/icon-sheet.html`.
 3. Manager silhouettes and achievement badges, wired into the Upgrades and
