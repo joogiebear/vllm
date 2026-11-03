@@ -13,6 +13,9 @@ keep the silicon from cooking) lives at `rush.html`. It is a one-shot arcade
 run; the score you finish with is paid out as tokens in the idle game, with a
 cooldown between runs.
 
+The Shop tab in `index.html` is placeholders only: nothing is for sale, no
+prices are shown, and no payment code, links or network requests exist.
+
 ## How to play
 
 - **Idle (index.html):** buy generators and upgrades with tokens; buy weight

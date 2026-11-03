@@ -163,6 +163,7 @@
 
     /* Upgrades: one column, top to bottom, at every width. */
     #up-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    #shop-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .card {
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -330,7 +331,34 @@
       <div id="prestige-hint" class="panel" hidden></div>
     </div>
 
-    <div id="tab-shop" class="tab-panel" hidden></div>
+    <div id="tab-shop" class="tab-panel" hidden>
+      <section id="shop" class="panel">
+        <h2>SHOP</h2>
+        <p class="dim">Coming soon. Nothing here is for sale yet, and no payment is taken.</p>
+        <div id="shop-grid">
+          <div class="card">
+            <span class="name">Supporter Badge</span>
+            <span class="effect">A badge next to your name, with thanks.</span>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="card">
+            <span class="name">Neon Theme Pack</span>
+            <span class="effect">Extra colour themes for the server room.</span>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="card">
+            <span class="name">Rack Skins</span>
+            <span class="effect">Cosmetic looks for your hardware.</span>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+          <div class="card">
+            <span class="name">Tip Jar</span>
+            <span class="effect">Help keep the game free and open source.</span>
+            <button type="button" disabled>Coming soon</button>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <div id="tab-settings" class="tab-panel" hidden>
       <section id="settings" class="panel">
