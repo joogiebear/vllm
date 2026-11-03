@@ -9,6 +9,7 @@ import {
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   GENERATOR_REVEAL_FRACTION, UPGRADE_REVEAL_FRACTION, PRESTIGE_DIVISOR,
+  WEIGHT_BONUS_PER_WEIGHT,
 } from './data.js';
 
 // --- number formatting ----------------------------------------------------
@@ -58,14 +59,16 @@ function upgradeWords(u) {
   }
 }
 
-// Weight upgrades in words (phrasing from docs/IDLE-DESIGN.md).
+// Weight upgrades in words (phrasing from docs/IDLE-DESIGN.md). The distill
+// line is generated from the data.js values so it can never drift from them.
+const DISTILL_WU = WEIGHT_UPGRADES.find((w) => w.id === 'distill');
 const WU_WORDS = {
   seed: 'Start each run with 1,000 tokens',
   night: 'Offline rate 50% becomes 75%',
   warm: 'Cache rate +25%',
   long: 'Offline cap 8 hours becomes 24',
   auto: 'Overclock auto-cycles: off at 95 heat, on at 40',
-  distill: 'Weight bonus 2% becomes 3% each',
+  distill: `Weight bonus ${Math.round(WEIGHT_BONUS_PER_WEIGHT * 100)}% becomes ${Math.round(DISTILL_WU.value * 100)}% each`,
 };
 
 export function createUI(state, io) {
