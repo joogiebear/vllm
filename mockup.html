@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OVERCLOCK mockup</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel2: #161e2f; --line: #222c40;
+    --text: #e8edf5; --muted: #7d8aa3; --lime: #a6f04a; --cyan: #33d6ff;
+    --amber: #ffb84d; --magenta: #ff5cc8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.3 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .app { max-width: 520px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; }
+  header { padding: 14px 16px 10px; display: flex; align-items: baseline; justify-content: space-between; }
+  .money { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+  .rate { color: var(--muted); font-size: 14px; }
+  .note { margin: 0 16px 8px; padding: 6px 10px; border-radius: 8px; background: #1b2438;
+    color: var(--muted); font-size: 12px; text-align: center; }
+  .mode { display: flex; gap: 6px; padding: 0 16px 10px; }
+  .mode button { flex: 0 0 auto; min-width: 64px; height: 36px; border-radius: 18px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--muted); font-weight: 700; }
+  .mode button.on { background: var(--cyan); color: #04121a; border-color: var(--cyan); }
+  main { flex: 1; overflow-y: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .biz { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .icon { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle at 35% 30%, #2a3654, #141b2b); border: 2px solid var(--line); font-size: 26px; }
+  .icon .count { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 800; }
+  .ms { position: absolute; inset: -4px; border-radius: 50%;
+    background: conic-gradient(var(--lime) var(--p), transparent 0); -webkit-mask: radial-gradient(circle, transparent 33px, #000 34px);
+            mask: radial-gradient(circle, transparent 33px, #000 34px); }
+  .right { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .name { font-weight: 700; display: flex; justify-content: space-between; }
+  .name small { color: var(--muted); font-weight: 600; }
+  .bar { position: relative; height: 26px; border-radius: 8px; background: #0b111d; border: 1px solid var(--line); overflow: hidden; }
+  .bar i { position: absolute; inset: 0 auto 0 0; width: var(--w); background: linear-gradient(90deg, #2f9b3a, var(--lime)); }
+  .bar span { position: relative; display: block; text-align: center; line-height: 24px; font-weight: 800; font-size: 14px; }
+  .row { display: flex; gap: 8px; }
+  .buy { flex: 1; height: 44px; border-radius: 10px; border: 0; font-weight: 800; font-size: 14px;
+    background: var(--amber); color: #2a1800; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; }
+  .buy.off { background: #2a3142; color: #687590; }
+  .timer { width: 70px; height: 44px; border-radius: 10px; background: #0b111d; border: 1px solid var(--line);
+    display: grid; place-items: center; font-weight: 700; color: var(--muted); font-size: 13px; }
+  .tap { color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .5px; }
+  .locked { opacity: .5; }
+  .locked .icon { filter: grayscale(1); }
+  nav { display: flex; border-top: 1px solid var(--line); background: var(--panel); padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex: 1; height: 56px; background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+  nav button.on { color: var(--cyan); }
+  nav b { display: block; font-size: 18px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="money">1.24M</div>
+    <div class="rate">+4.26K/s</div>
+  </header>
+  <div class="note">Static mockup, not playable. For approving the look.</div>
+  <div class="mode"><button class="on">x1</button><button>x10</button><button>x100</button><button>Max</button></div>
+  <main>
+    <section class="biz">
+      <div class="icon" style="--p:60%"><span class="ms"></span>🍓<span class="count">30</span></div>
+      <div class="right">
+        <div class="name">Raspberry Pi <small>Manager hired</small></div>
+        <div class="bar" style="--w:72%"><i></i><span>+90</span></div>
+        <div class="row"><button class="buy"><span>Buy x1</span><span>994</span></button><div class="timer">0:00:01</div></div>
+      </div>
+    </section>
+    <section class="biz">
+      <div class="icon" style="--p:4%"><span class="ms"></span>🎮<span class="count">26</span></div>
+      <div class="right">
+        <div class="name">Gaming GPU <small>Manager hired</small></div>
+        <div class="bar" style="--w:35%"><i></i><span>+1.25K</span></div>
+        <div class="row"><button class="buy"><span>Buy x1</span><span>8.33K</span></button><div class="timer">0:00:03</div></div>
+      </div>
+    </section>
+    <section class="biz">
+      <div class="icon" style="--p:36%"><span class="ms"></span>🖥️<span class="count">9</span></div>
+      <div class="right">
+        <div class="name">Workstation <small class="tap">TAP TO RUN</small></div>
+        <div class="bar" style="--w:0%"><i></i><span>+5.08K</span></div>
+        <div class="row"><button class="buy"><span>Buy x1</span><span>8.44K</span></button><div class="timer">0:00:12</div></div>
+      </div>
+    </section>
+    <section class="biz">
+      <div class="icon" style="--p:8%"><span class="ms"></span>🗄️<span class="count">2</span></div>
+      <div class="right">
+        <div class="name">Rack Server <small class="tap">TAP TO RUN</small></div>
+        <div class="bar" style="--w:58%"><i></i><span>+28.1K</span></div>
+        <div class="row"><button class="buy off"><span>Buy x1</span><span>34.4K</span></button><div class="timer">0:00:21</div></div>
+      </div>
+    </section>
+    <section class="biz locked">
+      <div class="icon">🧠<span class="count">0</span></div>
+      <div class="right">
+        <div class="name">GPU Cluster <small>Unlock</small></div>
+        <div class="row"><button class="buy off"><span>Buy first</span><span>140K</span></button></div>
+      </div>
+    </section>
+  </main>
+  <nav>
+    <button class="on"><b>⚡</b>Servers</button>
+    <button><b>👔</b>Managers</button>
+    <button><b>⬆️</b>Upgrades</button>
+    <button><b>🧬</b>Prestige</button>
+    <button><b>☰</b>More</button>
+  </nav>
+</div>
+</body>
+</html>
