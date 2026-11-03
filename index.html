@@ -30,6 +30,8 @@
       max-width: 960px;
       margin: 0 auto;
       padding: 12px;
+      /* Clearance so the fixed bottom bar never covers content. */
+      padding-bottom: calc(56px + env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -219,6 +221,45 @@
     #settings .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
     #settings-msg { color: var(--lime); min-height: 1.2em; }
     #reset-btn.armed { background: var(--red); color: #04050a; }
+
+    /* Bottom navigation */
+    .tab-panel[hidden] { display: none; }
+    #tabs {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      display: flex;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    #tabs button {
+      flex: 1;
+      min-height: 44px;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: var(--dim);
+      font-size: 12px;
+      position: relative;
+      padding: 4px 2px;
+    }
+    #tabs button:hover { border-color: transparent; }
+    #tabs button[aria-current="page"] { color: var(--cyan); }
+    .tab-dot {
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--lime);
+    }
+    .tab-dot[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -229,73 +270,89 @@
       <div>weights <span id="weights-value">0</span></div>
     </header>
 
-    <div id="banner" class="panel" hidden></div>
+    <div id="tab-game" class="tab-panel">
+      <div id="banner" class="panel" hidden></div>
 
-    <div id="serve-wrap">
-      <button id="serve" type="button">SERVE</button>
+      <div id="serve-wrap">
+        <button id="serve" type="button">SERVE</button>
+      </div>
+
+      <section id="heat" class="panel">
+        <h2>HEAT</h2>
+        <div id="heat-row">
+          <div id="heat-bar"><div id="heat-fill"></div></div>
+          <span id="heat-num">0</span>
+          <span id="oc-state">COOLING</span>
+          <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
+        </div>
+      </section>
+
+      <section id="generators" class="panel">
+        <h2>GENERATORS</h2>
+        <div class="buy-sel" role="group" aria-label="buy amount">
+          <button type="button" data-mode="1" class="active">x1</button>
+          <button type="button" data-mode="10">x10</button>
+          <button type="button" data-mode="max">MAX</button>
+        </div>
+        <div id="gen-rows"></div>
+      </section>
+
+      <section id="actions" class="panel">
+        <a id="rush" href="rush.html">RUSH</a>
+      </section>
     </div>
 
-    <section id="heat" class="panel">
-      <h2>HEAT</h2>
-      <div id="heat-row">
-        <div id="heat-bar"><div id="heat-fill"></div></div>
-        <span id="heat-num">0</span>
-        <span id="oc-state">COOLING</span>
-        <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
-      </div>
-    </section>
+    <div id="tab-upgrades" class="tab-panel" hidden>
+      <section id="upgrades" class="panel">
+        <h2>UPGRADES</h2>
+        <div id="up-grid"></div>
+        <details id="purchased">
+          <summary>purchased</summary>
+          <ul id="purchased-list"></ul>
+        </details>
+      </section>
+    </div>
 
-    <section id="generators" class="panel">
-      <h2>GENERATORS</h2>
-      <div class="buy-sel" role="group" aria-label="buy amount">
-        <button type="button" data-mode="1" class="active">x1</button>
-        <button type="button" data-mode="10">x10</button>
-        <button type="button" data-mode="max">MAX</button>
-      </div>
-      <div id="gen-rows"></div>
-    </section>
+    <div id="tab-prestige" class="tab-panel" hidden>
+      <section id="prestige" class="panel">
+        <h2>PRESTIGE</h2>
+        <div id="prestige-box">
+          <div>weights available <span id="w-avail" class="value">0</span></div>
+          <div class="dim">resets: tokens, generators, upgrades, heat</div>
+          <button id="prestige-btn" type="button" disabled>PRESTIGE</button>
+        </div>
+        <div id="prestige-grid"></div>
+      </section>
+      <div id="prestige-hint" class="panel" hidden></div>
+    </div>
 
-    <section id="upgrades" class="panel">
-      <h2>UPGRADES</h2>
-      <div id="up-grid"></div>
-      <details id="purchased">
-        <summary>purchased</summary>
-        <ul id="purchased-list"></ul>
-      </details>
-    </section>
+    <div id="tab-shop" class="tab-panel" hidden></div>
 
-    <section id="prestige" class="panel">
-      <h2>PRESTIGE</h2>
-      <div id="prestige-box">
-        <div>weights available <span id="w-avail" class="value">0</span></div>
-        <div class="dim">resets: tokens, generators, upgrades, heat</div>
-        <button id="prestige-btn" type="button" disabled>PRESTIGE</button>
-      </div>
-      <div id="prestige-grid"></div>
-    </section>
-    <div id="prestige-hint" class="panel" hidden></div>
-
-    <section id="actions" class="panel">
-      <a id="rush" href="rush.html">RUSH</a>
-      <button id="settings-btn" type="button">SETTINGS</button>
-    </section>
-
-    <section id="settings" class="panel" hidden>
-      <h2>SETTINGS</h2>
-      <label for="export-area">export (copy this text)</label>
-      <textarea id="export-area" readonly></textarea>
-      <div class="row-actions">
-        <button id="export-btn" type="button">EXPORT</button>
-      </div>
-      <label for="import-area">import (paste save text)</label>
-      <textarea id="import-area"></textarea>
-      <div class="row-actions">
-        <button id="import-btn" type="button">IMPORT</button>
-        <button id="reset-btn" type="button">HARD RESET</button>
-      </div>
-      <div id="settings-msg" role="status"></div>
-    </section>
+    <div id="tab-settings" class="tab-panel" hidden>
+      <section id="settings" class="panel">
+        <h2>SETTINGS</h2>
+        <label for="export-area">export (copy this text)</label>
+        <textarea id="export-area" readonly></textarea>
+        <div class="row-actions">
+          <button id="export-btn" type="button">EXPORT</button>
+        </div>
+        <label for="import-area">import (paste save text)</label>
+        <textarea id="import-area"></textarea>
+        <div class="row-actions">
+          <button id="import-btn" type="button">IMPORT</button>
+          <button id="reset-btn" type="button">HARD RESET</button>
+        </div>
+        <div id="settings-msg" role="status"></div>
+      </section>
+    </div>
   </div>
+  <nav id="tabs" aria-label="sections">
+    <button type="button" data-tab="game" aria-current="page">Game</button>
+    <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
+    <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
+    <button type="button" data-tab="shop">Shop</button>
+    <button type="button" data-tab="settings">Settings</button>
+  </nav>
   <script type="module" src="src/idle/app.js"></script>
 </body>
 </html>

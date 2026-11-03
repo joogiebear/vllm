@@ -103,14 +103,14 @@ export function createUI(state, io) {
     prestigeBtn: $('prestige-btn'),
     prestigeGrid: $('prestige-grid'),
     rush: $('rush'),
-    settingsBtn: $('settings-btn'),
-    settings: $('settings'),
     exportArea: $('export-area'),
     exportBtn: $('export-btn'),
     importArea: $('import-area'),
     importBtn: $('import-btn'),
     resetBtn: $('reset-btn'),
     settingsMsg: $('settings-msg'),
+    upDot: document.querySelector('[data-tab="upgrades"] .tab-dot'),
+    prestigeDot: document.querySelector('[data-tab="prestige"] .tab-dot'),
   };
 
   function setMsg(text) {
@@ -231,10 +231,40 @@ export function createUI(state, io) {
     disarmPrestige();
   });
 
+  // --- tabs (one screen at a time; last tab remembered) ----------------------
+  const TAB_KEY = 'overclock.idle.tab';
+  const tabPanels = {
+    game: document.getElementById('tab-game'),
+    upgrades: document.getElementById('tab-upgrades'),
+    prestige: document.getElementById('tab-prestige'),
+    shop: document.getElementById('tab-shop'),
+    settings: document.getElementById('tab-settings'),
+  };
+  const tabBtns = document.querySelectorAll('#tabs button');
+  function showTab(name) {
+    if (!tabPanels[name]) name = 'game';
+    for (const [key, panel] of Object.entries(tabPanels)) panel.hidden = key !== name;
+    tabBtns.forEach((b) => {
+      if (b.dataset.tab === name) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    try {
+      localStorage.setItem(TAB_KEY, name);
+    } catch (err) {
+      // ignore
+    }
+  }
+  tabBtns.forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  let startTab = 'game';
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (saved && tabPanels[saved]) startTab = saved;
+  } catch (err) {
+    // ignore
+  }
+  showTab(startTab);
+
   // --- settings ------------------------------------------------------------
-  els.settingsBtn.addEventListener('click', () => {
-    els.settings.hidden = !els.settings.hidden;
-  });
   els.exportBtn.addEventListener('click', () => {
     els.exportArea.value = io.exportSave(state, view.lastNow);
   });
@@ -370,6 +400,18 @@ export function createUI(state, io) {
     }
     els.wAvail.textContent = fmt(w);
     els.prestigeBtn.disabled = w < 1;
+
+    // Tab dots: Upgrades lights up when a revealed upgrade is affordable,
+    // Prestige when a weight is available.
+    let upAffordable = false;
+    for (const r of upRefs) {
+      if (!r.moved && !r.card.hidden && state.tokens >= r.u.cost) {
+        upAffordable = true;
+        break;
+      }
+    }
+    els.upDot.hidden = !upAffordable;
+    els.prestigeDot.hidden = w < 1;
 
     // Weight upgrades.
     for (const r of wuRefs) {
