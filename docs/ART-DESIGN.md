@@ -204,9 +204,13 @@ each push.
 No wasted compute (owner, 2026-11-03):
 
 - One pass at a time per file; never two jobs on `ui.js` or `index.html`.
-- A Qwen pass gets one retry. If it loops, hits its call cap or fails the
-  tests twice, stop it and have Claude write that piece directly instead of
-  a third try.
+- Qwen writes all the code; Claude does not (owner, 2026-11-03). Claude
+  designs, splits the work, briefs and reviews.
+- Tasks are small: one function or one small file each, with the exact code
+  it touches pasted into the brief, a test command it must pass, and a diff
+  back. Wiring into `ui.js` and `index.html` is its own small task per spot.
+- A task gets one retry. If it loops, hits its call cap or fails the tests
+  twice, stop it and split it smaller before the next try.
 - Kill any test servers and browsers a pass leaves running.
 - After each pass, push and post one line in the thread, so a stall shows up
   as silence on the thread rather than an idle session.
