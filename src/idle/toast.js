@@ -1,6 +1,6 @@
 // Toasts (docs/COMPLETION.md).
 // toast(text) is called for every achievement unlocked by a tick: a small
-// pill slides in at the top, below the safe area, and disappears after
+// pill slides up just above the bottom menu, and disappears after
 // 3 seconds. Several toasts queue and never overlap. The host is
 // pointer-events: none, so a toast never blocks a tap.
 // prefers-reduced-motion: no slide, the pill just appears and vanishes.
@@ -21,7 +21,7 @@ function injectStyle() {
   el.textContent = `
     .toast-host {
       position: fixed;
-      top: env(safe-area-inset-top);
+      bottom: calc(72px + env(safe-area-inset-bottom));
       left: 0; right: 0;
       display: flex; flex-direction: column; align-items: center;
       gap: 8px;
@@ -39,11 +39,11 @@ function injectStyle() {
       font-size: 13px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       opacity: 0;
-      transform: translateY(-12px);
+      transform: translateY(12px);
       transition: opacity 250ms ease, transform 250ms ease;
     }
     .toast-pill.show { opacity: 1; transform: translateY(0); }
-    .toast-pill.hide { opacity: 0; transform: translateY(-12px); }
+    .toast-pill.hide { opacity: 0; transform: translateY(12px); }
     @media (prefers-reduced-motion: reduce) {
       .toast-pill { transition: none; }
     }

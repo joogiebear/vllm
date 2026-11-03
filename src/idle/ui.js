@@ -2,16 +2,16 @@ import {
   buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
-} from './core.js?v=20261103041805';
+} from './core.js?v=20261103043954';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-} from './data.js?v=20261103041805';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261103041805';
-import { play } from './feedback.js?v=20261103041805';
-import { mountAchievements } from './achievements-ui.js?v=20261103041805';
-import { mountStats } from './stats-ui.js?v=20261103041805';
+} from './data.js?v=20261103043954';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261103043954';
+import { play } from './feedback.js?v=20261103043954';
+import { mountAchievements } from './achievements-ui.js?v=20261103043954';
+import { mountStats } from './stats-ui.js?v=20261103043954';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -426,13 +426,13 @@ export function createUI(state, io) {
     }
     .set-row .set-label { font-size: 14px; font-weight: 700; color: var(--text); }
     .set-choice { display: flex; gap: 4px; flex-wrap: wrap; }
-    .set-choice button {
-      min-height: 44px; padding: 0 10px;
+    .set-choice button, .set-row > button {
+      min-height: 44px; min-width: 64px; padding: 0 10px;
       border-radius: 8px; border: 1px solid var(--border);
       background: var(--bg); color: var(--dim);
       font-size: 13px; cursor: pointer;
     }
-    .set-choice button.active {
+    .set-choice button.active, .set-row > button.active {
       background: var(--affordable); border-color: var(--affordable);
       color: #0b0f17; font-weight: 700;
     }
@@ -545,7 +545,7 @@ export function createUI(state, io) {
     ]));
     prefs.appendChild(makeToggleRow('Sound', 'sound'));
     prefs.appendChild(makeToggleRow('Haptics', 'haptics', 'Haptics need the app version on iPhone'));
-    els.moreSettings.prepend(prefs);
+    morePanels.settings.prepend(prefs);
 
     const about = document.createElement('div');
     about.className = 'about';
@@ -560,7 +560,7 @@ export function createUI(state, io) {
     const credit = document.createElement('div');
     credit.textContent = 'Designed with Claude, built by Qwen3.8 on Hermes';
     about.append(ver, lic, link, credit);
-    els.moreSettings.appendChild(about);
+    morePanels.settings.appendChild(about);
   }
 
   // Mount the More tab sub-screens once at start.
