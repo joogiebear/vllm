@@ -9,7 +9,7 @@ import {
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   GENERATOR_REVEAL_FRACTION, UPGRADE_REVEAL_FRACTION, PRESTIGE_DIVISOR,
-  WEIGHT_BONUS_PER_WEIGHT,
+  WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
 } from './data.js';
 
 // --- number formatting ----------------------------------------------------
@@ -138,11 +138,66 @@ export function createUI(state, io) {
     buyBtn.textContent = 'BUY';
     buyBtn.addEventListener('click', () => {
       buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
+      updateGenRows(state); // immediate, without waiting for the next 10 Hz pass
     });
     row.append(name, owned, out, costEl, dbl, buyBtn);
     els.genRows.appendChild(row);
     return { g, row, owned, out, costEl, dbl, buyBtn };
   });
+
+  // Max affordable count for a generator, mirroring core.js buy() without
+  // mutating state (display only).
+  function maxAffordable(state, g) {
+    const owned = state.generators[g.id] || 0;
+    let count = 0;
+    let total = 0;
+    while (count < 100000) {
+      const next = Math.ceil(g.baseCost * Math.pow(COST_GROWTH, owned + count));
+      if (total + next > state.tokens) break;
+      total += next;
+      count++;
+    }
+    return { count, total };
+  }
+
+  // Generator rows: called on mode change and on purchase (immediate) and on
+  // each 10 Hz update. The cost shown is the true cost of the mode: x1 -> 1,
+  // x10 -> 10, max -> "buy N · cost X", or the cost of 1 when nothing is
+  // affordable.
+  function updateGenRows(state) {
+    for (const r of genRefs) {
+      // Revealed once lifetime OR current tokens reach half the base cost; the
+      // Raspberry Pi is always shown so a fresh (prestige) run is never empty.
+      const revealed =
+        r.g.id === 'pi' ||
+        state.lifetime >= r.g.baseCost * GENERATOR_REVEAL_FRACTION ||
+        state.tokens >= r.g.baseCost * GENERATOR_REVEAL_FRACTION;
+      r.row.hidden = !revealed;
+      const owned = state.generators[r.g.id];
+      r.owned.textContent = `owned ${owned}`;
+      r.out.textContent = `${fmt(genOutput(state, r.g))}/s`;
+      let c;
+      let disabled;
+      if (view.buyMode === 'max') {
+        const m = maxAffordable(state, r.g);
+        if (m.count > 0) {
+          r.costEl.textContent = `buy ${m.count} · cost ${fmt(m.total)}`;
+          disabled = false;
+        } else {
+          c = cost(state, r.g.id, 1);
+          r.costEl.textContent = `cost ${fmt(c)}`;
+          disabled = true;
+        }
+      } else {
+        c = cost(state, r.g.id, Number(view.buyMode));
+        r.costEl.textContent = `cost ${fmt(c)}`;
+        disabled = c > state.tokens;
+      }
+      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
+      r.dbl.textContent = next === undefined ? '' : `x2 at ${next}`;
+      r.buyBtn.disabled = disabled;
+    }
+  }
 
   // --- build upgrade cards (once) ------------------------------------------
   // Sorted by cost, cheapest first: one column, top to bottom, at every width.
@@ -210,6 +265,7 @@ export function createUI(state, io) {
     b.addEventListener('click', () => {
       view.buyMode = b.dataset.mode;
       selBtns.forEach((x) => x.classList.toggle('active', x === b));
+      updateGenRows(state); // highlight and rows update immediately
     });
   });
 
@@ -352,25 +408,8 @@ export function createUI(state, io) {
     els.overclock.textContent = state.overclock ? 'OVERCLOCK ON' : 'OVERCLOCK OFF';
     els.overclock.disabled = state.throttled;
 
-    // Generators.
-    for (const r of genRefs) {
-      const n = view.buyMode === 'max' ? 1 : Number(view.buyMode);
-      const c = cost(state, r.g.id, n);
-      // Revealed once lifetime OR current tokens reach half the base cost; the
-      // Raspberry Pi is always shown so a fresh (prestige) run is never empty.
-      const revealed =
-        r.g.id === 'pi' ||
-        state.lifetime >= r.g.baseCost * GENERATOR_REVEAL_FRACTION ||
-        state.tokens >= r.g.baseCost * GENERATOR_REVEAL_FRACTION;
-      r.row.hidden = !revealed;
-      const owned = state.generators[r.g.id];
-      r.owned.textContent = `owned ${owned}`;
-      r.out.textContent = `${fmt(genOutput(state, r.g))}/s`;
-      r.costEl.textContent = `cost ${fmt(c)}`;
-      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
-      r.dbl.textContent = next === undefined ? '' : `x2 at ${next}`;
-      r.buyBtn.disabled = c > state.tokens;
-    }
+    // Generators (immediate updates on mode change / purchase call this too).
+    updateGenRows(state);
 
     // Upgrades: reveal at 25% of cost (lifetime or tokens); purchased move to
     // the collapsed list.

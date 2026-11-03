@@ -62,6 +62,8 @@
     button:disabled:hover { border-color: var(--border); }
     button.active { border-color: var(--cyan); color: var(--cyan); }
     a { color: var(--cyan); }
+    /* Phones delay taps without this; keep taps instant on buttons and links. */
+    button, a { touch-action: manipulation; }
     :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
     .dim { color: var(--dim); }
     .value { color: var(--cyan); }
