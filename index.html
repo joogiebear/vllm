@@ -218,15 +218,15 @@
     /* LEDs: lit count grows with owned (up to 12); bright when lit, with a
        small glow; the blink speeds up with production, capped below
        strobing (period >= 400 ms). */
-    #rack .led { width: 5px; height: 5px; border-radius: 50%; background: #1a2438; }
+    #rack .led { width: 6px; height: 6px; border-radius: 50%; background: #1a2438; }
     #rack .led.lit {
       background: var(--tier);
-      box-shadow: 0 0 4px var(--tier);
+      box-shadow: 0 0 6px 1px var(--tier);
       animation: ledBlink var(--blink, 1600ms) steps(1, end) infinite;
     }
     @keyframes ledBlink {
       0%   { opacity: 1; }
-      50%  { opacity: 0.2; }
+      50%  { opacity: 0.55; }
       100% { opacity: 1; }
     }
     /* A tier appears with a short slide-in the first time it is owned */
@@ -274,7 +274,7 @@
     }
     #rack.overclock .led.lit {
       background: var(--amber);
-      box-shadow: 0 0 4px var(--amber);
+      box-shadow: 0 0 6px 1px var(--amber);
     }
     /* Slim row under the rack: a thin heat bar and the Overclock switch.
        No numeric heat value, no COOLING text. */
