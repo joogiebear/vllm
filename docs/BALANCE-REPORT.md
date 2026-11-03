@@ -1,36 +1,57 @@
 # Late-game balance run
 
 Active bot played to 10 Regions or 200 simulated hours (whichever comes first).
-Finished at 11h 20m with 12 Regions, 77 prestiges, 151 events claimed.
+Finished at 31h 16m with 10 Regions, 226 prestiges, 413 events claimed.
 
 | Region | Reached | Took | Prestiges | Highest tier (end) | Last upgrade | Last manager |
 |---|---|---|---|---|---|---|
-| 1 | 2h 15m | 2h 15m | 14 | Inference Singularity | 2h 14m | 2h 13m |
-| 2 | 4h 42m | 2h 26m | 17 | Inference Singularity | 4h 40m | 4h 39m |
-| 3 | 6h 38m | 1h 56m | 11 | Inference Singularity | 6h 37m | 6h 37m |
-| 4 | 9h 9m | 2h 31m | 18 | Inference Singularity | 9h 8m | 9h 4m |
-| 5 | 10h 45m | 1h 35m | 12 | Inference Singularity | 10h 42m | 10h 40m |
-| 6 | 10h 45m | 0s | 0 | Inference Singularity | 10h 42m | 10h 40m |
-| 7 | 10h 45m | 0s | 0 | Inference Singularity | 10h 42m | 10h 40m |
-| 8 | 10h 45m | 0s | 0 | Inference Singularity | 10h 42m | 10h 40m |
-| 9 | 11h 20m | 34m 49s | 5 | Inference Singularity | 11h 19m | 11h 17m |
-| 10 | 11h 20m | 0s | 0 | Inference Singularity | 11h 19m | 11h 17m |
-| 11 | 11h 20m | 0s | 0 | Inference Singularity | 11h 19m | 11h 17m |
-| 12 | 11h 20m | 0s | 0 | Inference Singularity | 11h 19m | 11h 17m |
+| 1 | 5h 39m | 5h 39m | 26 | Dyson Inference Swarm | 5h 0m | 4h 59m |
+| 2 | 8h 43m | 3h 4m | 21 | Orbital Compute Ring | 8h 30m | 8h 29m |
+| 3 | 11h 35m | 2h 52m | 25 | Orbital Compute Ring | 11h 26m | 11h 25m |
+| 4 | 14h 23m | 2h 47m | 22 | Lunar Datacenter | 14h 10m | 14h 8m |
+| 5 | 16h 27m | 2h 3m | 18 | Lunar Datacenter | 16h 12m | 16h 10m |
+| 6 | 19h 19m | 2h 52m | 26 | Matrioshka Brain | 18h 56m | 18h 55m |
+| 7 | 21h 40m | 2h 20m | 19 | Matrioshka Brain | 21h 30m | 21h 29m |
+| 8 | 24h 31m | 2h 51m | 23 | Matrioshka Brain | 24h 1m | 24h 1m |
+| 9 | 27h 37m | 3h 5m | 18 | Inference Singularity | 26h 55m | 26h 54m |
+| 10 | 31h 16m | 3h 39m | 28 | Inference Singularity | 31h 4m | 31h 3m |
 
 Owned counts per tier at the end of each Region:
-- Region 1: pi 201, gamer 176, workstation 166, rack 155, cluster 145, datacenter 128, campus 115, swarm 97, orbital 82, lunar 72, matrioshka 61, singularity 48
-- Region 2: pi 207, gamer 185, workstation 175, rack 164, cluster 152, datacenter 134, campus 119, swarm 102, orbital 89, lunar 76, matrioshka 65, singularity 55
-- Region 3: pi 192, gamer 171, workstation 161, rack 144, cluster 135, datacenter 122, campus 107, swarm 90, orbital 79, lunar 70, matrioshka 62, singularity 48
-- Region 4: pi 224, gamer 199, workstation 191, rack 176, cluster 167, datacenter 150, campus 136, swarm 125, orbital 110, lunar 96, matrioshka 85, singularity 73
-- Region 5: pi 227, gamer 205, workstation 195, rack 179, cluster 172, datacenter 154, campus 141, swarm 127, orbital 110, lunar 97, matrioshka 89, singularity 77
-- Region 6: pi 227, gamer 205, workstation 195, rack 179, cluster 172, datacenter 154, campus 141, swarm 127, orbital 110, lunar 97, matrioshka 89, singularity 77
-- Region 7: pi 227, gamer 205, workstation 195, rack 179, cluster 172, datacenter 154, campus 141, swarm 127, orbital 110, lunar 97, matrioshka 89, singularity 77
-- Region 8: pi 227, gamer 205, workstation 195, rack 179, cluster 172, datacenter 154, campus 141, swarm 127, orbital 110, lunar 97, matrioshka 89, singularity 77
-- Region 9: pi 204, gamer 182, workstation 171, rack 156, cluster 147, datacenter 136, campus 120, swarm 106, orbital 90, lunar 80, matrioshka 70, singularity 60
-- Region 10: pi 204, gamer 182, workstation 171, rack 156, cluster 147, datacenter 136, campus 120, swarm 106, orbital 90, lunar 80, matrioshka 70, singularity 60
-- Region 11: pi 204, gamer 182, workstation 171, rack 156, cluster 147, datacenter 136, campus 120, swarm 106, orbital 90, lunar 80, matrioshka 70, singularity 60
-- Region 12: pi 204, gamer 182, workstation 171, rack 156, cluster 147, datacenter 136, campus 120, swarm 106, orbital 90, lunar 80, matrioshka 70, singularity 60
+- Region 1: pi 248, gamer 222, workstation 212, rack 195, cluster 184, datacenter 165, campus 146, swarm 129
+- Region 2: pi 251, gamer 227, workstation 222, rack 206, cluster 194, datacenter 182, campus 169, swarm 157, orbital 137
+- Region 3: pi 276, gamer 252, workstation 240, rack 230, cluster 221, datacenter 203, campus 189, swarm 177, orbital 164
+- Region 4: pi 297, gamer 272, workstation 262, rack 249, cluster 239, datacenter 227, campus 215, swarm 200, orbital 191, lunar 176
+- Region 5: pi 327, gamer 307, workstation 300, rack 282, cluster 271, datacenter 256, campus 242, swarm 228, orbital 211, lunar 199
+- Region 6: pi 354, gamer 330, workstation 318, rack 302, cluster 294, datacenter 282, campus 263, swarm 245, orbital 228, lunar 216, matrioshka 200
+- Region 7: pi 351, gamer 327, workstation 323, rack 313, cluster 306, datacenter 296, campus 283, swarm 270, orbital 257, lunar 247, matrioshka 239
+- Region 8: pi 396, gamer 374, workstation 367, rack 353, cluster 342, datacenter 326, campus 314, swarm 298, orbital 278, lunar 265, matrioshka 257
+- Region 9: pi 411, gamer 392, workstation 381, rack 366, cluster 357, datacenter 343, campus 329, swarm 312, orbital 300, lunar 287, matrioshka 275, singularity 265
+- Region 10: pi 418, gamer 401, workstation 394, rack 383, cluster 375, datacenter 361, campus 353, swarm 341, orbital 327, lunar 316, matrioshka 309, singularity 298
 
 Stalls (more than 20 simulated minutes without any purchase):
 - none
+
+Tuned constants:
+- REGION_BASE = 4000, REGION_GROWTH = 6.5
+- x5 Raspberry Pi output: 2000000
+- x5 Gaming GPU output: 10000000
+- x5 Workstation output: 100000000
+- x5 Rack Server output: 1000000000
+- x5 GPU Cluster output: 10000000000
+- x5 Datacenter output: 100000000000
+- x5 Fusion Campus output: 1650000000000
+- x5 Dyson Inference Swarm output: 25500000000000
+- x5 Orbital Compute Ring output: 400000000000000
+- x5 Lunar Datacenter output: 6500000000000000
+- x5 Matrioshka Brain output: 110000000000000000
+- x5 Inference Singularity output: 2000000000000000000
+
+Targets (docs/LATE-GAME-DESIGN.md, section 5):
+- first Region in 3-5 h: FAIL (at 5h 39m)
+- every later Region in 2-5 h, never 0: PASS (3h 4m, 2h 52m, 2h 47m, 2h 3m, 2h 52m, 2h 20m, 2h 51m, 3h 5m, 3h 39m)
+- Inference Singularity first owned around Region 8, 20-35 h in: PASS (first owned at Region 9, 27h 37m)
+- 10 Regions in 30-50 h: PASS (at 31h 16m)
+- tiers 1-4 at 500+ owned by Region 10: FAIL (pi 418, gamer 401, workstation 394, rack 383)
+- no stall over 20 min: PASS (none)
+
+Targets still missed: first Region in 3-5 h; tiers 1-4 at 500+ owned by Region 10

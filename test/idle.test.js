@@ -9,6 +9,7 @@ import {
   buy,
   maxBuyable,
   buyUpgrade,
+  buyX5Upgrade,
   buyAllUpgrades,
   buyWeightUpgrade,
   weightsAvailable,
@@ -1535,9 +1536,77 @@ test('X5_UPGRADES: 12 entries, one per tier in order, x5, minRegions 2, cost = 1
   }
 });
 
+// x5 upgrade behaviour (docs/LATE-GAME-DESIGN.md, section 4)
+
+test('buyX5Upgrade: buys once minRegions is met, the tier is unlocked and it is affordable', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1e9;
+  assert.equal(buyX5Upgrade(s, 'pi5'), true);
+  assert.ok(s.x5Upgrades.includes('pi5'));
+  assert.equal(s.tokens, 1e9 - 2e6);
+});
+
+test('buyX5Upgrade: refused before minRegions, on a locked tier, when unaffordable, when owned, for unknown ids', () => {
+  const s = createState();
+  s.regionsEarned = 1;
+  s.tokens = 1e20;
+  assert.equal(buyX5Upgrade(s, 'pi5'), false); // 1 < minRegions 2
+  s.regionsEarned = 2;
+  assert.equal(buyX5Upgrade(s, 'singularity5'), false); // tier locked until 8 Regions
+  assert.equal(buyX5Upgrade(s, 'nope'), false);
+  s.tokens = 1;
+  assert.equal(buyX5Upgrade(s, 'pi5'), false); // unaffordable
+  s.tokens = 1e9;
+  assert.equal(buyX5Upgrade(s, 'pi5'), true);
+  assert.equal(buyX5Upgrade(s, 'pi5'), false); // already owned
+});
+
+test('buyX5Upgrade: an already owned gated tier stays usable before its gate', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1e20;
+  s.generators.singularity = 1; // owned, so the tier is usable
+  assert.equal(buyX5Upgrade(s, 'singularity5'), true);
+});
+
+test('x5 upgrades multiply the tier output (x5 on top of the x3)', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1e9;
+  s.generators.pi = 10;
+  const before = tokensPerSecond(s);
+  assert.equal(buyX5Upgrade(s, 'pi5'), true);
+  assert.equal(tokensPerSecond(s), before * 5);
+  s.upgrades.push('pi3');
+  assert.equal(tokensPerSecond(s), before * 5 * 3);
+});
+
+test('x5 upgrades reset on prestige and on expandRegion', () => {
+  const s = createState();
+  s.regionsEarned = 2;
+  s.tokens = 1e9;
+  s.totalLifetime = 1e13;
+  assert.equal(buyX5Upgrade(s, 'pi5'), true);
+  assert.ok(s.x5Upgrades.includes('pi5'));
+  prestige(s);
+  assert.deepEqual(s.x5Upgrades, []);
+  s.regionsEarned = 2;
+  s.tokens = 1e9;
+  s.weightsSinceExpand = regionTarget(s);
+  assert.equal(buyX5Upgrade(s, 'pi5'), true);
+  expandRegion(s);
+  assert.deepEqual(s.x5Upgrades, []);
+});
+
+test('migrate: keeps valid x5Upgrades, drops invalid ones', () => {
+  const s = migrate({ version: 3, x5Upgrades: ['pi5', 'bogus', 42] });
+  assert.deepEqual(s.x5Upgrades, ['pi5']);
+});
+
 test('REGION_BASE and REGION_GROWTH', () => {
   assert.equal(REGION_BASE, 4000);
-  assert.equal(REGION_GROWTH, 1.6);
+  assert.equal(REGION_GROWTH, 6.5);
 });
 
 // Tier gating (docs/LATE-GAME-DESIGN.md, section 1)

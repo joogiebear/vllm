@@ -150,7 +150,7 @@ export const REGION_DIVISOR = 4000;
 // expanding needs Weights earned since the last expansion to reach
 // REGION_BASE * REGION_GROWTH ^ regionsEarned. The balance bot tunes both.
 export const REGION_BASE = 4000;
-export const REGION_GROWTH = 1.6;
+export const REGION_GROWTH = 6.5;
 // The Regions view appears once this many Weights have been earned in total.
 export const REGION_UNLOCK_WEIGHTS = 2000; // half the first Region, so the tab appears when it is in sight
 // The server room moves per Region earned; after the list ends it is

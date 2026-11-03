@@ -11,14 +11,14 @@
 // stops after its second expansion or after 12 simulated hours.
 // Run: node tools/idle-balance.js
 import {
-  createState, tick, runRow, buyManager, buy, buyUpgrade,
+  createState, tick, runRow, buyManager, buy, buyUpgrade, buyX5Upgrade,
   buyWeightUpgrade, prestige, cost, weightsAvailable,
   regionsAvailable, expandRegion, buyRegionPerk, claimEvent,
-  tokensPerSecond,
+  tokensPerSecond, isTierUnlocked, regionTarget,
 } from '../src/idle/core.js';
 import {
-  GENERATORS, UPGRADES, WEIGHT_UPGRADES, MANAGERS, DOUBLING_THRESHOLDS,
-  REGION_PERKS, PRESTIGE_DIVISOR, REGION_DIVISOR,
+  GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES, MANAGERS, DOUBLING_THRESHOLDS,
+  REGION_PERKS, PRESTIGE_DIVISOR, REGION_BASE, REGION_GROWTH,
 } from '../src/idle/data.js';
 import { writeFileSync } from 'node:fs';
 
@@ -55,29 +55,45 @@ function botStep(state, isIdle, stepIndex) {
     }
   }
   // 2. Buy a manager as soon as one is affordable (cheapest unowned it can).
-  const unowned = MANAGERS.filter((m) => !state.managers.includes(m.id))
+  // Gated tiers' managers are skipped until the tier unlocks: buy() and
+  // buyManager() refuse them, and retrying the cheapest locked one would
+  // shadow the unlocked ones.
+  const unowned = MANAGERS.filter((m) => !state.managers.includes(m.id) && isTierUnlocked(state, m.id))
     .sort((a, b) => a.cost - b.cost);
   for (const m of unowned) {
     if (state.tokens >= m.cost) { buyManager(state, m.id); break; }
   }
   // 3. Buy the best generator per cost, repeatedly, while affordable.
+  // Gated tiers are only bought once they unlock: buy() refuses them, and
+  // retrying a locked tier whose cost is affordable would loop forever.
   let bought = true;
   while (bought) {
     bought = false;
     let best = null;
     let bestRatio = 0;
     for (const g of GENERATORS) {
+      if (!isTierUnlocked(state, g.id)) continue;
       const c = cost(state, g.id, 1);
       if (c > 0 && c <= state.tokens) {
         const r = outputPerCost(state, g);
         if (r > bestRatio) { bestRatio = r; best = g; }
       }
     }
-    if (best) { buy(state, best.id, 1); bought = true; }
+    if (best) {
+      if (buy(state, best.id, 1) > 0) bought = true;
+    }
   }
   // 4. Buy any affordable upgrade.
   for (const u of UPGRADES) {
     if (!state.upgrades.includes(u.id) && state.tokens >= u.cost) buyUpgrade(state, u.id);
+  }
+  // 5. Buy any affordable x5 upgrade: it appears after minRegions Regions,
+  // and for gated tiers only once the tier itself is unlocked.
+  for (const u of X5_UPGRADES) {
+    if (!state.x5Upgrades.includes(u.id) && state.regionsEarned >= u.minRegions &&
+        isTierUnlocked(state, u.tier) && state.tokens >= u.cost) {
+      buyX5Upgrade(state, u.id);
+    }
   }
 }
 
@@ -178,9 +194,10 @@ function runLate() {
   state.tokens = START_TOKENS;
 
   const anyAffordable = (s) => {
-    for (const m of MANAGERS) if (!s.managers.includes(m.id) && s.tokens >= m.cost) return true;
-    for (const g of GENERATORS) if (cost(s, g.id, 1) <= s.tokens) return true;
+    for (const m of MANAGERS) if (!s.managers.includes(m.id) && isTierUnlocked(s, m.id) && s.tokens >= m.cost) return true;
+    for (const g of GENERATORS) if (isTierUnlocked(s, g.id) && cost(s, g.id, 1) <= s.tokens) return true;
     for (const u of UPGRADES) if (!s.upgrades.includes(u.id) && s.tokens >= u.cost) return true;
+    for (const u of X5_UPGRADES) if (!s.x5Upgrades.includes(u.id) && s.regionsEarned >= u.minRegions && isTierUnlocked(s, u.tier) && s.tokens >= u.cost) return true;
     for (const w of WEIGHT_UPGRADES) if (!s.weightUpgrades.includes(w.id) && s.weights >= w.cost) return true;
     for (const p of REGION_PERKS) if (!s.regionPerks.includes(p.id) && s.regions >= p.cost) return true;
     return weightsAvailable(s) >= Math.max(5, 0.5 * s.weights)
@@ -189,27 +206,25 @@ function runLate() {
   };
 
   // Jump to the next affordability: the cheapest unowned token item, the next
-  // prestige, the next Region, or the next event offer. Weights and the Region
-  // balance only grow at prestige / expansion, so the weight-upgrade and
-  // Region-perk delays are covered by those two.
+  // prestige, or the next event offer. Weights and the Region balance only
+  // grow at prestige / expansion: the Weights earned since the last
+  // expansion (the Region requirement) grows at the same prestiges as the
+  // prestige target, so the next-prestige jump covers the next Region too.
   const bigStep = (s) => {
     const tps = tokensPerSecond(s);
     let best = Infinity;
     const consider = (c) => {
       if (c > s.tokens && tps > 0) best = Math.min(best, (c - s.tokens) / tps);
     };
-    for (const m of MANAGERS) if (!s.managers.includes(m.id)) consider(m.cost);
-    for (const g of GENERATORS) { const c = cost(s, g.id, 1); if (c > 0) consider(c); }
+    for (const m of MANAGERS) if (!s.managers.includes(m.id) && isTierUnlocked(s, m.id)) consider(m.cost);
+    for (const g of GENERATORS) if (isTierUnlocked(s, g.id)) { const c = cost(s, g.id, 1); if (c > 0) consider(c); }
     for (const u of UPGRADES) if (!s.upgrades.includes(u.id)) consider(u.cost);
+    for (const u of X5_UPGRADES) if (!s.x5Upgrades.includes(u.id) && s.regionsEarned >= u.minRegions && isTierUnlocked(s, u.tier)) consider(u.cost);
     const earned = s.weightsEarnedThisCycle || 0;
     const need = Math.max(5, 0.5 * s.weights);
     const curW = Math.floor(Math.sqrt(Math.max(0, s.totalLifetime) / PRESTIGE_DIVISOR));
     if (curW - earned < need && tps > 0) {
       best = Math.min(best, (PRESTIGE_DIVISOR * Math.pow(earned + need, 2) - s.totalLifetime) / tps);
-    }
-    const curR = Math.floor(Math.sqrt(Math.max(0, s.weightsEverEarned) / REGION_DIVISOR));
-    if (curR < s.regionsEarned + 1 && tps > 0) {
-      best = Math.min(best, (REGION_DIVISOR * Math.pow(s.regionsEarned + 1, 2) - s.totalLifetime) / tps);
     }
     if (!s.eventOffer && Number.isFinite(s.nextEventIn)) best = Math.min(best, s.nextEventIn);
     if (!Number.isFinite(best)) return 60; // no production: taps still pay
@@ -221,9 +236,10 @@ function runLate() {
 
   const waitingFor = (s) => {
     let best = null;
-    for (const m of MANAGERS) if (!s.managers.includes(m.id) && (best === null || m.cost < best.cost)) best = { name: m.name, cost: m.cost };
-    for (const g of GENERATORS) { const c = cost(s, g.id, 1); if (c > 0 && (best === null || c < best.cost)) best = { name: g.name, cost: c }; }
+    for (const m of MANAGERS) if (!s.managers.includes(m.id) && isTierUnlocked(s, m.id) && (best === null || m.cost < best.cost)) best = { name: m.name, cost: m.cost };
+    for (const g of GENERATORS) if (isTierUnlocked(s, g.id)) { const c = cost(s, g.id, 1); if (c > 0 && (best === null || c < best.cost)) best = { name: g.name, cost: c }; }
     for (const u of UPGRADES) if (!s.upgrades.includes(u.id) && (best === null || u.cost < best.cost)) best = { name: u.name, cost: u.cost };
+    for (const u of X5_UPGRADES) if (!s.x5Upgrades.includes(u.id) && s.regionsEarned >= u.minRegions && isTierUnlocked(s, u.tier) && (best === null || u.cost < best.cost)) best = { name: u.name, cost: u.cost };
     if (best) {
       const tps = tokensPerSecond(s);
       const secs = tps > 0 ? (best.cost - s.tokens) / tps : Infinity;
@@ -231,8 +247,7 @@ function runLate() {
     }
     const wa = weightsAvailable(s);
     if (wa < Math.max(5, 0.5 * s.weights)) return `prestige weights (${wa} of ${Math.max(5, 0.5 * s.weights)} available)`;
-    if (regionsAvailable(s) < 1) return `a Region (needs ${fmtMoney(REGION_DIVISOR * Math.pow(s.regionsEarned + 1, 2))} total weights, has ${fmtMoney(s.weightsEverEarned)})`;
-    return 'unknown';
+    return `a Region (needs ${fmtMoney(regionTarget(s))} Weights earned since the last expansion, has ${fmtMoney(s.weightsSinceExpand)})`;
   };
 
   const snapshot = (s) => {
@@ -361,6 +376,44 @@ function runLate() {
     for (const st of stalls) {
       lines.push(`- ${fmtTime(st.startT)} -> ${fmtTime(st.endT)} (${fmtTime(st.endT - st.startT)}): waiting for ${st.reason}`);
     }
+  }
+  lines.push('');
+  // The tuned constants (docs/LATE-GAME-DESIGN.md, section 5): the values
+  // this run used, so the report stands alone.
+  lines.push('Tuned constants:');
+  lines.push(`- REGION_BASE = ${REGION_BASE}, REGION_GROWTH = ${REGION_GROWTH}`);
+  for (const u of X5_UPGRADES) {
+    lines.push(`- ${u.name}: ${u.cost}`);
+  }
+  lines.push('');
+  // Targets (docs/LATE-GAME-DESIGN.md, section 5).
+  const first = regions[0];
+  const firstOk = !!first && first.t >= 3 * 3600 && first.t <= 5 * 3600;
+  const later = regions.slice(1);
+  const laterOk = later.length > 0 && later.every((r) => r.duration > 0 && r.duration >= 2 * 3600 && r.duration <= 5 * 3600);
+  let sing = null;
+  for (const r of regions) if ((r.owned.singularity || 0) > 0) { sing = r; break; }
+  const singOk = !!sing && sing.n >= 8 && sing.n <= 9 && sing.t >= 20 * 3600 && sing.t <= 35 * 3600;
+  const tenth = regions[9];
+  const tenOk = !!tenth && tenth.t >= 30 * 3600 && tenth.t <= 50 * 3600;
+  const lowOk = !!tenth && ['pi', 'gamer', 'workstation', 'rack'].every((id) => (tenth.owned[id] || 0) >= 500);
+  const stallOk = stalls.length === 0;
+  const targets = [
+    { name: 'first Region in 3-5 h', ok: firstOk, detail: first ? `at ${fmtTime(first.t)}` : 'never' },
+    { name: 'every later Region in 2-5 h, never 0', ok: laterOk, detail: later.length > 0 ? later.map((r) => fmtTime(r.duration)).join(', ') : 'none reached' },
+    { name: 'Inference Singularity first owned around Region 8, 20-35 h in', ok: singOk, detail: sing ? `first owned at Region ${sing.n}, ${fmtTime(sing.t)}` : 'never owned' },
+    { name: '10 Regions in 30-50 h', ok: tenOk, detail: tenth ? `at ${fmtTime(tenth.t)}` : 'never' },
+    { name: 'tiers 1-4 at 500+ owned by Region 10', ok: lowOk, detail: tenth ? ['pi', 'gamer', 'workstation', 'rack'].map((id) => `${id} ${tenth.owned[id] || 0}`).join(', ') : 'n/a' },
+    { name: 'no stall over 20 min', ok: stallOk, detail: stallOk ? 'none' : `${stalls.length} stalls` },
+  ];
+  lines.push('Targets (docs/LATE-GAME-DESIGN.md, section 5):');
+  for (const tg of targets) {
+    lines.push(`- ${tg.name}: ${tg.ok ? 'PASS' : 'FAIL'} (${tg.detail})`);
+  }
+  const missed = targets.filter((tg) => !tg.ok);
+  if (missed.length > 0) {
+    lines.push('');
+    lines.push(`Targets still missed: ${missed.map((tg) => tg.name).join('; ')}`);
   }
   const report = lines.join('\n') + '\n';
   writeFileSync('docs/BALANCE-REPORT.md', report);

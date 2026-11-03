@@ -8,6 +8,7 @@ import {
   PAYOUT_MILESTONES,
   GLOBAL_MILESTONES,
   UPGRADES,
+  X5_UPGRADES,
   WEIGHT_UPGRADES,
   MANAGERS,
   REMOVED_UPGRADES,
@@ -63,6 +64,7 @@ export function createState() {
     autoProcureTimer: 0,
     generators,
     upgrades: [],
+    x5Upgrades: [],
     weightUpgrades: [],
     managers: [],
     cycles,
@@ -113,6 +115,10 @@ function validState(state) {
 
 function hasWeightUpgrade(state, id) {
   return Array.isArray(state.weightUpgrades) && state.weightUpgrades.includes(id);
+}
+
+function hasX5Upgrade(state, id) {
+  return Array.isArray(state.x5Upgrades) && state.x5Upgrades.includes(id);
 }
 
 function hasRegionPerk(state, id) {
@@ -179,6 +185,10 @@ function tierMultiplier(state, g) {
   let m = 1;
   for (const u of UPGRADES) {
     if (u.kind === 'productionTier' && u.tier === g.id && state.upgrades.includes(u.id)) m *= u.value;
+  }
+  // Second-round x5 output upgrades (docs/LATE-GAME-DESIGN.md, section 4).
+  for (const u of X5_UPGRADES) {
+    if (u.tier === g.id && hasX5Upgrade(state, u.id)) m *= u.value;
   }
   return m;
 }
@@ -442,6 +452,11 @@ export function migrate(saveState) {
       (x) => typeof x === 'string' && WEIGHT_UPGRADES.some((u) => u.id === x)
     );
   }
+  if (Array.isArray(saveState.x5Upgrades)) {
+    s.x5Upgrades = saveState.x5Upgrades.filter(
+      (x) => typeof x === 'string' && X5_UPGRADES.some((u) => u.id === x)
+    );
+  }
   if (Array.isArray(saveState.managers)) {
     s.managers = saveState.managers.filter(
       (x) => typeof x === 'string' && MANAGERS.some((m) => m.id === x)
@@ -657,6 +672,23 @@ export function buyAllUpgrades(state) {
   return bought;
 }
 
+// Second-round x5 output upgrade (docs/LATE-GAME-DESIGN.md, section 4):
+// appears once minRegions Regions are earned, and for tiers 9-12 only
+// when the tier itself is unlocked. Resets on prestige like other
+// upgrades.
+export function buyX5Upgrade(state, id) {
+  if (!validState(state)) return false;
+  const u = X5_UPGRADES.find((x) => x.id === id);
+  if (!u || hasX5Upgrade(state, id)) return false;
+  if ((state.regionsEarned || 0) < u.minRegions) return false;
+  if (!isTierUnlocked(state, u.tier)) return false;
+  if (state.tokens < u.cost) return false;
+  state.tokens -= u.cost;
+  state.x5Upgrades.push(id);
+  state.stats.upgradesBought += 1;
+  return true;
+}
+
 export function buyWeightUpgrade(state, id) {
   if (!validState(state)) return false;
   const wu = WEIGHT_UPGRADES.find((x) => x.id === id);
@@ -727,6 +759,7 @@ export function prestige(state) {
     state.cycles[g.id] = null;
   }
   state.upgrades = [];
+  state.x5Upgrades = [];
   // Managers reset like regular upgrades; Standing Orders re-hires the
   // Cron Job at the start of each run, and Head Start then hires the
   // first 3 managers.
@@ -778,6 +811,7 @@ export function expandRegion(state) {
     state.cycles[g.id] = null;
   }
   state.upgrades = [];
+  state.x5Upgrades = [];
   state.managers = [];
   applyHeadStart(state);
   // Fresh Weights: each new region starts with 5 Weights, counted as
