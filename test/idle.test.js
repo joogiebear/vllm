@@ -391,3 +391,185 @@ test('ensureStarter restores a pi only when nothing is owned', () => {
   ensureStarter(s);
   assert.equal(s.generators.pi, 0);
 });
+
+test('createState: stats start at zero', () => {
+  const s = createState();
+  assert.deepEqual(s.stats, {
+    allTimeTokens: 0,
+    bestRunTokens: 0,
+    playSeconds: 0,
+    offlineSeconds: 0,
+    offlineTokens: 0,
+    prestiges: 0,
+    managersHired: 0,
+    taps: 0,
+    generatorsBought: 0,
+    upgradesBought: 0,
+    rushGames: 0,
+    bestRushScore: 0,
+    runStartedAt: 0,
+  });
+});
+
+test('stats: playSeconds accumulates with tick', () => {
+  const s = createState();
+  tick(s, 10);
+  assert.equal(s.stats.playSeconds, 10);
+  tick(s, 2.5);
+  assert.equal(s.stats.playSeconds, 12.5);
+  tick(s, 0);
+  assert.equal(s.stats.playSeconds, 12.5);
+});
+
+test('stats: allTimeTokens and bestRunTokens follow earnings', () => {
+  const s = createState();
+  s.generators.pi = 1;
+  s.managers.push('pi');
+  tick(s, 7);
+  assert.equal(s.stats.allTimeTokens, 7);
+  assert.equal(s.stats.bestRunTokens, 7);
+  tick(s, 7);
+  assert.equal(s.stats.allTimeTokens, 14);
+  assert.equal(s.stats.bestRunTokens, 14);
+});
+
+test('stats: taps count manual row starts only', () => {
+  const s = createState();
+  s.generators.pi = 1;
+  assert.equal(runRow(s, 'pi'), true);
+  assert.equal(s.stats.taps, 1);
+  assert.equal(runRow(s, 'pi'), false);
+  assert.equal(runRow(s, 'nope'), false);
+  assert.equal(s.stats.taps, 1);
+});
+
+test('stats: generatorsBought counts purchases', () => {
+  const s = createState();
+  s.tokens = 100;
+  assert.equal(buy(s, 'pi'), 4);
+  assert.equal(s.stats.generatorsBought, 4);
+  assert.equal(buy(s, 'pi', 'max'), 0);
+  assert.equal(s.stats.generatorsBought, 4);
+});
+
+test('stats: upgradesBought counts purchases', () => {
+  const s = createState();
+  s.tokens = 1100;
+  assert.equal(buyUpgrade(s, 'quant'), true);
+  assert.equal(s.stats.upgradesBought, 1);
+  assert.equal(buyUpgrade(s, 'quant'), false);
+  assert.equal(buyAllUpgrades(s), 1);
+  assert.equal(s.stats.upgradesBought, 2);
+});
+
+test('stats: managersHired counts successful hires', () => {
+  const s = createState();
+  s.tokens = 100;
+  assert.equal(buyManager(s, 'pi'), true);
+  assert.equal(s.stats.managersHired, 1);
+  assert.equal(buyManager(s, 'pi'), false);
+  assert.equal(buyManager(s, 'nope'), false);
+  s.tokens = 15000;
+  assert.equal(buyManager(s, 'gamer'), true);
+  assert.equal(s.stats.managersHired, 2);
+});
+
+test('stats: offlineSeconds and offlineTokens track time away', () => {
+  const s = createState();
+  s.generators.pi = 1;
+  s.managers.push('pi');
+  assert.equal(applyOffline(s, 3600 * 8), 14400);
+  assert.equal(s.stats.offlineSeconds, 3600 * 8);
+  assert.equal(s.stats.offlineTokens, 14400);
+  assert.equal(applyOffline(s, 3600 * 100), 14400);
+  assert.equal(s.stats.offlineSeconds, 3600 * 16);
+  assert.equal(s.stats.offlineTokens, 28800);
+});
+
+test('stats: prestiges increments only on success', () => {
+  const s = createState();
+  assert.equal(prestige(s), 0);
+  assert.equal(s.stats.prestiges, 0);
+  s.totalLifetime = 10000000000000;
+  assert.equal(prestige(s), 10);
+  assert.equal(s.stats.prestiges, 1);
+});
+
+test('stats: rushGames and bestRushScore track rush payouts', () => {
+  const s = createState();
+  s.generators.pi = 10;
+  assert.equal(applyRush(s, 100, 1000), 20);
+  assert.equal(s.stats.rushGames, 1);
+  assert.equal(s.stats.bestRushScore, 100);
+  assert.equal(applyRush(s, 500, 1000 + 10), 0);
+  assert.equal(s.stats.rushGames, 1);
+  assert.equal(applyRush(s, 500, 1000 + 600), 100);
+  assert.equal(s.stats.bestRushScore, 500);
+  assert.equal(applyRush(s, 0, 1000 + 1200), 0);
+  assert.equal(s.stats.rushGames, 2);
+});
+
+test('stats: runStartedAt is the game time when the run began', () => {
+  const s = createState();
+  assert.equal(s.stats.runStartedAt, 0);
+  tick(s, 30);
+  s.totalLifetime = 10000000000000;
+  prestige(s);
+  assert.equal(s.stats.runStartedAt, 30);
+});
+
+test('stats: prestige keeps every counter except runStartedAt', () => {
+  const s = createState();
+  s.totalLifetime = 10000000000000;
+  s.stats.allTimeTokens = 5000;
+  s.stats.bestRunTokens = 4000;
+  s.stats.playSeconds = 123;
+  s.stats.offlineSeconds = 45;
+  s.stats.offlineTokens = 90;
+  s.stats.managersHired = 2;
+  s.stats.taps = 100;
+  s.stats.generatorsBought = 25;
+  s.stats.upgradesBought = 3;
+  s.stats.rushGames = 4;
+  s.stats.bestRushScore = 2000;
+  assert.equal(prestige(s), 10);
+  assert.equal(s.stats.allTimeTokens, 5000);
+  assert.equal(s.stats.bestRunTokens, 4000);
+  assert.equal(s.stats.playSeconds, 123);
+  assert.equal(s.stats.offlineSeconds, 45);
+  assert.equal(s.stats.offlineTokens, 90);
+  assert.equal(s.stats.prestiges, 1);
+  assert.equal(s.stats.managersHired, 2);
+  assert.equal(s.stats.taps, 100);
+  assert.equal(s.stats.generatorsBought, 25);
+  assert.equal(s.stats.upgradesBought, 3);
+  assert.equal(s.stats.rushGames, 4);
+  assert.equal(s.stats.bestRushScore, 2000);
+  assert.equal(s.stats.runStartedAt, 123);
+  // the new run earns below the old best, which is kept:
+  // 1 * 1 * 7 * (1 + 0.1 * 10 weights) = 14
+  s.generators.pi = 1;
+  s.managers.push('pi');
+  tick(s, 7);
+  assert.equal(s.lifetime, 14);
+  assert.equal(s.stats.bestRunTokens, 4000);
+});
+
+test('migrate: old saves get zero stats', () => {
+  const s = migrate({ version: 1, tokens: 100, generators: { pi: 3 } });
+  assert.deepEqual(s.stats, {
+    allTimeTokens: 0,
+    bestRunTokens: 0,
+    playSeconds: 0,
+    offlineSeconds: 0,
+    offlineTokens: 0,
+    prestiges: 0,
+    managersHired: 0,
+    taps: 0,
+    generatorsBought: 0,
+    upgradesBought: 0,
+    rushGames: 0,
+    bestRushScore: 0,
+    runStartedAt: 0,
+  });
+});
