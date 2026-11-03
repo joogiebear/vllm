@@ -4,7 +4,7 @@
 // name and a short condition, unlocked first, locked ones dim. Rows are
 // built once; the refresh pass only updates text and classes and reorders
 // the existing nodes, at most once a second.
-import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261103044134';
+import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261103050553';
 
 const STYLE_ID = 'overclock-achievements-style';
 

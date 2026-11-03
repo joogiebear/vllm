@@ -28,9 +28,9 @@ import {
   EVENT_SPIKE_MULTIPLIER,
   EVENT_TURBO_SPEED,
   EVENT_WINDFALL_SECONDS,
-} from './data.js?v=20261103044134';
-import { ACHIEVEMENTS } from './data.js?v=20261103044134';
-import { checkAchievements } from './achievements.js?v=20261103044134';
+} from './data.js?v=20261103050553';
+import { ACHIEVEMENTS } from './data.js?v=20261103050553';
+import { checkAchievements } from './achievements.js?v=20261103050553';
 
 // --- state -------------------------------------------------------------------
 
@@ -381,6 +381,12 @@ export function migrate(saveState) {
       : EVENT_FIRST_DELAY;
   // eventOffer and eventActive are not persisted: they are cleared on load,
   // like by applyOffline.
+  if (saveState.stats !== null && typeof saveState.stats === 'object' && !Array.isArray(saveState.stats)) {
+    for (const k of Object.keys(s.stats)) {
+      const v = saveState.stats[k];
+      if (isFiniteNumber(v) && v >= 0) s.stats[k] = v;
+    }
+  }
   return s;
 }
 

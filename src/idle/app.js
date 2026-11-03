@@ -1,11 +1,11 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
-import { tick, applyOffline, applyRush } from './core.js?v=20261103044134';
-import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103044134';
-import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261103044134';
-import { createUI, fmt } from './ui.js?v=20261103044134';
-import { showWelcome } from './welcome.js?v=20261103044134';
-import { toast } from './toast.js?v=20261103044134';
-import { initFeedback } from './feedback.js?v=20261103044134';
+import { tick, applyOffline, applyRush } from './core.js?v=20261103050553';
+import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103050553';
+import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261103050553';
+import { createUI, fmt } from './ui.js?v=20261103050553';
+import { showWelcome } from './welcome.js?v=20261103050553';
+import { toast } from './toast.js?v=20261103050553';
+import { initFeedback } from './feedback.js?v=20261103050553';
 
 const { state, savedAt } = load();
 initFeedback();

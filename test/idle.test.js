@@ -957,3 +957,19 @@ test('migrate: rng and nextEventIn are migrated, offer and active are cleared', 
   assert.equal(s2.nextEventIn, 120);
   assert.equal(s2.stats.eventsClaimed, 0);
 });
+
+test('a saved game survives a reload: migrate keeps stats, achievements and events', () => {
+  const s = createState();
+  s.generators.pi = 30;
+  s.stats.taps = 5;
+  s.stats.prestiges = 2;
+  s.achievements.push('gen-pi-1');
+  s.nextEventIn = 77;
+  s.rng = 12345;
+  const r = migrate(JSON.parse(JSON.stringify(s)));
+  assert.equal(r.stats.taps, 5);
+  assert.equal(r.stats.prestiges, 2);
+  assert.deepEqual(r.achievements, ['gen-pi-1']);
+  assert.equal(r.nextEventIn, 77);
+  assert.equal(r.rng, 12345);
+});

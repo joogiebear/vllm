@@ -2,8 +2,8 @@
 // localStorage only, every access wrapped in try/catch. Timestamps are
 // supplied by app.js (the only file that reads the clock); this module
 // never reads the clock itself.
-import { SAVE_VERSION, SAVE_KEY, SAVE_CORRUPT_KEY } from './data.js?v=20261103044134';
-import { createState, migrate, ensureStarter } from './core.js?v=20261103044134';
+import { SAVE_VERSION, SAVE_KEY, SAVE_CORRUPT_KEY } from './data.js?v=20261103050553';
+import { createState, migrate, ensureStarter } from './core.js?v=20261103050553';
 
 function safeGet(key) {
   try {
@@ -118,7 +118,7 @@ export function load() {
   // Old saves are migrated (removed upgrades refunded at cost); current and
   // newer saves are merged with forward compatibility.
   const version = typeof data.version === 'number' ? data.version : 1;
-  const state = ensureStarter(version < SAVE_VERSION ? migrate(data.state) : mergeState(data.state));
+  const state = ensureStarter(migrate(data.state));
   if (state === null) {
     safeSet(SAVE_CORRUPT_KEY, raw);
     return { state: ensureStarter(createState()), savedAt: null };
@@ -146,7 +146,7 @@ export function importSave(text) {
   }
   if (!validSaveShape(data)) return null;
   const version = typeof data.version === 'number' ? data.version : 1;
-  return ensureStarter(version < SAVE_VERSION ? migrate(data.state) : mergeState(data.state));
+  return ensureStarter(migrate(data.state));
 }
 
 // Hard reset: remove the save (the corrupt copy is left for inspection).

@@ -3,17 +3,17 @@ import {
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
-} from './core.js?v=20261103044134';
+} from './core.js?v=20261103050553';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-} from './data.js?v=20261103044134';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261103044134';
-import { play } from './feedback.js?v=20261103044134';
-import { mountAchievements } from './achievements-ui.js?v=20261103044134';
-import { mountStats } from './stats-ui.js?v=20261103044134';
-import { mountEvents } from './events-ui.js?v=20261103044134';
+} from './data.js?v=20261103050553';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261103050553';
+import { play } from './feedback.js?v=20261103050553';
+import { mountAchievements } from './achievements-ui.js?v=20261103050553';
+import { mountStats } from './stats-ui.js?v=20261103050553';
+import { mountEvents } from './events-ui.js?v=20261103050553';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {

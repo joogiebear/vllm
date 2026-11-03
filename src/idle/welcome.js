@@ -2,8 +2,8 @@
 // showWelcome({ awaySeconds, earned, capped, affordable? }) is called from
 // app.js on load when offline earnings were credited. Skipped when earned
 // is 0. Focus is trapped on the Collect button; Escape closes.
-import { OFFLINE_CAP_HOURS } from './data.js?v=20261103044134';
-import { fmt } from './ui.js?v=20261103044134';
+import { OFFLINE_CAP_HOURS } from './data.js?v=20261103050553';
+import { fmt } from './ui.js?v=20261103050553';
 
 const CSS = `
     /* Welcome back modal */
