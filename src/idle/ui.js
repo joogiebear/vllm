@@ -333,32 +333,33 @@ export function createUI(state, io) {
     .sort((a, b) => a.cost - b.cost)
     .map((u) => {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'up-row';
+    const left = document.createElement('div');
+    left.className = 'up-left';
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = u.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
     effect.textContent = upgradeWords(u);
-    const now = document.createElement('span');
-    now.className = 'now';
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    const barFill = document.createElement('div');
-    barFill.className = 'bar-fill';
-    bar.append(barFill);
+    left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
-    const bLabel = document.createElement('span');
-    bLabel.textContent = 'Buy ·';
-    const bCost = document.createElement('span');
-    bCost.className = 'bc';
-    buyBtn.append(bLabel, ' ', bCost);
+    const bc = document.createElement('span');
+    bc.className = 'bc';
+    const gainEl = document.createElement('span');
+    gainEl.className = 'gain';
+    gainEl.hidden = true;
+    buyBtn.append(bc, gainEl);
     buyBtn.addEventListener('click', () => buyUpgrade(state, u.id));
-    card.append(name, effect, now, bar, buyBtn);
+    const check = document.createElement('span');
+    check.className = 'check';
+    check.hidden = true;
+    check.textContent = '✓';
+    card.append(left, buyBtn, check);
     els.upGrid.appendChild(card);
-    return { u, card, now, bar, barFill, buyBtn, bLabel, bCost, gain: 0 };
+    return { u, card, gainEl, buyBtn, bc, check, gain: 0 };
   });
 
   // Buy All: shown at the top of the list only while the 'procure' weight
@@ -556,42 +557,36 @@ export function createUI(state, io) {
 
   // --- upgrades (the 10 Hz pass, and immediately after a Buy All tap) ------
   function updateUpgrades(state) {
-    // Every card is always shown (sorted by cost, cheapest first), whether or
-    // not it is affordable. An owned card stays in its place, dimmed, with a
-    // disabled "Owned" button and no progress bar. Both directions follow
-    // state on every pass, so a prestige, import or reset that clears (or
-    // changes) state.upgrades brings the cards back in sync.
+    // Every row is always shown (sorted by cost, cheapest first), whether or
+    // not it is affordable. An owned row shrinks in place to a thin single
+    // line with a check mark; an unaffordable row dims. Both directions
+    // follow state on every pass, so a prestige, import or reset that clears
+    // (or changes) state.upgrades brings the rows back in sync.
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
       r.card.classList.toggle('owned', owned);
       if (owned) {
-        r.now.hidden = true;
-        r.bar.hidden = true;
-        r.buyBtn.disabled = true;
-        r.buyBtn.classList.remove('afford');
-        r.bLabel.textContent = 'Owned';
-        r.bCost.hidden = true;
+        r.buyBtn.hidden = true;
+        r.check.hidden = false;
         continue;
       }
-      r.bLabel.textContent = 'Buy ·';
-      r.bCost.hidden = false;
-      r.bar.hidden = false;
+      r.buyBtn.hidden = false;
+      r.check.hidden = true;
       // The before/after figure is computed here, at the 10 Hz pass.
       if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
         r.gain = upgradeGain(state, r.u);
-        r.now.hidden = false;
-        r.now.textContent = `+${fmt(r.gain)}/s`;
+        r.gainEl.hidden = false;
+        r.gainEl.textContent = `+${fmt(r.gain)}/s`;
       } else {
-        // Cooling and click upgrades have no tps figure: the effect line
-        // above says it all, so the second line is hidden.
-        r.now.hidden = true;
+        // Cooling and click upgrades have no tps figure: the effect text
+        // says it all, so the gain is hidden.
+        r.gainEl.hidden = true;
       }
       const affordable = state.tokens >= r.u.cost;
       r.buyBtn.disabled = !affordable;
       r.buyBtn.classList.toggle('afford', affordable);
-      r.bCost.classList.toggle('amber', !affordable);
-      r.bCost.textContent = fmt(r.u.cost);
-      r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
+      r.card.classList.toggle('dim', !affordable);
+      r.bc.textContent = fmt(r.u.cost);
     }
     // Buy All: visible only while 'procure' is owned; N is how many it would
     // buy now (computed without touching state), disabled at 0.

@@ -290,6 +290,54 @@
     .card .buy.afford { border-color: var(--lime); color: var(--lime); }
     .card .buy .bc.amber { color: var(--amber); }
     .card.owned { opacity: 0.45; }
+    /* Upgrades: one-line rows, at most 56px tall, in the generator style:
+       name and short effect on the left, a button with the price (and the
+       gain, if it has one) on the right. Unaffordable rows dim. Owned rows
+       shrink to a thin single line with a check mark, in place. */
+    .up-row {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      border-top: 1px solid var(--border);
+    }
+    .up-row:first-of-type { border-top: none; }
+    .up-row .up-left {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .up-row .name { color: var(--cyan); font-size: 15px; }
+    .up-row .effect { color: var(--dim); font-size: 13px; }
+    .up-row .buy {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--dim);
+      background: transparent;
+    }
+    .up-row .buy .bc { color: var(--dim); }
+    .up-row .buy .gain { color: var(--lime); }
+    .up-row .buy.afford {
+      border-color: var(--lime);
+      background: rgba(74, 222, 128, 0.12);
+    }
+    .up-row .buy.afford .bc { color: var(--lime); }
+    .up-row .check { display: none; color: var(--lime); }
+    .up-row.dim { opacity: 0.55; }
+    .up-row.owned { padding: 2px 0; }
+    .up-row.owned .effect,
+    .up-row.owned .buy { display: none; }
+    .up-row.owned .check { display: inline; }
 
     /* Prestige */
     #prestige-box { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-bottom: 10px; }
