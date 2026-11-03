@@ -21,6 +21,10 @@ export function createRack(state, fmt) {
   const label = document.createElement('span');
   label.className = 'rack-label';
   label.textContent = 'SERVE';
+  const throttleLabel = document.createElement('span');
+  throttleLabel.className = 'throttle-label';
+  throttleLabel.textContent = 'THROTTLED';
+  throttleLabel.hidden = true;
   const unitsBox = document.createElement('div');
   unitsBox.className = 'rack-units';
   const units = GENERATORS.map((g) => {
@@ -63,7 +67,7 @@ export function createRack(state, fmt) {
     unitsBox.appendChild(unit);
     return { g, unit, ledEls };
   });
-  btn.append(label, unitsBox);
+  btn.append(label, unitsBox, throttleLabel);
 
   // Tapping the rack is Serve: click + a floating +N.
   btn.addEventListener('click', () => {
@@ -79,6 +83,12 @@ export function createRack(state, fmt) {
   function update(state) {
     const tps = tokensPerSecond(state);
     btn.style.setProperty('--blink', `${Math.round(blinkPeriodMs(tps))}ms`);
+    // Heat state: the outline/glow colour is set on the tab (see ui.js);
+    // here the classes drive the dimmed flicker (throttled) and the amber
+    // LEDs (overclocked, and not throttled).
+    btn.classList.toggle('throttled', !!state.throttled);
+    btn.classList.toggle('overclock', !state.throttled && !!state.overclock);
+    throttleLabel.hidden = !state.throttled;
     for (const u of units) {
       const owned = state.generators[u.g.id] || 0;
       const nowOwned = owned > 0;

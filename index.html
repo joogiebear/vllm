@@ -127,8 +127,8 @@
       height: 200px;
       padding: 0;
       background: var(--panel);
-      border: 1px solid var(--rack-glow, var(--cyan));
-      box-shadow: 0 0 14px -6px var(--rack-glow, var(--cyan));
+      border: 1px solid var(--heat-color, var(--cyan));
+      box-shadow: 0 0 14px -6px var(--heat-color, var(--cyan));
       overflow: hidden;
     }
     #rack:active { transform: scale(0.995); }
@@ -245,20 +245,47 @@
       to   { opacity: 0; margin-top: -48px; }
     }
 
-    /* Heat */
-    #heat-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    /* Heat on the rack: the outline/glow colour is --heat-color, set on the
+       tab by ui.js (cyan -> amber -> red as heat rises). Throttled: the
+       units dim and flicker, with a small THROTTLED label. Overclocked
+       (not throttled): the LEDs turn amber. */
+    #rack .throttle-label {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--red);
+      pointer-events: none;
+    }
+    #rack.throttled .unit {
+      opacity: 0.4;
+      animation: rackFlicker 0.9s steps(2, end) infinite;
+    }
+    @keyframes rackFlicker {
+      0%   { opacity: 0.4; }
+      50%  { opacity: 0.2; }
+      100% { opacity: 0.4; }
+    }
+    #rack.overclock .led.lit { background: var(--amber); }
+    /* Slim row under the rack: a thin heat bar and the Overclock switch.
+       No numeric heat value, no COOLING text. */
+    #heat-slim {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+    }
     #heat-bar {
       flex: 1;
-      min-width: 80px;
-      height: 12px;
+      height: 6px;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 3px;
       overflow: hidden;
       background: #06080d;
     }
-    #heat-fill { height: 100%; width: 0%; background: var(--cyan); }
-    #heat-fill.hot { background: var(--red); }
-    #oc-state { color: var(--amber); min-width: 14ch; text-align: right; }
+    #heat-fill { height: 100%; width: 0%; background: var(--heat-color, var(--cyan)); }
+    #overclock { min-height: 44px; }
 
     /* Generators: compact one-line rows (at most 56px tall), a segmented
        x1/x10/Max control as the section header, a thin progress bar along
@@ -538,15 +565,10 @@
 
         <div id="rack-wrap"></div>
 
-        <section id="heat" class="panel">
-          <h2>HEAT</h2>
-          <div id="heat-row">
-            <div id="heat-bar"><div id="heat-fill"></div></div>
-            <span id="heat-num">0</span>
-            <span id="oc-state">COOLING</span>
-            <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
-          </div>
-        </section>
+        <div id="heat-slim">
+          <div id="heat-bar"><div id="heat-fill"></div></div>
+          <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
+        </div>
 
         <section id="generators" class="panel">
           <h2>GENERATORS</h2>

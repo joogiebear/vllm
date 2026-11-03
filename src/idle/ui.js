@@ -77,6 +77,21 @@ function fmtTime(ms) {
   return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// Heat colour for the rack outline/glow and the slim heat bar: the same
+// cyan, amber and red as the CSS variables, interpolated — cyan to amber
+// over the first half of the scale, amber to red over the second.
+const HEAT_CYAN = [0, 229, 255];
+const HEAT_AMBER = [255, 179, 0];
+const HEAT_RED = [255, 80, 80];
+function mix(a, b, t) {
+  return a.map((v, i) => Math.round(v + (b[i] - v) * t));
+}
+export function heatColor(heat) {
+  const h = Math.min(100, Math.max(0, heat));
+  const c = h <= 50 ? mix(HEAT_CYAN, HEAT_AMBER, h / 50) : mix(HEAT_AMBER, HEAT_RED, (h - 50) / 50);
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+}
+
 function upgradeWords(u) {
   switch (u.kind) {
     case 'production': return `Production x${u.value}`;
@@ -120,8 +135,6 @@ export function createUI(state, io) {
     weightsChip: $('weights-chip'),
     banner: $('banner'),
     heatFill: $('heat-fill'),
-    heatNum: $('heat-num'),
-    ocState: $('oc-state'),
     overclock: $('overclock'),
     genRows: $('gen-rows'),
     upGrid: $('up-grid'),
@@ -608,17 +621,10 @@ export function createUI(state, io) {
     // Rack: classes and CSS custom properties only (see rack.js).
     rack.update(state);
 
-    // Heat panel.
+    // Heat: the outline/glow colour (cyan -> amber -> red) is a CSS custom
+    // property on the tab, inherited by the rack and the slim heat bar.
+    document.getElementById('tab-game').style.setProperty('--heat-color', heatColor(state.heat));
     els.heatFill.style.width = `${Math.min(100, Math.max(0, state.heat))}%`;
-    els.heatFill.classList.toggle('hot', state.heat >= 80);
-    els.heatNum.textContent = String(Math.round(state.heat));
-    if (state.throttled) {
-      els.ocState.textContent = 'THROTTLED';
-    } else if (state.overclock) {
-      els.ocState.textContent = 'OVERCLOCKED';
-    } else {
-      els.ocState.textContent = 'COOLING';
-    }
     els.overclock.textContent = state.overclock ? 'OVERCLOCK ON' : 'OVERCLOCK OFF';
     els.overclock.disabled = state.throttled;
 
