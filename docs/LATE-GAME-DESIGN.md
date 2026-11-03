@@ -1,6 +1,6 @@
 # Late game: something new in every Region
 
-Status: DRAFT, waiting for the owner's OK. Design owner: thread Claude.
+Status: APPROVED by the owner ("build it", 2026-11-03 20:41 UTC). Design owner: thread Claude.
 Builder: desktop RC, with Qwen writing all code in small tasks.
 
 ## What the data says (docs/BALANCE-REPORT.md, 2026-11-03)
