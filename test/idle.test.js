@@ -20,6 +20,8 @@ import {
   click,
   setOverclock,
 } from '../src/idle/core.js';
+import { ACHIEVEMENTS } from '../src/idle/data.js';
+import { checkAchievements } from '../src/idle/achievements.js';
 
 test('createState: fresh state has the right fields', () => {
   const s = createState();
@@ -36,6 +38,7 @@ test('createState: fresh state has the right fields', () => {
   assert.equal(s.generators.swarm, 0);
   assert.equal(s.cycles.pi, null);
   assert.equal(s.cycles.swarm, null);
+  assert.deepEqual(s.achievements, []);
 });
 
 test('cost: geometric series', () => {
@@ -572,4 +575,121 @@ test('migrate: old saves get zero stats', () => {
     bestRushScore: 0,
     runStartedAt: 0,
   });
+});
+
+test('ACHIEVEMENTS: 44 entries, unique ids, JSON-safe tests', () => {
+  assert.equal(ACHIEVEMENTS.length, 44);
+  const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
+  assert.equal(ids.size, 44);
+  for (const a of ACHIEVEMENTS) {
+    assert.equal(typeof a.name, 'string');
+    assert.equal(typeof a.desc, 'string');
+    assert.ok(a.test !== null && typeof a.test === 'object' && !Array.isArray(a.test));
+  }
+  JSON.stringify(ACHIEVEMENTS);
+});
+
+test('achievements: owned unlocks at the exact thresholds 1, 25, 100, 400', () => {
+  for (const n of [1, 25, 100, 400]) {
+    const s = createState();
+    s.generators.pi = n - 1;
+    assert.ok(!checkAchievements(s).includes(`gen-pi-${n}`), `pi ${n - 1} below ${n}`);
+    s.generators.pi = n;
+    assert.ok(checkAchievements(s).includes(`gen-pi-${n}`), `pi ${n}`);
+  }
+});
+
+test('achievements: lifetime-in-run unlocks at 1M, 1B, 1T, 1Qa', () => {
+  for (const [n, id] of [[1e6, 'lifetime-1m'], [1e9, 'lifetime-1b'], [1e12, 'lifetime-1t'], [1e15, 'lifetime-1qa']]) {
+    const s = createState();
+    s.lifetime = n - 1;
+    assert.ok(!checkAchievements(s).includes(id), `${id} below`);
+    s.lifetime = n;
+    assert.ok(checkAchievements(s).includes(id), id);
+  }
+});
+
+test('achievements: prestiges unlocks at 1, 5, 25', () => {
+  for (const n of [1, 5, 25]) {
+    const s = createState();
+    s.stats.prestiges = n - 1;
+    assert.ok(!checkAchievements(s).includes(`prestige-${n}`), `prestige ${n - 1} below ${n}`);
+    s.stats.prestiges = n;
+    assert.ok(checkAchievements(s).includes(`prestige-${n}`), `prestige ${n}`);
+  }
+});
+
+test('achievements: allManagers needs all 8 hired in one run', () => {
+  const s = createState();
+  s.managers.push('pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter', 'campus');
+  assert.ok(!checkAchievements(s).includes('managers-all'));
+  s.managers.push('swarm');
+  assert.ok(checkAchievements(s).includes('managers-all'));
+});
+
+test('achievements: taps unlock at 100 and 1,000', () => {
+  for (const [n, id] of [[100, 'taps-100'], [1000, 'taps-1000']]) {
+    const s = createState();
+    s.stats.taps = n - 1;
+    assert.ok(!checkAchievements(s).includes(id), `${id} below`);
+    s.stats.taps = n;
+    assert.ok(checkAchievements(s).includes(id), id);
+  }
+});
+
+test('achievements: rush games unlock at 1 and 10', () => {
+  const s = createState();
+  assert.deepEqual(checkAchievements(s), []);
+  s.stats.rushGames = 1;
+  assert.ok(checkAchievements(s).includes('rush-1'));
+  s.stats.rushGames = 9;
+  assert.ok(!checkAchievements(s).includes('rush-10'));
+  s.stats.rushGames = 10;
+  assert.ok(checkAchievements(s).includes('rush-10'));
+});
+
+test('achievements: an achievement unlocks only once', () => {
+  const s = createState();
+  s.generators.pi = 25;
+  const first = checkAchievements(s);
+  assert.ok(first.includes('gen-pi-1'));
+  assert.ok(first.includes('gen-pi-25'));
+  assert.deepEqual(checkAchievements(s), []);
+  assert.deepEqual(checkAchievements(s), []);
+});
+
+test('achievements: each one adds +1% to tokensPerSecond', () => {
+  const s = createState();
+  s.generators.pi = 10;
+  assert.equal(tokensPerSecond(s), 10);
+  s.achievements.push('gen-pi-1');
+  assert.equal(tokensPerSecond(s), 10 * (1 + 0.01));
+  s.achievements.push('gen-pi-25');
+  assert.equal(tokensPerSecond(s), 10 * (1 + 0.02));
+});
+
+test('achievements: survive prestige', () => {
+  const s = createState();
+  s.totalLifetime = 1e13;
+  s.generators.pi = 25;
+  checkAchievements(s);
+  assert.ok(s.achievements.includes('gen-pi-25'));
+  assert.equal(prestige(s), 10);
+  assert.ok(s.achievements.includes('gen-pi-25'));
+  assert.ok(s.achievements.includes('gen-pi-1'));
+});
+
+test('tick: checks achievements at the end of the tick', () => {
+  const s = createState();
+  s.generators.pi = 25;
+  assert.deepEqual(s.achievements, []);
+  tick(s, 1);
+  assert.ok(s.achievements.includes('gen-pi-1'));
+  assert.ok(s.achievements.includes('gen-pi-25'));
+});
+
+test('migrate: achievements pass through a v2 save, old saves get empty', () => {
+  const v2 = { version: 2, achievements: ['gen-pi-1', 'bogus', 42] };
+  assert.deepEqual(migrate(v2).achievements, ['gen-pi-1']);
+  assert.deepEqual(migrate({ version: 1 }).achievements, []);
 });
