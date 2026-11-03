@@ -129,4 +129,5 @@ document.addEventListener('visibilitychange', () => {
 readRushResult();
 applyOfflineEarnings();
 ui.update(state, Date.now());
+document.getElementById('boot')?.remove();
 setInterval(step, 100);
