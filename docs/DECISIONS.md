@@ -125,3 +125,26 @@ Arrival interval now falls 2.6 s → 0.3 s over levels 1–7, so the game clearl
 gets harder; the prefix pool growth (C at level 2, D at level 3) and VIPs add
 pressure on top. The `patience` upgrade test and the CONFIG test were updated
 for the new 11/6 values; no other test hard-coded a changed number.
+
+## Balance (idle)
+
+`tools/idle-balance.js` plays the idle game headlessly with the design's bot
+(best output-per-cost, every affordable upgrade, no clicks, no overclock,
+prestige at `max(1, 0.5 * weights)`).
+
+Targets: first generator under 30 s (20 clicks at start); second generator tier
+unlocked under 3 minutes; first prestige available in 20–60 minutes.
+
+Before tuning, the bot's pre-prestige `totalLifetime` crossed 1,000,000 at
+about 5 min 50 s, so the first prestige landed far too early. The bot's
+pre-prestige curve (1 s steps, no prestige): 300 s → 3.5e5, 360 s → 1.2e6,
+600 s → 8.3e7, 1200 s → 3.0e11, 1800 s → 1.4e13, 3600 s → 1.0e14.
+
+| data.js constant | before | after |
+| --- | --- | --- |
+| `PRESTIGE_DIVISOR` | 1,000,000 | 10,000,000,000,000 |
+
+With the new divisor the first weight requires 10,000,000,000,000 of
+`totalLifetime`, which the bot reaches between 25 and 30 minutes; the other two
+targets are unaffected. The formula in `docs/IDLE-DESIGN.md` was updated to the
+new number; no test hard-codes `PRESTIGE_DIVISOR`.

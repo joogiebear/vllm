@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>OVERCLOCK</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #04050a;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      touch-action: none;
+    }
+    #stage {
+      position: relative;
+    }
+    #back-to-server {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 85%;
+      transform: translateX(-50%);
+      color: #00e5ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 16px;
+      text-decoration: underline;
+      text-shadow: 0 0 8px #00e5ff;
+    }
+    #back-to-server:focus-visible {
+      outline: 2px solid #00e5ff;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <a id="back-to-server" href="index.html">Back to the server</a>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

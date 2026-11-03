@@ -40,6 +40,24 @@ function saveBest(v) {
   }
 }
 
+// Rush result for the idle game: on game over, store { score, at } under this
+// key; the idle page reads and removes it on load.
+const RUSH_KEY = 'overclock.rush';
+function saveRushResult(score) {
+  try {
+    localStorage.setItem(RUSH_KEY, JSON.stringify({ score, at: Date.now() }));
+  } catch (err) {
+    // private mode etc.: the rush result just does not persist
+  }
+}
+
+// The "Back to the server" link on the game-over screen.
+let backLink = null;
+function showBackLink(show) {
+  if (!backLink) backLink = document.getElementById('back-to-server');
+  if (backLink) backLink.style.display = show ? 'block' : 'none';
+}
+
 // --- game + view state --------------------------------------------------------
 // The state object keeps one identity for the page's lifetime; starting a new
 // run reassigns its fields in place, so closures (input, debug hook) stay
@@ -90,6 +108,7 @@ function startGame() {
   trackRequests();
   resetFx();
   resetClock();
+  showBackLink(false);
 }
 
 // Debug hook for browser testing: with ?debug in the URL, expose the live
@@ -151,6 +170,8 @@ function handleEvents(events) {
         ui.best = s;
         saveBest(s);
       }
+      saveRushResult(s);
+      showBackLink(true);
     }
   }
   audio.playEvents(events, reqInfo);
