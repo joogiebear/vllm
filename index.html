@@ -39,19 +39,24 @@
       max-width: 960px;
       margin: 0 auto;
       height: 100%;
-      padding: 12px;
+      padding: 12px 0;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    /* Middle region: the active tab, the only thing that scrolls. */
+    /* Middle region: the active tab, the only thing that scrolls. Equal
+       12px padding left and right; the scrollbar is hidden (the region
+       still scrolls). */
     #tab-scroll {
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
+      padding: 0 12px;
+      scrollbar-width: none;
     }
+    #tab-scroll::-webkit-scrollbar { display: none; }
     .panel {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -87,7 +92,7 @@
     /* Header: tokens as the largest text, the rate beside it in smaller
        text. Weights appear only after the first is earned, as a small
        magenta chip. Heat is not here. */
-    #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+    #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; margin: 0 12px; }
     #hud-main { display: flex; align-items: baseline; gap: 12px; }
     #tokens { font-size: 32px; line-height: 1; }
     #rate { font-size: 16px; }
