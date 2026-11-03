@@ -2,6 +2,7 @@ import {
   buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
+  claimEvent,
 } from './core.js?v=20261103044134';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
@@ -12,6 +13,7 @@ import { get as getSetting, set as setSetting } from './settings.js?v=2026110304
 import { play } from './feedback.js?v=20261103044134';
 import { mountAchievements } from './achievements-ui.js?v=20261103044134';
 import { mountStats } from './stats-ui.js?v=20261103044134';
+import { mountEvents } from './events-ui.js?v=20261103044134';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -571,6 +573,16 @@ export function createUI(state, io) {
   buildSettings();
   mountAchievements(document.getElementById('more-achievements'), () => state);
   mountStats(document.getElementById('more-stats'), () => state);
+
+  // Timed events (docs/TIERS-EVENTS.md): banner above the generator cards,
+  // chip in the header.
+  const eventsList = document.createElement('div');
+  const eventsChip = document.createElement('div');
+  document.getElementById('tab-game').prepend(eventsList);
+  document.getElementById('hud-right').prepend(eventsChip);
+  mountEvents(eventsList, eventsChip, () => state, () => {
+    if (claimEvent(state)) play('achievement');
+  });
 
   // Banner.
   let bannerTimer = null;
