@@ -6,21 +6,16 @@ import {
   DOUBLING_THRESHOLDS,
   UPGRADES,
   WEIGHT_UPGRADES,
+  MANAGERS,
+  REMOVED_UPGRADES,
   PRESTIGE_DIVISOR,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
   RUSH_COOLDOWN_SECONDS,
   RUSH_MAX_SECONDS,
   RUSH_SCORE_DIVISOR,
-  HEAT_MAX,
-  HEAT_THROTTLE_OFF,
-  OVERCLOCK_HEAT_RATE,
-  COOL_RATE,
-  OVERCLOCK_FACTOR,
-  THROTTLE_FACTOR,
   WEIGHT_BONUS_PER_WEIGHT,
-  AUTO_HEAT_LIMIT,
-  AUTO_REON_HEAT,
+  CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
 } from './data.js';
 
@@ -28,7 +23,11 @@ import {
 
 export function createState() {
   const generators = {};
-  for (const g of GENERATORS) generators[g.id] = 0;
+  const cycles = {};
+  for (const g of GENERATORS) {
+    generators[g.id] = 0;
+    cycles[g.id] = null;
+  }
   return {
     version: SAVE_VERSION,
     tokens: 0,
@@ -39,37 +38,45 @@ export function createState() {
     generators,
     upgrades: [],
     weightUpgrades: [],
-    heat: 0,
-    overclock: false,
-    throttled: false,
-    autoPause: false,
+    managers: [],
+    cycles,
     rushCooldownUntil: null,
   };
 }
 
-// --- internal helpers ----------------------------------------------------------
+// --- helpers -------------------------------------------------------------------
 
 function isFiniteNumber(v) {
   return typeof v === 'number' && Number.isFinite(v);
 }
 
 function validState(state) {
-  return state !== null && typeof state === 'object';
+  return (
+    state !== null &&
+    typeof state === 'object' &&
+    typeof state.tokens === 'number' &&
+    state.generators !== null &&
+    typeof state.generators === 'object'
+  );
 }
 
 function hasWeightUpgrade(state, id) {
-  return state.weightUpgrades.includes(id);
+  return Array.isArray(state.weightUpgrades) && state.weightUpgrades.includes(id);
 }
 
 function upgradeSum(state, kind) {
   let total = 0;
-  for (const u of UPGRADES) if (u.kind === kind && state.upgrades.includes(u.id)) total += u.value;
+  for (const u of UPGRADES) {
+    if (u.kind === kind && state.upgrades.includes(u.id)) total += u.value;
+  }
   return total;
 }
 
 function weightUpgradeSum(state, kind) {
   let total = 0;
-  for (const u of WEIGHT_UPGRADES) if (u.kind === kind && state.weightUpgrades.includes(u.id)) total += u.value;
+  for (const wu of WEIGHT_UPGRADES) {
+    if (wu.kind === kind && hasWeightUpgrade(state, wu.id)) total += wu.value;
+  }
   return total;
 }
 
@@ -77,215 +84,235 @@ function cacheRate(state) {
   return upgradeSum(state, 'cacheRate') + weightUpgradeSum(state, 'cacheRate');
 }
 
-function cooling(state) {
-  return upgradeSum(state, 'cooling');
-}
-
-function clickFlat(state) {
-  return upgradeSum(state, 'clickFlat');
-}
-
-function clickShare(state) {
-  return upgradeSum(state, 'clickShare');
-}
-
+// Global production multiplier (kind 'production'). Per-tier multipliers
+// (kind 'productionTier') are applied per row in tierMultiplier().
 function productionMultiplier(state) {
   let m = 1;
-  for (const u of UPGRADES) if (u.kind === 'production' && state.upgrades.includes(u.id)) m *= u.value;
+  for (const u of UPGRADES) {
+    if (u.kind === 'production' && state.upgrades.includes(u.id)) m *= u.value;
+  }
+  return m;
+}
+
+function tierMultiplier(state, g) {
+  let m = 1;
+  for (const u of UPGRADES) {
+    if (u.kind === 'productionTier' && u.tier === g.id && state.upgrades.includes(u.id)) m *= u.value;
+  }
   return m;
 }
 
 function weightBonusPer(state) {
-  for (const u of WEIGHT_UPGRADES) {
-    if (u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id)) return u.value;
+  return WEIGHT_BONUS_PER_WEIGHT + weightUpgradeSum(state, 'weightBonus');
+}
+
+// Speed factor: milestones halve the cycle time (x2 each).
+function speedFactor(owned) {
+  let f = 1;
+  for (const t of DOUBLING_THRESHOLDS) {
+    if (owned >= t) f *= 2;
   }
-  return WEIGHT_BONUS_PER_WEIGHT;
+  return f;
 }
 
-function generatorOutput(state, g) {
-  const owned = state.generators[g.id] || 0;
-  let mult = 1;
-  for (const t of DOUBLING_THRESHOLDS) if (owned >= t) mult *= 2;
-  return owned * g.tps * mult;
-}
-
-// Production with heatFactor forced to 1 (overclock and throttle ignored).
-// The weight bonus is based on weightsEarnedThisCycle (total ever earned), not
-// on state.weights, which is the spendable balance and shrinks when spent on
-// weight upgrades.
-function baseRate(state) {
-  let sum = 0;
-  for (const g of GENERATORS) sum += generatorOutput(state, g);
+// Multipliers shared by every row: cache rate, weight bonus (based on
+// weightsEarnedThisCycle, not total weights, so prestige resets the bonus
+// to 0.1 * weightsEarnedThisCycle) and global production.
+function rateMultiplier(state) {
   return (
-    sum *
     (1 + cacheRate(state)) *
     (1 + weightBonusPer(state) * (state.weightsEarnedThisCycle || 0)) *
     productionMultiplier(state)
   );
 }
 
-function effectiveOverclock(state) {
-  if (state.throttled) return false;
-  if (!state.overclock) return false;
-  if (hasWeightUpgrade(state, 'auto') && state.autoPause) return false;
-  return true;
+// The steady-state rate of a row: what a managed row pays per second.
+// Equals the old continuous rate, so existing balance holds.
+function rowRate(state, g) {
+  const owned = state.generators[g.id] || 0;
+  return owned * g.tps * speedFactor(owned) * tierMultiplier(state, g) * rateMultiplier(state);
 }
 
-function heatFactor(state) {
-  if (state.throttled) return THROTTLE_FACTOR;
-  if (effectiveOverclock(state)) return OVERCLOCK_FACTOR;
-  return 1;
+// The lump a cycle pays: owned * tps * cycleSeconds * multipliers.
+function cyclePayout(state, g) {
+  const owned = state.generators[g.id] || 0;
+  return owned * g.tps * g.cycleSeconds * tierMultiplier(state, g) * rateMultiplier(state);
 }
 
-function addTokens(state, earned) {
-  if (earned > 0) {
-    state.tokens += earned;
-    state.lifetime += earned;
-    state.totalLifetime += earned;
-  }
+// Cycle time in seconds; milestones halve it (speed x2).
+function cycleTime(state, g) {
+  const owned = state.generators[g.id] || 0;
+  return g.cycleSeconds / speedFactor(owned);
 }
 
-// --- heat simulation -----------------------------------------------------------
-// Heat is piecewise linear, so a tick is split exactly at the moments heat
-// crosses 100 (throttle on, overclock off), 40 (throttle off / auto re-on) and
-// 95 (auto off). The result is therefore independent of the step size.
-
-function normalizeAuto(state) {
-  if (!hasWeightUpgrade(state, 'auto') || !state.overclock || state.throttled) return;
-  if (state.heat >= AUTO_HEAT_LIMIT) state.autoPause = true;
-  else if (state.autoPause && state.heat <= AUTO_REON_HEAT) state.autoPause = false;
+function hasManager(state, id) {
+  return Array.isArray(state.managers) && state.managers.includes(id);
 }
 
-function applyHeatBoundary(state) {
-  if (!state.throttled && state.heat >= HEAT_MAX) {
-    state.throttled = true;
-    state.overclock = false;
-  }
-  if (state.throttled && state.heat <= HEAT_THROTTLE_OFF) state.throttled = false;
-  if (hasWeightUpgrade(state, 'auto') && state.overclock && !state.throttled) {
-    if (state.heat >= AUTO_HEAT_LIMIT) state.autoPause = true;
-    else if (state.autoPause && state.heat <= AUTO_REON_HEAT) state.autoPause = false;
-  }
-}
-
-function heatSig(state) {
-  return (state.throttled ? 1 : 0) + '|' + (state.overclock ? 1 : 0) + '|' + (state.autoPause ? 1 : 0);
-}
-
-// Returns the sum of heatFactor * dt over the whole step.
-function simulateHeat(state, seconds) {
-  normalizeAuto(state);
-  let remaining = seconds;
-  let factorTime = 0;
-  let guard = 0;
-  while (remaining > 1e-9 && guard++ < 100000) {
-    const effOn = effectiveOverclock(state);
-    const netRise = OVERCLOCK_HEAT_RATE - cooling(state);
-    let rate;
-    let target;
-    if (state.throttled) {
-      rate = -COOL_RATE;
-      target = HEAT_THROTTLE_OFF;
-    } else if (effOn && netRise > 0) {
-      rate = netRise;
-      target = hasWeightUpgrade(state, 'auto') ? AUTO_HEAT_LIMIT : HEAT_MAX;
-    } else if (effOn) {
-      // A rise of 0 or less means it never overheats: heat holds.
-      rate = 0;
-      target = Infinity;
-    } else {
-      rate = -COOL_RATE;
-      target = hasWeightUpgrade(state, 'auto') && state.autoPause ? AUTO_REON_HEAT : 0;
-    }
-    const dtToBoundary =
-      rate > 0
-        ? Math.max(0, (target - state.heat) / rate)
-        : rate < 0
-          ? Math.max(0, (state.heat - target) / -rate)
-          : Infinity;
-    const dt = Math.min(dtToBoundary, remaining);
-    if (dt <= 1e-12) {
-      const before = heatSig(state);
-      applyHeatBoundary(state);
-      if (heatSig(state) === before) {
-        // No transition left: heat is pinned (0, or holding with netRise <= 0),
-        // so the factor stays constant for the rest of the step.
-        const factor =
-          state.throttled ? THROTTLE_FACTOR : effectiveOverclock(state) ? OVERCLOCK_FACTOR : 1;
-        factorTime += factor * remaining;
-        break;
-      }
-      continue;
-    }
-    const factor = state.throttled ? THROTTLE_FACTOR : effOn ? OVERCLOCK_FACTOR : 1;
-    factorTime += factor * dt;
-    state.heat = Math.min(HEAT_MAX, Math.max(0, state.heat + rate * dt));
-    remaining -= dt;
-    // Apply the transition at the exact moment, even if that is the end of the
-    // tick, so heat 100/40/95 never lingers across a step boundary.
-    if (dt === dtToBoundary && dtToBoundary < Infinity) {
-      applyHeatBoundary(state);
-    }
-  }
-  return factorTime;
+function addTokens(state, amount) {
+  if (!isFiniteNumber(amount) || amount <= 0) return;
+  state.tokens += amount;
+  state.lifetime += amount;
+  state.totalLifetime += amount;
 }
 
 // --- public API ----------------------------------------------------------------
 
+export function tokensPerSecond(state) {
+  if (!validState(state)) return 0;
+  let sum = 0;
+  for (const g of GENERATORS) sum += rowRate(state, g);
+  return sum;
+}
+
+// Advance the game by `seconds`.
+//
+// Each row with owned > 0 runs cycles: a cycle takes cycleSeconds (halved by
+// milestones) and pays owned * tps * cycleSeconds * multipliers in one lump at
+// the end.
+// - Without a manager: the row runs one cycle per tap (runRow) and then stops.
+// - With a manager: the row restarts itself forever (it starts on its own).
+// - A cycle under CONTINUOUS_CYCLE_MAX seconds is continuous: the bar shows
+//   full and the row pays every tick.
+// - A row with 0 owned cannot run.
 export function tick(state, seconds) {
   if (!validState(state) || !isFiniteNumber(seconds) || seconds <= 0) return state;
-  const factorTime = simulateHeat(state, seconds);
-  const earned = baseRate(state) * factorTime;
-  addTokens(state, earned);
+  for (const g of GENERATORS) {
+    const owned = state.generators[g.id] || 0;
+    if (owned <= 0) continue;
+    const ct = cycleTime(state, g);
+    if (ct < CONTINUOUS_CYCLE_MAX) {
+      addTokens(state, rowRate(state, g) * seconds);
+      state.cycles[g.id] = ct; // bar shows full
+      continue;
+    }
+    let progress = state.cycles[g.id];
+    if (progress === null || progress === undefined) {
+      if (!hasManager(state, g.id)) continue; // unmanaged: wait for a tap
+      progress = 0; // a managed row restarts itself forever
+    }
+    if (!isFiniteNumber(progress) || progress < 0) progress = 0; // tolerate bad saves
+    progress += seconds;
+    const payout = cyclePayout(state, g);
+    const managed = hasManager(state, g.id);
+    let guard = 0;
+    while (progress >= ct && guard++ < 100000) {
+      addTokens(state, payout);
+      progress -= ct;
+      if (!managed) {
+        progress = null; // an unmanaged row stops after one cycle
+        break;
+      }
+    }
+    state.cycles[g.id] = progress;
+  }
   return state;
 }
 
-export function tokensPerSecond(state) {
-  if (!validState(state)) return 0;
-  return baseRate(state) * heatFactor(state);
+// Tap a row's icon: start one cycle. A row with 0 owned cannot run; tapping
+// a running row does nothing. Returns true when a cycle was started.
+export function runRow(state, id) {
+  if (!validState(state)) return false;
+  const g = GENERATORS.find((x) => x.id === id);
+  if (!g) return false;
+  if ((state.generators[g.id] || 0) <= 0) return false;
+  if (state.cycles[g.id] !== null && state.cycles[g.id] !== undefined) return false;
+  state.cycles[g.id] = 0;
+  return true;
 }
 
+// Buy a manager with tokens. One per generator; resets on prestige.
+export function buyManager(state, id) {
+  if (!validState(state)) return false;
+  const m = MANAGERS.find((x) => x.id === id);
+  if (!m || hasManager(state, id)) return false;
+  if (state.tokens < m.cost) return false;
+  state.tokens -= m.cost;
+  state.managers.push(id);
+  return true;
+}
+
+// Migrate a saved state (the raw parsed object) to the current save version.
+// v1 -> v2: keeps tokens, lifetime, generators, weights and weight upgrades;
+// refunds removed upgrades at their cost; drops heat/overclock; ignores
+// unknown fields. Never mutates the input; never throws.
+export function migrate(saveState) {
+  const s = createState();
+  if (saveState === null || typeof saveState !== 'object' || Array.isArray(saveState)) return s;
+  const refund = (typeof saveState.version === 'number' ? saveState.version : 1) < SAVE_VERSION;
+  const num = (k) => {
+    const v = saveState[k];
+    return isFiniteNumber(v) ? v : s[k];
+  };
+  s.tokens = num('tokens');
+  s.lifetime = num('lifetime');
+  s.totalLifetime = num('totalLifetime');
+  s.weights = num('weights');
+  s.weightsEarnedThisCycle = num('weightsEarnedThisCycle');
+  if (saveState.generators !== null && typeof saveState.generators === 'object' && !Array.isArray(saveState.generators)) {
+    for (const id of Object.keys(s.generators)) {
+      const v = saveState.generators[id];
+      if (isFiniteNumber(v) && v >= 0) s.generators[id] = Math.floor(v);
+    }
+  }
+  if (Array.isArray(saveState.upgrades)) {
+    for (const id of saveState.upgrades) {
+      if (typeof id !== 'string' || s.upgrades.includes(id)) continue;
+      const removed = REMOVED_UPGRADES.find((u) => u.id === id);
+      if (removed && refund) {
+        s.tokens += removed.cost;
+      } else if (UPGRADES.some((u) => u.id === id)) {
+        s.upgrades.push(id);
+      }
+    }
+  }
+  if (Array.isArray(saveState.weightUpgrades)) {
+    s.weightUpgrades = saveState.weightUpgrades.filter(
+      (x) => typeof x === 'string' && WEIGHT_UPGRADES.some((u) => u.id === x)
+    );
+  }
+  if (Array.isArray(saveState.managers)) {
+    s.managers = saveState.managers.filter(
+      (x) => typeof x === 'string' && MANAGERS.some((m) => m.id === x)
+    );
+  }
+  s.rushCooldownUntil =
+    isFiniteNumber(saveState.rushCooldownUntil) ? saveState.rushCooldownUntil : null;
+  return s;
+}
+
+// SERVE / click left the game; kept as a no-op so the UI does not break
+// before the UI pass.
 export function click(state) {
-  if (!validState(state)) return 0;
-  const earned = (1 + clickFlat(state)) + clickShare(state) * tokensPerSecond(state);
-  addTokens(state, earned);
-  return earned;
+  return 0;
 }
 
-export function cost(state, generatorId, n) {
-  if (!validState(state) || !isFiniteNumber(n) || n < 1) return 0;
-  const g = GENERATORS.find((x) => x.id === generatorId);
-  if (!g) return 0;
-  const owned = state.generators[g.id] || 0;
-  const count = Math.floor(n);
+// Heat and overclock left the game; kept as a no-op for the UI.
+export function setOverclock(state, on) {}
+
+export function cost(state, id, max = 1) {
+  if (!validState(state) || !isFiniteNumber(max) || max < 1) return Infinity;
+  const g = GENERATORS.find((x) => x.id === id);
+  if (!g) return Infinity;
+  const owned = state.generators[id] || 0;
   let total = 0;
-  for (let i = 0; i < count; i++) {
-    total += Math.ceil(g.baseCost * Math.pow(COST_GROWTH, owned + i));
+  for (let i = 0; i < max; i++) {
+    total += g.baseCost * Math.pow(COST_GROWTH, owned + i);
   }
   return total;
 }
 
-// n is a count or 'max'. Buys as many as affordable, up to n. Returns the count.
-export function buy(state, generatorId, n) {
-  if (!validState(state)) return 0;
-  const g = GENERATORS.find((x) => x.id === generatorId);
+export function buy(state, id, max = 1) {
+  if (!validState(state) || !isFiniteNumber(max) || max < 1) return 0;
+  const g = GENERATORS.find((x) => x.id === id);
   if (!g) return 0;
-  let count;
-  if (n === 'max') count = Infinity;
-  else if (!isFiniteNumber(n) || n < 1) return 0;
-  else count = Math.floor(n);
-  const owned = state.generators[g.id] || 0;
   let bought = 0;
-  let total = 0;
-  while (bought < count) {
-    const next = Math.ceil(g.baseCost * Math.pow(COST_GROWTH, owned + bought));
-    if (total + next > state.tokens) break;
-    total += next;
+  while (bought < max) {
+    const c = cost(state, id, 1);
+    if (!Number.isFinite(c) || state.tokens < c) break;
+    state.tokens -= c;
+    state.generators[id] += 1;
     bought++;
-  }
-  if (bought > 0) {
-    state.tokens -= total;
-    state.generators[g.id] = owned + bought;
   }
   return bought;
 }
@@ -300,49 +327,40 @@ export function buyUpgrade(state, id) {
   return true;
 }
 
-// Buys every unowned upgrade, cheapest first, for as long as the next one is
-// affordable, then stops. Gated on the 'procure' weight upgrade; returns the
-// number bought. Bad input is ignored and never throws.
+// Procurement Bot: buy every affordable upgrade, cheapest first, until one
+// is unaffordable. Returns how many were bought.
 export function buyAllUpgrades(state) {
   if (!validState(state)) return 0;
-  if (!Array.isArray(state.upgrades) || !Array.isArray(state.weightUpgrades)) return 0;
-  if (!state.weightUpgrades.includes('procure')) return 0;
-  if (!isFiniteNumber(state.tokens)) return 0;
   let bought = 0;
-  for (const u of [...UPGRADES].sort((a, b) => a.cost - b.cost)) {
-    if (state.upgrades.includes(u.id)) continue;
-    if (state.tokens < u.cost) break;
-    state.tokens -= u.cost;
-    state.upgrades.push(u.id);
-    bought++;
+  let again = true;
+  while (again) {
+    again = false;
+    const sorted = UPGRADES.filter((u) => !state.upgrades.includes(u.id)).sort((a, b) => a.cost - b.cost);
+    for (const u of sorted) {
+      if (state.tokens >= u.cost) {
+        state.tokens -= u.cost;
+        state.upgrades.push(u.id);
+        bought++;
+        again = true;
+      }
+    }
   }
   return bought;
 }
 
 export function buyWeightUpgrade(state, id) {
   if (!validState(state)) return false;
-  const u = WEIGHT_UPGRADES.find((x) => x.id === id);
-  if (!u || state.weightUpgrades.includes(id)) return false;
-  if ((state.weights || 0) < u.cost) return false;
-  state.weights -= u.cost;
+  const wu = WEIGHT_UPGRADES.find((x) => x.id === id);
+  if (!wu || hasWeightUpgrade(state, id)) return false;
+  if (state.weights < wu.cost) return false;
+  state.weights -= wu.cost;
   state.weightUpgrades.push(id);
-  // The seed grants its tokens immediately so the run that buys it can continue
-  // (prestige() separately grants the recurring start-of-run bonus).
-  if (id === 'seed') state.tokens += u.value;
   return true;
-}
-
-export function setOverclock(state, on) {
-  if (!validState(state) || typeof on !== 'boolean') return;
-  if (on && state.throttled) return; // cannot turn on while throttled
-  state.overclock = on;
-  state.autoPause = false; // a manual toggle restarts the auto cycle
 }
 
 export function weightsAvailable(state) {
   if (!validState(state)) return 0;
-  const reached = Math.floor(Math.sqrt(Math.max(0, state.totalLifetime || 0) / PRESTIGE_DIVISOR));
-  return Math.max(0, reached - (state.weightsEarnedThisCycle || 0));
+  return Math.floor(Math.sqrt(Math.max(0, state.totalLifetime || 0) / PRESTIGE_DIVISOR)) - (state.weightsEarnedThisCycle || 0);
 }
 
 export function prestige(state) {
@@ -357,16 +375,20 @@ export function prestige(state) {
   );
   state.tokens = startTokens;
   state.lifetime = 0;
-  for (const g of GENERATORS) state.generators[g.id] = 0;
+  for (const g of GENERATORS) {
+    state.generators[g.id] = 0;
+    state.cycles[g.id] = null;
+  }
   state.upgrades = [];
-  state.heat = 0;
-  state.overclock = false;
-  state.throttled = false;
-  state.autoPause = false;
+  // Managers reset like regular upgrades; Standing Orders re-hires the
+  // Cron Job at the start of each run.
+  state.managers = hasWeightUpgrade(state, 'auto') ? ['pi'] : [];
   // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil.
   return gained;
 }
 
+// Offline earnings: rate * min(seconds, cap hours) * offline rate.
+// Counts only managed rows.
 export function applyOffline(state, seconds) {
   if (!validState(state) || !isFiniteNumber(seconds) || seconds < 0) return 0;
   const long = WEIGHT_UPGRADES.find((u) => u.id === 'long');
@@ -374,20 +396,25 @@ export function applyOffline(state, seconds) {
   const capped = Math.min(seconds, capHours * 3600);
   if (capped <= 0) return 0;
   const night = WEIGHT_UPGRADES.find((u) => u.id === 'night');
-  const rate = baseRate(state); // overclock and throttle ignored
+  let rate = 0;
+  for (const g of GENERATORS) {
+    if (hasManager(state, g.id)) rate += rowRate(state, g);
+  }
   const offlineRate = hasWeightUpgrade(state, 'night') ? night.value : OFFLINE_RATE;
   const earned = rate * capped * offlineRate;
-  state.overclock = false;
   addTokens(state, earned);
   return earned;
 }
 
 export function applyRush(state, score, now) {
-  if (!validState(state) || !isFiniteNumber(score) || !isFiniteNumber(now) || score < 0) return 0;
-  if (state.rushCooldownUntil !== null && now < state.rushCooldownUntil) return 0;
-  const seconds = Math.min(RUSH_MAX_SECONDS, score / RUSH_SCORE_DIVISOR);
+  if (!validState(state)) return 0;
+  const scoreN = isFiniteNumber(score) && score > 0 ? score : 0;
+  const nowN = isFiniteNumber(now) ? now : null;
+  if (state.rushCooldownUntil !== null && nowN !== null && nowN < state.rushCooldownUntil) return 0;
+  if (scoreN <= 0) return 0;
+  const seconds = Math.min(RUSH_MAX_SECONDS, scoreN / RUSH_SCORE_DIVISOR);
   const earned = tokensPerSecond(state) * seconds;
-  state.rushCooldownUntil = now + RUSH_COOLDOWN_SECONDS;
   addTokens(state, earned);
+  if (nowN !== null) state.rushCooldownUntil = nowN + RUSH_COOLDOWN_SECONDS;
   return earned;
 }
