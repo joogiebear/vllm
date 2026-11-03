@@ -577,10 +577,13 @@ test('migrate: old saves get zero stats', () => {
   });
 });
 
-test('ACHIEVEMENTS: 44 entries, unique ids, JSON-safe tests', () => {
-  assert.equal(ACHIEVEMENTS.length, 44);
+test('ACHIEVEMENTS: 60 entries (48 owned + 12 others), unique ids, JSON-safe tests', () => {
+  assert.equal(ACHIEVEMENTS.length, 60);
   const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
-  assert.equal(ids.size, 44);
+  assert.equal(ids.size, 60);
+  const owned = ACHIEVEMENTS.filter((a) => a.test.kind === 'owned');
+  assert.equal(owned.length, 48);
+  assert.equal(ACHIEVEMENTS.length - owned.length, 12);
   for (const a of ACHIEVEMENTS) {
     assert.equal(typeof a.name, 'string');
     assert.equal(typeof a.desc, 'string');
@@ -619,11 +622,11 @@ test('achievements: prestiges unlocks at 1, 5, 25', () => {
   }
 });
 
-test('achievements: allManagers needs all 8 hired in one run', () => {
+test('achievements: allManagers needs all 12 hired in one run', () => {
   const s = createState();
-  s.managers.push('pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter', 'campus');
+  s.managers.push('pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter', 'campus', 'swarm', 'orbital', 'lunar', 'matrioshka');
   assert.ok(!checkAchievements(s).includes('managers-all'));
-  s.managers.push('swarm');
+  s.managers.push('singularity');
   assert.ok(checkAchievements(s).includes('managers-all'));
 });
 
@@ -692,4 +695,70 @@ test('migrate: achievements pass through a v2 save, old saves get empty', () => 
   const v2 = { version: 2, achievements: ['gen-pi-1', 'bogus', 42] };
   assert.deepEqual(migrate(v2).achievements, ['gen-pi-1']);
   assert.deepEqual(migrate({ version: 1 }).achievements, []);
+});
+
+test('tiers 9-12: base costs, outputs and cycle times', () => {
+  const s = createState();
+  assert.equal(cost(s, 'orbital'), 8e9);
+  assert.equal(cost(s, 'lunar'), 1.3e11);
+  assert.equal(cost(s, 'matrioshka'), 2.2e12);
+  assert.equal(cost(s, 'singularity'), 4e13);
+  s.generators.orbital = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6);
+  s.generators.lunar = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6 + 9e6);
+  s.generators.matrioshka = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6 + 9e6 + 5.4e7);
+  s.generators.singularity = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6 + 9e6 + 5.4e7 + 3.3e8);
+});
+
+test('tiers 9-12: per-tier production upgrades multiply one tier only', () => {
+  const s = createState();
+  s.generators.orbital = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6);
+  s.upgrades.push('orbital3');
+  assert.equal(tokensPerSecond(s), 1.5e6 * 3);
+  s.generators.lunar = 1;
+  assert.equal(tokensPerSecond(s), 1.5e6 * 3 + 9e6);
+});
+
+test('tiers 9-12: managers cost and hire', () => {
+  const s = createState();
+  s.tokens = 4e12;
+  assert.equal(buyManager(s, 'orbital'), true);
+  assert.equal(s.tokens, 0);
+  s.tokens = 8e13;
+  assert.equal(buyManager(s, 'lunar'), true);
+  s.tokens = 1.6e15;
+  assert.equal(buyManager(s, 'matrioshka'), true);
+  s.tokens = 3.2e16;
+  assert.equal(buyManager(s, 'singularity'), true);
+  assert.equal(buyManager(s, 'orbital'), false); // one per generator
+});
+
+test('migrate: an old 8-tier save gets the new tiers at 0 owned / null cycles', () => {
+  const old = {
+    version: 2,
+    tokens: 123,
+    lifetime: 456,
+    totalLifetime: 789,
+    generators: { pi: 3, gamer: 2, workstation: 1, rack: 0, cluster: 0, datacenter: 0, campus: 0, swarm: 0 },
+    cycles: { pi: 3.5, gamer: 2.25, workstation: 1, rack: null, cluster: null, datacenter: null, campus: null, swarm: null },
+    upgrades: ['quant'],
+    weightUpgrades: ['seed'],
+    managers: ['pi'],
+  };
+  const s = migrate(old);
+  assert.equal(s.generators.orbital, 0);
+  assert.equal(s.generators.lunar, 0);
+  assert.equal(s.generators.matrioshka, 0);
+  assert.equal(s.generators.singularity, 0);
+  assert.equal(s.cycles.orbital, null);
+  assert.equal(s.cycles.lunar, null);
+  assert.equal(s.cycles.matrioshka, null);
+  assert.equal(s.cycles.singularity, null);
+  // old tiers preserved
+  assert.equal(s.generators.pi, 3);
+  assert.equal(s.cycles.pi, 3.5);
 });
