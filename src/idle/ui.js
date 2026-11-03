@@ -8,6 +8,7 @@ import {
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
 } from './data.js?v=20261103041805';
+import { get as getSetting } from './settings.js?v=20261103041805';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
@@ -23,6 +24,9 @@ const TIER_COLORS = {
 
 export function fmt(n) {
   if (!Number.isFinite(n)) return '∞';
+  if (getSetting('numberFormat') === 'sci' && n >= 1000) {
+    return n.toExponential(2).replace('e+', 'e'); // e.g. 1.23e6
+  }
   if (n >= 1e15) return `${(n / 1e15).toFixed(1)}Q`;
   if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
