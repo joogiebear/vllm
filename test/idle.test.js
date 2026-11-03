@@ -14,6 +14,7 @@ import {
   weightsAvailable,
   prestige,
   regionsAvailable,
+  regionTarget,
   expandRegion,
   regionName,
   ensureStarter,
@@ -32,7 +33,6 @@ import {
 import {
   ACHIEVEMENTS,
   GENERATORS,
-  REGION_DIVISOR,
   REGION_BASE,
   REGION_GROWTH,
   TIER_GATES,
@@ -53,6 +53,7 @@ test('createState: fresh state has the right fields', () => {
   assert.equal(s.regions, 0);
   assert.equal(s.regionsEarned, 0);
   assert.equal(s.weightsEverEarned, 0);
+  assert.equal(s.weightsSinceExpand, 0);
   assert.deepEqual(s.regionPerks, []);
   assert.equal(s.managers.length, 0);
   assert.equal(s.upgrades.length, 0);
@@ -1111,33 +1112,67 @@ test('a saved game survives a reload: migrate keeps stats, achievements and even
 
 // Regions (docs/REGIONS-DESIGN.md)
 
-test('regionsAvailable: formula (1, 4 and 9 times REGION_DIVISOR Weights)', () => {
+test('regionsAvailable: one at a time, at the per-Region target', () => {
   const s = createState();
-  s.weightsEverEarned = REGION_DIVISOR - 1;
+  s.weightsSinceExpand = regionTarget(s) - 1;
   assert.equal(regionsAvailable(s), 0);
-  s.weightsEverEarned = REGION_DIVISOR;
+  s.weightsSinceExpand = regionTarget(s);
   assert.equal(regionsAvailable(s), 1);
-  s.weightsEverEarned = 4 * REGION_DIVISOR;
-  assert.equal(regionsAvailable(s), 2);
-  s.weightsEverEarned = 9 * REGION_DIVISOR;
-  assert.equal(regionsAvailable(s), 3);
+  s.weightsSinceExpand = 100 * regionTarget(s); // far past: still only one
+  assert.equal(regionsAvailable(s), 1);
   s.regionsEarned = 2;
+  s.weightsSinceExpand = REGION_BASE; // below the raised target
+  assert.equal(regionsAvailable(s), 0);
+  s.weightsSinceExpand = regionTarget(s);
   assert.equal(regionsAvailable(s), 1);
 });
 
-test('prestige: adds the gained Weights to weightsEverEarned', () => {
+test('regionTarget: rises with regionsEarned (REGION_BASE * REGION_GROWTH ^ n)', () => {
+  const s = createState();
+  assert.equal(regionTarget(s), REGION_BASE);
+  s.regionsEarned = 1;
+  assert.ok(Math.abs(regionTarget(s) / REGION_BASE - REGION_GROWTH) < 1e-9);
+  s.regionsEarned = 2;
+  assert.ok(Math.abs(regionTarget(s) / REGION_BASE - Math.pow(REGION_GROWTH, 2)) < 1e-9);
+  s.regionsEarned = 8;
+  assert.ok(Math.abs(regionTarget(s) / REGION_BASE - Math.pow(REGION_GROWTH, 8)) < 1e-9);
+});
+
+test('expandRegion: one at a time; resets weightsSinceExpand to 0', () => {
+  const s = createState();
+  s.weightsSinceExpand = 1000 * regionTarget(s); // far past the target
+  assert.equal(regionsAvailable(s), 1); // never more than 1
+  assert.equal(expandRegion(s), 1);
+  assert.equal(s.regions, 1);
+  assert.equal(s.regionsEarned, 1);
+  assert.equal(s.weightsSinceExpand, 0);
+  assert.equal(regionsAvailable(s), 0); // the raised target is not met yet
+  s.weightsSinceExpand = regionTarget(s);
+  assert.equal(regionsAvailable(s), 1);
+  assert.equal(expandRegion(s), 1);
+  assert.equal(s.regions, 2);
+  assert.equal(s.regionsEarned, 2);
+  assert.equal(s.weightsSinceExpand, 0);
+});
+
+test('prestige: adds the gained Weights to weightsEverEarned and weightsSinceExpand', () => {
   const s = createState();
   s.totalLifetime = 1e13;
   assert.equal(prestige(s), 10);
   assert.equal(s.weightsEverEarned, 10);
+  assert.equal(s.weightsSinceExpand, 10);
   s.totalLifetime = 4e13;
   assert.equal(prestige(s), 10);
   assert.equal(s.weightsEverEarned, 20);
+  assert.equal(s.weightsSinceExpand, 20);
 });
 
 test('expandRegion: resets the right fields, keeps the rest', () => {
   const s = createState();
-  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
+  s.regions = 1;
+  s.regionsEarned = 1;
+  s.weightsSinceExpand = regionTarget(s); // 1 Region available (target at regionsEarned = 1)
+  s.weightsEverEarned = 123;
   s.weights = 7;
   s.weightUpgrades = ['seed', 'auto'];
   s.weightsEarnedThisCycle = 3;
@@ -1148,14 +1183,12 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   s.generators.gamer = 2;
   s.upgrades = ['quant'];
   s.managers = ['pi'];
-  s.regions = 1;
-  s.regionsEarned = 1;
   s.regionPerks = ['headStart'];
   s.achievements = ['gen-pi-1'];
   s.rushCooldownUntil = 999;
   s.stats.taps = 5;
   s.stats.playSeconds = 123;
-  assert.equal(expandRegion(s), 2);
+  assert.equal(expandRegion(s), 1);
   // reset like a prestige, plus the weight layer:
   assert.equal(s.tokens, 0);
   assert.equal(s.lifetime, 0);
@@ -1165,6 +1198,7 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   // Orders owned, the first 3 managers hired.
   assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
   assert.equal(s.weightsEarnedThisCycle, 0);
+  assert.equal(s.weightsSinceExpand, 0);
   assert.equal(s.upgrades.length, 0);
   assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
   assert.equal(s.generators.pi, 1); // the starter Raspberry Pi
@@ -1172,9 +1206,9 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   assert.equal(s.cycles.pi, null);
   assert.equal(s.cycles.gamer, null);
   // kept:
-  assert.equal(s.regions, 3); // 1 + 2 gained
-  assert.equal(s.regionsEarned, 3);
-  assert.equal(s.weightsEverEarned, 9 * REGION_DIVISOR);
+  assert.equal(s.regions, 2); // 1 + 1 gained
+  assert.equal(s.regionsEarned, 2);
+  assert.equal(s.weightsEverEarned, 123);
   assert.deepEqual(s.regionPerks, ['headStart']);
   assert.deepEqual(s.achievements, ['gen-pi-1']);
   assert.equal(s.rushCooldownUntil, 999);
@@ -1186,7 +1220,7 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
 
 test('expandRegion: no-op below the first Region', () => {
   const s = createState();
-  s.weightsEverEarned = REGION_DIVISOR - 1;
+  s.weightsSinceExpand = REGION_BASE - 1;
   s.tokens = 100;
   s.generators.pi = 3;
   assert.equal(expandRegion(s), 0);
@@ -1194,6 +1228,7 @@ test('expandRegion: no-op below the first Region', () => {
   assert.equal(s.generators.pi, 3);
   assert.equal(s.regions, 0);
   assert.equal(s.regionsEarned, 0);
+  assert.equal(s.weightsSinceExpand, REGION_BASE - 1); // untouched
 });
 
 test('tokensPerSecond: x2 per Region stacks multiplicatively; spending Regions does not lower it', () => {
@@ -1229,6 +1264,7 @@ test('migrate: an old save gets the region fields at defaults; a v3 save passes 
   assert.equal(s.regions, 0);
   assert.equal(s.regionsEarned, 0);
   assert.equal(s.weightsEverEarned, 0);
+  assert.equal(s.weightsSinceExpand, 3); // missing: starts at the save's Weights
   assert.deepEqual(s.regionPerks, []);
   const v3 = {
     version: 3,
@@ -1236,13 +1272,23 @@ test('migrate: an old save gets the region fields at defaults; a v3 save passes 
     regions: 2,
     regionsEarned: 2,
     weightsEverEarned: 200,
+    weightsSinceExpand: 42,
     regionPerks: ['headStart', 42],
   };
   const r = migrate(v3);
   assert.equal(r.regions, 2);
   assert.equal(r.regionsEarned, 2);
   assert.equal(r.weightsEverEarned, 200);
+  assert.equal(r.weightsSinceExpand, 42); // present: passes through
   assert.deepEqual(r.regionPerks, ['headStart']);
+});
+
+test('migrate: weightsSinceExpand defaults to the save Weights; a present value passes through', () => {
+  const s = migrate({ version: 3, tokens: 5, weights: 7, generators: {} });
+  assert.equal(s.weights, 7);
+  assert.equal(s.weightsSinceExpand, 7);
+  const r = migrate({ version: 3, tokens: 5, weights: 7, weightsSinceExpand: 42, generators: {} });
+  assert.equal(r.weightsSinceExpand, 42);
 });
 
 test('buyRegionPerk: spends Regions, never lowers the multiplier, no double-buy', () => {
@@ -1282,9 +1328,9 @@ test('Head Start: re-applies after prestige (weight upgrades, 3 managers, seed t
 
 test('Head Start: re-applies after expandRegion (no seed tokens, no duplicates)', () => {
   const s = createState();
-  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
+  s.weightsSinceExpand = REGION_BASE; // 1 Region available
   s.regionPerks = ['headStart'];
-  assert.equal(expandRegion(s), 3);
+  assert.equal(expandRegion(s), 1);
   assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
   assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
   assert.equal(s.tokens, 0); // region resets do not grant Seed Funding
@@ -1295,14 +1341,14 @@ test('Head Start: re-applies after expandRegion (no seed tokens, no duplicates)'
 
 test('Fresh Weights: 5 Weights at the start of each new region, counted as earned', () => {
   const s = createState();
-  s.weightsEverEarned = 9 * REGION_DIVISOR; // 3 Regions available
+  s.weightsSinceExpand = REGION_BASE; // 1 Region available
   s.regionPerks = ['fresh'];
-  assert.equal(expandRegion(s), 3);
+  assert.equal(expandRegion(s), 1);
   assert.equal(s.weights, 5);
   assert.equal(s.weightsEarnedThisCycle, 5);
   const s2 = createState();
-  s2.weightsEverEarned = 9 * REGION_DIVISOR;
-  assert.equal(expandRegion(s2), 3);
+  s2.weightsSinceExpand = REGION_BASE;
+  assert.equal(expandRegion(s2), 1);
   assert.equal(s2.weights, 0);
   assert.equal(s2.weightsEarnedThisCycle, 0);
 });

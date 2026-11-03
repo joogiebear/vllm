@@ -10,7 +10,8 @@ import {
   MANAGERS,
   REMOVED_UPGRADES,
   PRESTIGE_DIVISOR,
-  REGION_DIVISOR,
+  REGION_BASE,
+  REGION_GROWTH,
   REGION_NAMES,
   REGION_PERKS,
   TIER_GATES,
@@ -55,6 +56,7 @@ export function createState() {
     regions: 0,
     regionsEarned: 0,
     weightsEverEarned: 0,
+    weightsSinceExpand: 0,
     regionPerks: [],
     autoProcureTimer: 0,
     generators,
@@ -377,6 +379,11 @@ export function migrate(saveState) {
   s.regions = num('regions');
   s.regionsEarned = num('regionsEarned');
   s.weightsEverEarned = num('weightsEverEarned');
+  // Migration (docs/LATE-GAME-DESIGN.md, section 2): a save that predates
+  // weightsSinceExpand starts it at the save's current Weights.
+  s.weightsSinceExpand = isFiniteNumber(saveState.weightsSinceExpand)
+    ? saveState.weightsSinceExpand
+    : s.weights;
   if (Array.isArray(saveState.regionPerks)) {
     s.regionPerks = saveState.regionPerks.filter((x) => typeof x === 'string');
   }
@@ -630,6 +637,7 @@ export function prestige(state) {
   const startTokens = hasWeightUpgrade(state, 'seed') ? seed.value : 0;
   state.weights += gained;
   state.weightsEverEarned += gained;
+  state.weightsSinceExpand += gained;
   state.weightsEarnedThisCycle = Math.floor(
     Math.sqrt(Math.max(0, state.totalLifetime || 0) / PRESTIGE_DIVISOR)
   );
@@ -649,28 +657,37 @@ export function prestige(state) {
   return gained;
 }
 
-// regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
+// The Weights target for the next Region (docs/LATE-GAME-DESIGN.md,
+// section 2): REGION_BASE * REGION_GROWTH ^ regionsEarned.
+export function regionTarget(state) {
+  const n = isFiniteNumber(state && state.regionsEarned) ? state.regionsEarned : 0;
+  return REGION_BASE * Math.pow(REGION_GROWTH, n);
+}
+
+// One Region at a time (docs/LATE-GAME-DESIGN.md, section 2): available
+// when the Weights earned since the last expansion reach the target,
+// never more than 1.
 export function regionsAvailable(state) {
   if (!validState(state)) return 0;
-  return Math.floor(Math.sqrt(Math.max(0, state.weightsEverEarned || 0) / REGION_DIVISOR)) - (state.regionsEarned || 0);
+  return (state.weightsSinceExpand || 0) >= regionTarget(state) ? 1 : 0;
 }
 
 // Second prestige layer (docs/REGIONS-DESIGN.md). Resets everything a
 // normal prestige resets, plus weights, weightUpgrades,
-// weightsEarnedThisCycle and totalLifetime (so Weights start from zero
-// again). Then the region perks re-apply: Head Start adds Seed Funding,
-// Procurement Bot and Standing Orders and hires the first 3 managers,
-// and Fresh Weights starts the run with 5 Weights, counted as earned.
-// Returns the Regions gained, or 0 when none are available.
+// weightsEarnedThisCycle, weightsSinceExpand and totalLifetime (so Weights
+// start from zero again). Then the region perks re-apply: Head Start adds
+// Seed Funding, Procurement Bot and Standing Orders and hires the first 3
+// managers, and Fresh Weights starts the run with 5 Weights, counted as
+// earned. Returns the Regions gained (0 or 1), or 0 when none are
+// available.
 export function expandRegion(state) {
   if (!validState(state)) return 0;
   const gained = regionsAvailable(state);
   if (gained < 1) return 0;
   state.stats.runStartedAt = state.stats.playSeconds;
   state.regions += gained;
-  state.regionsEarned = Math.floor(
-    Math.sqrt(Math.max(0, state.weightsEverEarned || 0) / REGION_DIVISOR)
-  );
+  state.regionsEarned += gained;
+  state.weightsSinceExpand = 0;
   state.weights = 0;
   state.weightUpgrades = [];
   state.weightsEarnedThisCycle = 0;
