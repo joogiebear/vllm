@@ -1,7 +1,10 @@
-// The server rack: one large "Serve" button with one unit per owned tier,
-// stacked from the bottom. The units are built once; update() only changes
-// classes and CSS custom properties, and a unit appears (with a slide-in)
-// only when its tier is first owned.
+// The server rack: one large "Serve" button with 8 fixed bays stacked from
+// the bottom, one per tier, filling the 200px height evenly. An unowned bay
+// is a faint outlined slot (the room left to fill); an owned bay is a solid
+// unit with a bright 4px tier stripe, a small tier detail, and its LEDs in a
+// row inside the same unit, right-aligned. update() only changes classes and
+// CSS custom properties, and a unit appears (with a slide-in) only when its
+// tier is first owned.
 import { click, tokensPerSecond } from './core.js';
 import { GENERATORS } from './data.js';
 
@@ -11,6 +14,29 @@ const LED_MAX = 12;
 // strobe: at most 2.5 Hz (400 ms).
 function blinkPeriodMs(tps) {
   return Math.max(400, 1600 / (1 + Math.log10(1 + Math.max(0, tps))));
+}
+
+// One small distinguishing CSS detail per tier: a chip square for the Pi, a
+// fan circle for the Gaming GPU, vent lines and drive slots for the rest.
+function tierDetail(id) {
+  const detail = document.createElement('div');
+  detail.className = 'detail';
+  const add = (cls, n = 1) => {
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('div');
+      el.className = cls;
+      detail.appendChild(el);
+    }
+  };
+  if (id === 'pi') add('chip');
+  else if (id === 'gamer') add('fan');
+  else if (id === 'workstation') add('vent', 3);
+  else if (id === 'rack') add('slot', 2);
+  else if (id === 'cluster') add('vent', 4);
+  else if (id === 'datacenter') add('slot', 3);
+  else if (id === 'campus') add('vent', 3);
+  else add('node', 3); // swarm
+  return detail;
 }
 
 export function createRack(state, fmt) {
@@ -31,29 +57,8 @@ export function createRack(state, fmt) {
     const unit = document.createElement('div');
     unit.className = 'unit';
     unit.dataset.tier = g.id;
-    const shape = document.createElement('div');
-    shape.className = 'shape';
-    // One visually distinct CSS shape per tier: a small green board for the
-    // Pi, a card with a fan for the Gaming GPU, wider chassis further up.
-    if (g.id === 'gamer') {
-      const fan = document.createElement('div');
-      fan.className = 'fan';
-      shape.appendChild(fan);
-    }
-    if (g.id === 'cluster') {
-      for (let i = 0; i < 2; i++) {
-        const gpu = document.createElement('div');
-        gpu.className = 'gpu';
-        shape.appendChild(gpu);
-      }
-    }
-    if (g.id === 'swarm') {
-      for (let i = 0; i < 3; i++) {
-        const node = document.createElement('div');
-        node.className = 'node';
-        shape.appendChild(node);
-      }
-    }
+    const stripe = document.createElement('div');
+    stripe.className = 'stripe';
     const leds = document.createElement('span');
     leds.className = 'leds';
     const ledEls = [];
@@ -63,7 +68,7 @@ export function createRack(state, fmt) {
       leds.appendChild(led);
       ledEls.push(led);
     }
-    unit.append(shape, leds);
+    unit.append(stripe, tierDetail(g.id), leds);
     unitsBox.appendChild(unit);
     return { g, unit, ledEls };
   });
