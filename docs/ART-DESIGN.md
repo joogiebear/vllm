@@ -231,6 +231,40 @@ Build as small tasks, one at a time: (a) ring with count inside and manager
 mark removed; (b) one-line Buy button and status moved to the top row;
 (c) bar colour and size; (d) buy-amount control styling.
 
+## 6. Max buy bug and lag (owner, 2026-11-03)
+
+Seen on the owner's phone: Max shows "Buy 10000000 levels · 4.9B tokens" on
+every row, and the whole game lags while Max is selected.
+
+Cause (read from the code): `maxAffordable` in `ui.js` calls
+`cost(state, g.id, 1, count)`, but `cost()` in `core.js` only takes three
+arguments, so the 4th is ignored and the price never rises inside the loop.
+The loop then runs to its 10,000,000 cap, for every row, on every frame.
+That is the lag, and it is why the count and total are wrong. The actual
+purchase uses `buy()`, which prices correctly, so saves are not damaged.
+
+Fix, as three small tasks:
+
+1. `core.js`: add `export function maxAffordable(state, id)` that returns
+   `{ count, total }` in constant time with the geometric series. With
+   `p = baseCost * COST_GROWTH^owned` and `r = COST_GROWTH`, the cost of n
+   levels is `p * (r^n - 1) / (r - 1)`, so
+   `n = floor(log(tokens * (r - 1) / p + 1) / log(r))`. Then correct n by
+   one step down if `cost(n) > tokens` (float rounding). Return 0 and the
+   one-level price when nothing is affordable. Test: for a few states (fresh,
+   mid, 1e15 tokens) `maxAffordable(...).count` equals what `buy(copy, id,
+   'max')` buys, `total <= tokens`, and one more level would not fit; and a
+   1e15-token call returns in under 1 ms.
+2. `ui.js`: delete the local `maxAffordable` and import the one from
+   `core.js`. Nothing else changes.
+3. `core.js`: `buy(state, id, 'max')` uses `maxAffordable` to get n and
+   subtracts the total once, instead of looping one level at a time. Same
+   tests as 1 still pass.
+
+Acceptance: with 100T tokens and Max selected, no frame drops on the phone,
+and each row shows a real count (for 25 owned Pis and 114T tokens that is a
+few hundred levels, not ten million).
+
 ## Build passes
 
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
