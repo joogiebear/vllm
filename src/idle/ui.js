@@ -163,11 +163,15 @@ export function createUI(state, io) {
     tier.style.margin = 'auto';
     const iconCount = document.createElement('span');
     iconCount.className = 'gen-icon-count';
-    // The count is a small badge on the button, so it stays readable
-    // next to the tier icon.
+    // The count is a small pill (~18 px tall) centred on the bottom edge
+    // of the circle, so the tier icon stays fully visible above it.
+    // left/bottom/transform override the stylesheet's inset: 0.
     Object.assign(iconCount.style, {
-      top: '2px',
-      right: '2px',
+      top: 'auto',
+      right: 'auto',
+      left: '50%',
+      bottom: '-9px',
+      transform: 'translateX(-50%)',
       width: 'auto',
       height: '18px',
       minWidth: '18px',
