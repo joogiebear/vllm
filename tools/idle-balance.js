@@ -4,7 +4,7 @@
 //
 // Bot (per the design): buys whatever gives the best output per cost, buys
 // every upgrade it can afford, does not click, never overclocks, and
-// prestiges when weights available reach max(1, 0.5 * current weights).
+// prestiges when weights available reach max(5, 0.5 * current weights).
 import {
   createState, tick, click, buy, buyUpgrade, buyWeightUpgrade, prestige,
   cost, weightsAvailable,
@@ -15,7 +15,7 @@ import {
 
 const DT = 1; // seconds per step
 const START_CLICKS = 20; // the design gives 20 clicks at the start
-const MAX_MINUTES = 90; // long enough to bracket the 20-60 minute target
+const MAX_MINUTES = 150; // long enough for four resets
 
 // Output per cost of the next unit of a generator.
 function outputPerCost(state, g) {
@@ -56,9 +56,6 @@ function botStep(state) {
   for (const w of WEIGHT_UPGRADES) {
     if (!state.weightUpgrades.includes(w.id) && state.weights >= w.cost) buyWeightUpgrade(state, w.id);
   }
-  // Prestige when weights available reach max(1, 0.5 * current weights).
-  const threshold = Math.max(1, 0.5 * state.weights);
-  if (weightsAvailable(state) >= threshold) prestige(state);
 }
 
 function fmtTime(seconds) {
@@ -74,6 +71,8 @@ for (let i = 0; i < START_CLICKS; i++) click(state);
 let tFirstGen = null;
 let tSecondTier = null;
 let tPrestige = null;
+const resets = []; // the first 4 resets: { t, gained, duration }
+let runStart = 0;
 const steps = MAX_MINUTES * 60;
 for (let s = 1; s <= steps; s++) {
   const t = s * DT;
@@ -82,9 +81,19 @@ for (let s = 1; s <= steps; s++) {
   if (tFirstGen === null && Object.values(state.generators).some((n) => n > 0)) tFirstGen = t;
   if (tSecondTier === null && state.lifetime >= GENERATORS[1].baseCost * 0.5) tSecondTier = t;
   if (tPrestige === null && weightsAvailable(state) >= 1) tPrestige = t;
-  if (tFirstGen !== null && tSecondTier !== null && tPrestige !== null) break;
+  // Keep playing through prestiges: reset when weights available reach
+  // max(5, 0.5 * current weights).
+  if (resets.length < 4 && weightsAvailable(state) >= Math.max(5, 0.5 * state.weights)) {
+    const gained = prestige(state);
+    resets.push({ t, gained, duration: t - runStart });
+    runStart = t;
+  }
+  if (tFirstGen !== null && tSecondTier !== null && tPrestige !== null && resets.length >= 4) break;
 }
 
+const durations = resets.map((r) => r.duration);
+const gettingFaster =
+  resets.length === 4 && durations.every((d, i) => i === 0 || d < durations[i - 1]);
 const results = [
   {
     name: 'first generator',
@@ -101,18 +110,28 @@ const results = [
   {
     name: 'first prestige available',
     got: tPrestige,
-    ok: tPrestige !== null && tPrestige >= 20 * 60 && tPrestige <= 60 * 60,
-    target: '20 to 60 minutes',
+    ok: tPrestige !== null && tPrestige >= 20 * 60 && tPrestige <= 40 * 60,
+    target: '20 to 40 minutes',
+  },
+  {
+    name: 'each later run reaches its reset faster than the one before',
+    got: durations.map(fmtTime).join(' > ') || 'n/a',
+    ok: gettingFaster,
+    target: 'strictly decreasing run durations (4 resets)',
   },
 ];
 
 console.log('Pacing check (bot: best output/cost, all affordable upgrades,');
-console.log('no clicks, no overclock, prestige at max(1, 0.5 * weights))');
+console.log('no clicks, no overclock, prestige at max(5, 0.5 * weights))');
 let allPass = true;
 for (const r of results) {
   const pass = r.ok ? 'PASS' : 'FAIL';
   if (!r.ok) allPass = false;
-  console.log(`  ${r.name}: ${fmtTime(r.got)} (target: ${r.target}) ${pass}`);
+  const got = typeof r.got === 'number' ? fmtTime(r.got) : r.got;
+  console.log(`  ${r.name}: ${got} (target: ${r.target}) ${pass}`);
+}
+for (const [i, r] of resets.entries()) {
+  console.log(`  reset ${i + 1}: at ${fmtTime(r.t)}, +${r.gained} weights, run took ${fmtTime(r.duration)}`);
 }
 console.log(
   `  final: totalLifetime=${state.totalLifetime.toExponential(3)} weights=${state.weights} ` +

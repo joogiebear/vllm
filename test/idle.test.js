@@ -67,7 +67,7 @@ function near(actual, expected, eps = 1e-9) {
 test('cost: baseCost * 1.15^owned, rounded up, summed over the next n', () => {
   const s = createState();
   assert.equal(cost(s, 'pi', 1), 15); // base cost from the table
-  assert.equal(cost(s, 'gamer', 1), 110);
+  assert.equal(cost(s, 'gamer', 1), 220);
   assert.equal(cost(s, 'swarm', 1), 510000000);
   s.generators.pi = 10;
   assert.equal(cost(s, 'pi', 1), Math.ceil(15 * Math.pow(COST_GROWTH, 10)));
@@ -122,14 +122,14 @@ test('generator output doubles at 25, 50, 100, 200 and 400 owned', () => {
 
 // --- production formula ----------------------------------------------------------
 
-test('tokensPerSecond = sum * (1 + cacheRate) * (1 + 0.02 * weights) * upgradeMultipliers * heatFactor', () => {
+test('tokensPerSecond = sum * (1 + cacheRate) * (1 + 0.1 * weights) * upgradeMultipliers * heatFactor', () => {
   const s = createState();
   s.generators.pi = 10; // 10 tps
   s.generators.gamer = 1; // 8 tps
   s.upgrades.push('quant'); // x1.5
   s.upgrades.push('prefix1'); // cacheRate +0.25
-  s.weights = 10; // 1 + 0.02 * 10 = 1.2
-  const base = 18 * 1.25 * 1.2 * 1.5;
+  s.weights = 10; // 1 + 0.1 * 10 = 2.0
+  const base = 18 * 1.25 * 2.0 * 1.5;
   assert.equal(tokensPerSecond(s), base);
   s.overclock = true;
   assert.equal(tokensPerSecond(s), base * 2);
@@ -375,7 +375,7 @@ test('weight upgrade: night raises the offline rate to 75%', () => {
 test('weight upgrade: warm adds 0.25 to the cache rate', () => {
   const s = createState();
   s.generators.pi = 10;
-  s.weights = 5;
+  s.weights = 1; // enough to buy warm (cost 1)
   assert.equal(buyWeightUpgrade(s, 'warm'), true);
   assert.equal(tokensPerSecond(s), 10 * 1.25);
 });
@@ -383,7 +383,7 @@ test('weight upgrade: warm adds 0.25 to the cache rate', () => {
 test('weight upgrade: long raises the offline cap to 24h', () => {
   const s = createState();
   s.generators.pi = 1; // 1 tps
-  s.weights = 10;
+  s.weights = 15; // enough to buy long (cost 15)
   assert.equal(buyWeightUpgrade(s, 'long'), true);
   assert.equal(applyOffline(s, 100 * 3600), 1 * 24 * 3600 * 0.5);
 });
@@ -416,15 +416,15 @@ test('weight upgrade: auto cycles overclock 95/40 and never reaches 100', () => 
   assert.equal(s2.overclock, false);
 });
 
-test('weight upgrade: distill raises the per-weight bonus to 3%', () => {
+test('weight upgrade: distill raises the per-weight bonus to 13%', () => {
   const s = createState();
   s.generators.pi = 10;
   s.weights = 10;
-  assert.equal(tokensPerSecond(s), 10 * 1.2); // 2% per weight
+  assert.equal(tokensPerSecond(s), 10 * 2.0); // 10% per weight
   s.weights = 60; // buy distill (cost 50), keep 10 weights
   assert.equal(buyWeightUpgrade(s, 'distill'), true);
   assert.equal(s.weights, 10);
-  assert.equal(tokensPerSecond(s), 10 * 1.3);
+  assert.equal(tokensPerSecond(s), 10 * 2.3);
 });
 
 test('weight upgrades: refused when unaffordable or already owned', () => {

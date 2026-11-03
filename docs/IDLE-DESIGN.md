@@ -54,9 +54,9 @@ Cost of the next one is `baseCost * 1.15 ^ owned`, rounded up. Base production i
 | Id | Name | Base cost | Tokens/s |
 | --- | --- | ---: | ---: |
 | `pi` | Raspberry Pi | 15 | 1 |
-| `gamer` | Gaming GPU | 110 | 8 |
-| `workstation` | Workstation | 1,200 | 47 |
-| `rack` | Rack Server | 13,000 | 260 |
+| `gamer` | Gaming GPU | 220 | 8 |
+| `workstation` | Workstation | 2,400 | 47 |
+| `rack` | Rack Server | 26,000 | 260 |
 | `cluster` | GPU Cluster | 140,000 | 1,400 |
 | `datacenter` | Datacenter | 2,000,000 | 7,800 |
 | `campus` | Fusion Campus | 33,000,000 | 44,000 |
@@ -68,7 +68,7 @@ A generator is shown once `lifetime` reaches half its base cost.
 
 ## Production
 
-`tokensPerSecond = sum(generator output) * (1 + cacheRate) * (1 + 0.02 * weights) * upgradeMultipliers * heatFactor`
+`tokensPerSecond = sum(generator output) * (1 + cacheRate) * (1 + 0.1 * weights) * upgradeMultipliers * heatFactor`
 
 `cacheRate` starts at 0 and is raised by upgrades.
 
@@ -121,10 +121,10 @@ Weight upgrades, bought with weights, one-time:
 | --- | --- | ---: | --- |
 | `seed` | Seed Funding | 1 | Start each run with 1,000 tokens |
 | `night` | Night Shift | 3 | Offline rate 50% becomes 75% |
-| `warm` | Warm Cache | 5 | cacheRate +0.25 |
-| `long` | Long Weekend | 10 | Offline cap 8 hours becomes 24 |
+| `warm` | Warm Cache | 1 | cacheRate +0.25 |
+| `long` | Long Weekend | 15 | Offline cap 8 hours becomes 24 |
 | `auto` | Autoscaler | 20 | Heat never reaches 100: overclock turns itself off at 95 and back on at 40 |
-| `distill` | Knowledge Distillation | 50 | Weight bonus 2% becomes 3% each |
+| `distill` | Knowledge Distillation | 50 | Weight bonus 10% becomes 13% each |
 
 ## Offline
 
@@ -173,10 +173,11 @@ most 10 times a second. Use `<button>` elements and visible focus styles. Respec
 ## Pacing targets, checked by `tools/idle-balance.js`
 
 A bot buys whatever gives the best output per cost, buys every upgrade it can afford, does not click,
-never overclocks, and prestiges when weights available reach `max(1, 0.5 * current weights)`.
+never overclocks, and prestiges when weights available reach `max(5, 0.5 * current weights)`.
 
 - First generator after under 30 seconds of play, given 20 clicks at the start.
-- First prestige available: 20 to 60 minutes.
+- First prestige available: 20 to 40 minutes.
+- Each later run reaches its reset faster than the one before (4 resets).
 - Second generator tier unlocked in under 3 minutes.
 
 Tune numbers only in `data.js`, and record before and after in `docs/DECISIONS.md`.

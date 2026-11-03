@@ -159,3 +159,50 @@ The 1e13 divisor made the first reset pay only 1 weight (a 2% bonus), which was
 not worth losing a run. At 1e11 the first reset pays 10 weights (a 20% bonus).
 The formula in `docs/IDLE-DESIGN.md` and the formula tests in
 `test/idle.test.js` were updated to the new number.
+
+## 2026-11-03 — Pacing: play through 4 prestiges, 20–40 min target
+
+`tools/idle-balance.js` now plays through 4 resets instead of stopping at the
+first. The bot prestiges at `max(5, 0.5 * weights)` (was `max(1, ...)`) and buys
+every weight upgrade it can afford. Targets: first prestige in 20–40 minutes, and
+each later run reaching its reset faster than the one before.
+
+| data.js constant | before | after |
+| --- | --- | --- |
+| `WEIGHT_BONUS_PER_WEIGHT` | 0.02 | 0.1 |
+| `warm` cost | 5 | 1 |
+| `long` cost | 10 | 15 |
+| `distill` value | 0.03 | 0.13 |
+| `gamer` baseCost | 110 | 220 |
+| `workstation` baseCost | 1,200 | 2,400 |
+| `rack` baseCost | 13,000 | 26,000 |
+
+Before tuning the first prestige landed at 17m32s (too early) and run durations
+were roughly constant (~22–24 min). The 0.02 per-weight bonus was too small to
+make later runs meaningfully faster, and the bot was dumping its weights on the
+fixed 1.25x `warm` and the non-production `long`, leaving nothing for the
+per-weight bonus.
+
+- Per-weight bonus raised to 0.1 so each extra weight is 5x more valuable and
+  later runs accelerate.
+- `warm` lowered to 1 so the bot keeps weights for the per-weight bonus instead
+  of the fixed cache rate.
+- `long` raised to 15 so the offline-cap upgrade is unaffordable in run 4 and the
+  bot cannot dump all its weights on a non-production upgrade.
+- `gamer`/`workstation`/`rack` base costs raised to slow early-run token
+  generation, pushing the first prestige from 17m32s into the 20–40 min window.
+- `distill` raised to 0.13 because `weightBonusPer` replaces (not adds to) the
+  base bonus; at the old 0.03 it would have lowered the bonus below the new 0.1
+  base. (The bot does not buy distill in the first 4 runs — cost 50.)
+
+Result: first prestige 21m3s; run durations strictly decreasing:
+26m14s > 23m22s > 17m10s > 14m37s.
+
+Bug fix (not a data.js tuning): `buyWeightUpgrade` now grants the seed's 1,000
+tokens immediately, so the run that buys the seed can continue. Previously the
+seed's tokens were only granted at `prestige()` time, which deadlocked the run
+that bought it (the bot was stuck at 0 tokens in run 2). This aligns the code
+with the design's "Start **each** run with 1,000 tokens".
+
+The tables in `docs/IDLE-DESIGN.md` and the tests in `test/idle.test.js` were
+updated to match the new numbers.

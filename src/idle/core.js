@@ -304,6 +304,9 @@ export function buyWeightUpgrade(state, id) {
   if ((state.weights || 0) < u.cost) return false;
   state.weights -= u.cost;
   state.weightUpgrades.push(id);
+  // The seed grants its tokens immediately so the run that buys it can continue
+  // (prestige() separately grants the recurring start-of-run bonus).
+  if (id === 'seed') state.tokens += u.value;
   return true;
 }
 
