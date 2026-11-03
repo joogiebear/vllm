@@ -13,25 +13,61 @@ import {
 } from './data.js';
 
 // --- number formatting ----------------------------------------------------
-// 1,234, then 1.23M, 1.23B, 1.23T, 1.23Qa, 1.23Qi, then 1.23e21.
+// Principle 4: at most 3 significant figures, no commas, integers below 1000
+// (502K, not 502,341). Exact values appear only in a generator's details
+// (fmtExact).
 const SUFFIXES = [
   [1e18, 'Qi'],
   [1e15, 'Qa'],
   [1e12, 'T'],
   [1e9, 'B'],
   [1e6, 'M'],
+  [1e3, 'K'],
 ];
+// 3 significant figures for a value in [1, 1000): "1.23", "12.3", "100",
+// "502". Returns null only when the rounded value is 1000 (999.999K), so
+// the caller can carry into the next bigger suffix.
+function sig3(x) {
+  if (x >= 100) {
+    const r = Math.round(x);
+    return r >= 1000 ? null : String(r);
+  }
+  if (x >= 10) {
+    const r = Math.round(x * 10) / 10;
+    return r === 100 ? '100' : r.toFixed(1); // 99.999Qa rounds to 100Qa
+  }
+  const r = Math.round(x * 100) / 100;
+  return r >= 10 ? r.toFixed(1) : r.toFixed(2); // 9.9999B rounds to 10.0B
+}
+
 export function fmt(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '0';
+  const sign = n < 0 ? '-' : '';
   const abs = Math.abs(n);
-  if (abs < 1e6) {
-    if (abs > 0 && abs < 1) return n.toFixed(1);
-    return Math.floor(n).toLocaleString('en-US');
+  if (abs < 1000) return sign + String(Math.floor(abs));
+  for (let i = 0; i < SUFFIXES.length; i++) {
+    const [v, s] = SUFFIXES[i];
+    if (abs >= v) {
+      const str = sig3(abs / v);
+      if (str !== null) return sign + str + s;
+      // 999.999K rounds to 1000K, 99.999Qa to 100.0Qa — carry into the
+      // next (bigger) suffix, where the value is < 1.
+      if (i > 0) {
+        const [pv, ps] = SUFFIXES[i - 1];
+        return sign + sig3(abs / pv) + ps;
+      }
+      // 1.234e21 is 1234Qi — beyond Qi, fall back to exponential.
+      return sign + abs.toExponential(2).replace('e+', 'e');
+    }
   }
-  for (const [v, s] of SUFFIXES) {
-    if (abs >= v) return (n / v).toFixed(2) + s;
-  }
-  return n.toExponential(2).replace('e+', 'e');
+  return sign + abs.toExponential(2).replace('e+', 'e');
+}
+
+// Exact value, no suffix, no commas — only for a generator's details.
+export function fmtExact(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '0';
+  if (Number.isInteger(n)) return String(n);
+  return String(Math.round(n * 1000) / 1000);
 }
 
 function fmtTime(ms) {
