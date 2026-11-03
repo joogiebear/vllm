@@ -4,14 +4,14 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
-  maxBuyable, isTierUnlocked, nextMilestone,
+  maxBuyable, isTierUnlocked, nextMilestone, regionTarget, globalMilestone,
 } from './core.js?v=20261103183009';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-  REGION_PERKS, REGION_DIVISOR, REGION_UNLOCK_WEIGHTS,
-  TIER_GATES,
+  REGION_PERKS, REGION_UNLOCK_WEIGHTS,
+  TIER_GATES, GLOBAL_MILESTONES,
 } from './data.js?v=20261103183009';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261103183009';
 import { play } from './feedback.js?v=20261103183009';
@@ -309,6 +309,22 @@ export function createUI(state, io) {
     els.upGrid.appendChild(row);
     return { u, row, buyBtn };
   });
+  // Global milestone line at the top of the Upgrades list (docs/
+  // LATE-GAME-DESIGN.md, section 3): "All tiers at 250: x3 production.
+  // Lowest now: Lunar Datacenter 212". Created once; only its text is
+  // updated afterwards (stable DOM).
+  const mileLine = document.createElement('div');
+  mileLine.id = 'global-milestone';
+  Object.assign(mileLine.style, {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: '10px',
+    padding: '6px 12px',
+    fontSize: '12px',
+    color: 'var(--dim)',
+  });
+  els.upGrid.prepend(mileLine);
+
   const buyAllBtn = document.createElement('button');
   buyAllBtn.type = 'button';
   buyAllBtn.id = 'buy-all';
@@ -1081,6 +1097,21 @@ export function createUI(state, io) {
     buyAllBtn.disabled = !affordable;
   }
 
+  // The global milestone line (docs/LATE-GAME-DESIGN.md, section 3): the
+  // next threshold not yet met by every unlocked tier, plus the unlocked
+  // tier with the fewest owned.
+  function updateGlobalMilestone() {
+    const m = globalMilestone(state);
+    const tier = m.lowestTier ? GENERATORS.find((g) => g.id === m.lowestTier) : null;
+    const lowest = tier ? `${tier.name} ${fmtExact(m.lowestCount)}` : '';
+    if (m.next === null) {
+      const last = GLOBAL_MILESTONES[GLOBAL_MILESTONES.length - 1];
+      mileLine.textContent = `All tiers at ${last.owned}: x${last.value} production reached. Lowest now: ${lowest}`;
+    } else {
+      mileLine.textContent = `All tiers at ${m.next.owned}: x${m.next.value} production. Lowest now: ${lowest}`;
+    }
+  }
+
   function updateWeightUpgrades() {
     for (const r of wuRefs) {
       const owned = state.weightUpgrades.includes(r.u.id);
@@ -1109,22 +1140,21 @@ export function createUI(state, io) {
   }
 
   function updateRegions() {
-    const total = state.weightsEverEarned || 0;
     const earned = state.regionsEarned || 0;
-    const target = (earned + 1) * (earned + 1) * REGION_DIVISOR;
-    const prev = earned * earned * REGION_DIVISOR;
+    // One Region at a time (docs/LATE-GAME-DESIGN.md, section 2): the bar
+    // fills as the Weights earned since the last expansion approach
+    // regionTarget.
+    const target = regionTarget(state);
+    const progress = state.weightsSinceExpand || 0;
     const avail = regionsAvailable(state);
     let pct;
     let text;
     if (avail >= 1) {
       pct = 100;
-      text = `Ready: ${avail} Region${avail === 1 ? '' : 's'} available`;
-    } else if (total >= target) {
-      pct = 100;
-      text = `100% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmt(total)} / ${fmt(target)} Weights)`;
+      text = 'Ready: 1 Region available';
     } else {
-      pct = Math.round(((total - prev) / (target - prev)) * 100);
-      text = `You're ${pct}% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmt(total)} / ${fmt(target)} Weights)`;
+      pct = Math.min(100, Math.round((progress / target) * 100));
+      text = `You're ${pct}% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmtExact(progress)} / ${fmtExact(target)} Weights)`;
     }
     els.regionHintFill.style.width = `${pct}%`;
     els.regionHintText.textContent = text;
@@ -1217,6 +1247,7 @@ export function createUI(state, io) {
 
     updateGenCards();
     updateUpgrades();
+    updateGlobalMilestone();
     updateManagers();
     updatePrestige();
     updatePrestigeSeg();
