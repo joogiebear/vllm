@@ -10,7 +10,6 @@ import {
 } from './data.js?v=20261103041805';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261103041805';
 import { play } from './feedback.js?v=20261103041805';
-import { play } from './feedback.js?v=20261103041805';
 import { mountAchievements } from './achievements-ui.js?v=20261103041805';
 import { mountStats } from './stats-ui.js?v=20261103041805';
 
