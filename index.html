@@ -46,6 +46,7 @@
       color: var(--text); letter-spacing: -0.01em;
     }
     #rate { font-size: 13px; color: var(--dim); }
+    #region-name { font-size: 11px; color: var(--dim); margin-top: 2px; }
     #hud-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .chip {
       display: inline-flex; align-items: center; justify-content: center;
@@ -336,6 +337,7 @@
       <div id="hud-left">
         <div id="tokens" class="value">0</div>
         <div id="rate"><span id="tps">0</span> per sec</div>
+        <div id="region-name" hidden></div>
       </div>
       <div id="hud-right">
         <div id="weights-chip" class="chip" hidden>Weights +0%</div>

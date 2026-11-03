@@ -137,6 +137,7 @@ export function createUI(state, io) {
     regionPerksGrid: document.getElementById('region-perks'),
     regionsSegBtn: document.querySelector('#prestige-seg [data-seg="regions"]'),
     regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
+    regionName: document.getElementById('region-name'),
   };
 
   // Buy-mode switch (header): x1 / x10 / x100 / Max.
@@ -938,14 +939,27 @@ export function createUI(state, io) {
     els.tokens.textContent = fmt(state.tokens);
     els.tps.textContent = fmt(tokensPerSecond(state));
 
+    const earnedRegions = state.regionsEarned || 0;
     const hasWeights = state.weights > 0 || (state.weightsEarnedThisCycle || 0) > 0;
     els.weightsChip.hidden = !hasWeights;
     if (hasWeights) {
       const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
       const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
       const bonus = Math.round(perWeight * (state.weights || 0) * 100);
-      els.weightsChip.textContent = `Weights +${bonus}%`;
+      els.weightsChip.textContent = earnedRegions >= 1
+        ? `Weights +${bonus}% · x${fmt(Math.pow(2, earnedRegions))}`
+        : `Weights +${bonus}%`;
     }
+
+    // Region name under the token count, once any Region is earned.
+    els.regionName.hidden = earnedRegions < 1;
+    if (earnedRegions >= 1) els.regionName.textContent = regionName(state);
+
+    // Cosmetic tint per region: 12° hue-rotate per region on the card ring
+    // colours only (the generator icon borders), capped at 120°.
+    const tint = Math.min(12 * earnedRegions, 120);
+    const tintFilter = tint > 0 ? `hue-rotate(${tint}deg)` : '';
+    for (const r of genRefs) r.icon.style.filter = tintFilter;
 
     updateGenCards();
     updateUpgrades();
