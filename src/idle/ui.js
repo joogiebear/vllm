@@ -888,23 +888,11 @@ export function createUI(state, io) {
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
 
-      // Status line: rate for continuous rows, "Auto" for managed rows,
-      // countdown for a running unmanaged row. An idle unmanaged row shows
-      // nothing — the payout bar itself is tappable, so the "Tap to run"
-      // text is gone.
+      // The status line next to the Buy button is gone: the manager badge
+      // on the icon shows a hired manager, the bar shows the rate, and
+      // the Buy button is full width. The element stays in the DOM
+      // (stable), always hidden.
       r.status.hidden = true;
-      if (!isLocked) {
-        if (continuous) {
-          r.status.hidden = false;
-          r.status.textContent = `${fmt(rowRate(state, g))}/s`;
-        } else if (managed) {
-          r.status.hidden = false;
-          r.status.textContent = 'Auto';
-        } else if (running) {
-          r.status.hidden = false;
-          r.status.textContent = fmtTime(Math.max(0, ct - progress) * 1000);
-        }
-      }
     }
   }
 
