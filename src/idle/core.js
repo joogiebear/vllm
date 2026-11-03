@@ -128,24 +128,24 @@ function rateMultiplier(state) {
 
 // The steady-state rate of a row: what a managed row pays per second.
 // Equals the old continuous rate, so existing balance holds.
-function rowRate(state, g) {
+export function rowRate(state, g) {
   const owned = state.generators[g.id] || 0;
   return owned * g.tps * speedFactor(owned) * tierMultiplier(state, g) * rateMultiplier(state);
 }
 
 // The lump a cycle pays: owned * tps * cycleSeconds * multipliers.
-function cyclePayout(state, g) {
+export function cyclePayout(state, g) {
   const owned = state.generators[g.id] || 0;
   return owned * g.tps * g.cycleSeconds * tierMultiplier(state, g) * rateMultiplier(state);
 }
 
 // Cycle time in seconds; milestones halve it (speed x2).
-function cycleTime(state, g) {
+export function cycleTime(state, g) {
   const owned = state.generators[g.id] || 0;
   return g.cycleSeconds / speedFactor(owned);
 }
 
-function hasManager(state, id) {
+export function hasManager(state, id) {
   return Array.isArray(state.managers) && state.managers.includes(id);
 }
 

@@ -2,778 +2,345 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>OVERCLOCK</title>
   <style>
-    /* Palette: near-black with neon cyan / magenta / lime / amber.
-       System monospace. No canvas: plain DOM and CSS. */
     :root {
-      --bg: #04050a;
-      --panel: #0a0d15;
-      --border: #1d2740;
-      --text: #e8f4ff;
-      --dim: #5a6a80;
-      --cyan: #00e5ff;
-      --magenta: #ff4fd8;
-      --lime: #a8ff3e;
-      --amber: #ffb300;
-      --red: #ff5050;
+      --bg: #0b0f17;
+      --card: #131a27;
+      --border: #1d2636;
+      --text: #eef3f9;
+      --dim: #93a3b8;
+      --affordable: #ffb547;
     }
     * { box-sizing: border-box; }
-    /* Fixed app layout: html and body fill the screen (100dvh, with 100vh
-       as the fallback) and do not scroll. #app is a flex column of three
-       regions: the header, the scrolling middle region and the bottom menu. */
-    html, body {
-      margin: 0;
-      background: var(--bg);
-      height: 100vh;
-      height: 100dvh;
-      overflow: hidden;
-    }
+    html, body { margin: 0; height: 100%; }
     body {
+      background: var(--bg);
       color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 14px;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
     }
-    #app {
-      max-width: 960px;
-      margin: 0 auto;
-      height: 100%;
-      padding: 12px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    /* Middle region: the active tab, the only thing that scrolls. Equal
-       12px padding left and right; the scrollbar is hidden (the region
-       still scrolls). */
-    #tab-scroll {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      padding: 0 12px;
-      scrollbar-width: none;
-    }
-    #tab-scroll::-webkit-scrollbar { display: none; }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-    }
-    .panel h2 {
-      margin: 0 0 8px;
-      font-size: 12px;
-      letter-spacing: 2px;
-      color: var(--dim);
-    }
-    button {
-      background: #101522;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font: inherit;
-      cursor: pointer;
-      padding: 6px 10px;
-    }
-    button:hover { border-color: var(--cyan); }
-    button:disabled { opacity: 0.4; cursor: default; }
-    button:disabled:hover { border-color: var(--border); }
-    button.active { border-color: var(--cyan); color: var(--cyan); }
-    a { color: var(--cyan); }
-    /* Phones delay taps without this; keep taps instant on buttons and links. */
-    button, a { touch-action: manipulation; }
-    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-    .dim { color: var(--dim); }
-    .value { color: var(--cyan); }
-
-    /* Header: tokens as the largest text, the rate beside it in smaller
-       text. Weights appear only after the first is earned, as a small
-       magenta chip. Heat is not here. */
-    #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; margin: 0 12px; }
-    #hud-main { display: flex; align-items: baseline; gap: 12px; }
-    #tokens { font-size: 32px; line-height: 1; }
-    #rate { font-size: 16px; }
     [hidden] { display: none !important; }
-    #weights-chip {
-      font-size: 13px;
-      color: var(--magenta);
-      border: 1px solid var(--magenta);
-      border-radius: 12px;
-      padding: 2px 12px;
-      align-self: center;
-    }
+    #app { display: flex; flex-direction: column; height: 100dvh; }
 
-    /* Notification banners (offline earnings, rush payout) */
-    #banner {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      border-color: var(--lime);
-      color: var(--lime);
+    /* Header */
+    #hud {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; flex-wrap: wrap;
+      padding: 10px 12px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
     }
-    #banner[hidden] { display: none; }
-    .banner-msg {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      justify-content: space-between;
+    #hud-left { display: flex; flex-direction: column; min-width: 0; }
+    #tokens {
+      font-size: 30px; font-weight: 800; line-height: 1.1;
+      color: var(--text); letter-spacing: -0.01em;
     }
-
-    /* The rack: one large "Serve" button, fixed 200px tall, 8 fixed bays
-       stacked from the bottom, one per tier, filling the height evenly. An
-       unowned bay is a faint outlined slot (the room left to fill); an
-       owned bay is a solid unit with a bright 4px tier stripe, a small
-       tier detail, and its LEDs in a row inside the same unit,
-       right-aligned. Tapping the rack serves; the +N floats up inside it. */
-    #rack-wrap { position: relative; }
-    #rack {
-      position: relative;
-      width: 100%;
-      height: 200px;
-      padding: 6px 8px;
-      display: flex;
-      flex-direction: column;
-      background: var(--panel);
-      border: 1px solid var(--heat-color, var(--cyan));
-      box-shadow: 0 0 14px -6px var(--heat-color, var(--cyan));
-      overflow: hidden;
+    #rate { font-size: 13px; color: var(--dim); }
+    #hud-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 4px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 13px; white-space: nowrap; text-decoration: none;
     }
-    /* Visible pressed state: a bright inset ring and a slight sink. */
-    #rack:active {
-      transform: scale(0.99);
-      border-color: var(--text);
-      box-shadow: inset 0 0 0 1px var(--text), 0 0 14px -6px var(--heat-color, var(--cyan));
-    }
-    #rack .rack-label {
-      /* flex: 0 0 16px reserves its 16px at the top of the 200px rack so
-         it can never shrink into (and be clipped by) the top bay. */
-      flex: 0 0 16px;
-      height: 16px;
-      line-height: 16px;
-      text-align: center;
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: var(--dim);
-      pointer-events: none;
-    }
-    #rack .rack-units {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      /* column-reverse: the first tier (pi) sits in the bottom bay and
-         bays fill upward; empty bays sit above the owned ones. */
-      flex-direction: column-reverse;
-      gap: 3px;
-    }
-    /* One colour per tier. */
-    #rack .unit[data-tier="pi"] { --tier: var(--lime); }
-    #rack .unit[data-tier="gamer"] { --tier: var(--cyan); }
-    #rack .unit[data-tier="workstation"] { --tier: #4d8dff; }
-    #rack .unit[data-tier="rack"] { --tier: #9d6bff; }
-    #rack .unit[data-tier="cluster"] { --tier: var(--magenta); }
-    #rack .unit[data-tier="datacenter"] { --tier: var(--amber); }
-    #rack .unit[data-tier="campus"] { --tier: #ff7a00; }
-    #rack .unit[data-tier="swarm"] { --tier: #f4f8ff; }
-    /* An unowned bay: a very faint outlined slot, the room left to fill. */
-    #rack .unit {
-      flex: 1 1 0;
-      min-height: 0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px dashed rgba(90, 106, 128, 0.3);
-      background: transparent;
-    }
-    #rack .unit .stripe {
-      width: 4px;
-      height: 70%;
-      flex-shrink: 0;
-      background: rgba(90, 106, 128, 0.25);
-    }
-    /* One small distinguishing CSS detail per tier: a chip square for the
-       Pi, a fan circle for the Gaming GPU, vent lines and drive slots for
-       the rest. */
-    #rack .unit .detail {
-      flex: 1 1 auto;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      opacity: 0;
-    }
-    #rack .unit.show .detail { opacity: 1; }
-    #rack .unit .chip { width: 10px; height: 10px; border: 1px solid var(--tier); }
-    #rack .unit .fan { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--tier); }
-    #rack .unit .vent { width: 14px; height: 2px; background: var(--tier); opacity: 0.5; }
-    #rack .unit .slot { width: 3px; height: 14px; background: var(--tier); opacity: 0.5; }
-    #rack .unit .node { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--tier); }
-    /* An owned bay: a solid, clearly visible unit. */
-    #rack .unit.show {
-      border: 1px solid var(--tier);
-      background: #0d1320;
-    }
-    #rack .unit.show .stripe {
-      background: var(--tier);
-      box-shadow: 0 0 6px var(--tier);
-    }
-    #rack .unit .leds { display: flex; gap: 3px; flex-shrink: 0; }
-    /* LEDs: lit count grows with owned (up to 12); bright when lit, with a
-       small glow; the blink speeds up with production, capped below
-       strobing (period >= 400 ms). */
-    #rack .led { width: 6px; height: 6px; border-radius: 50%; background: #1a2438; }
-    #rack .led.lit {
-      background: var(--tier);
-      box-shadow: 0 0 6px 1px var(--tier);
-      animation: ledBlink var(--blink, 1600ms) steps(1, end) infinite;
-    }
-    @keyframes ledBlink {
-      0%   { opacity: 1; }
-      50%  { opacity: 0.55; }
-      100% { opacity: 1; }
-    }
-    /* A tier appears with a short slide-in the first time it is owned */
-    #rack .unit.slide-in { animation: rackSlideIn 0.4s ease-out; }
-    @keyframes rackSlideIn {
-      from { transform: translateX(-14px); opacity: 0; }
-      to   { transform: none; opacity: 1; }
-    }
-    /* Floating +N (serving), rising from the bottom inside the rack */
-    #rack .float {
-      position: absolute;
-      left: 50%;
-      bottom: 12px;
-      transform: translateX(-50%);
-      color: var(--lime);
-      pointer-events: none;
-      animation: floatUp 0.9s ease-out forwards;
-    }
-    @keyframes floatUp {
-      from { opacity: 1; margin-top: 0; }
-      to   { opacity: 0; margin-top: -48px; }
-    }
-
-    /* Heat on the rack: the outline/glow colour is --heat-color, set on the
-       tab by ui.js (cyan -> amber -> red as heat rises). Throttled: the
-       units dim and flicker, with a small THROTTLED label. Overclocked
-       (not throttled): the LEDs turn amber. */
-    #rack .throttle-label {
-      position: absolute;
-      top: 6px;
-      right: 10px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--red);
-      pointer-events: none;
-    }
-    #rack.throttled .unit {
-      opacity: 0.4;
-      animation: rackFlicker 0.9s steps(2, end) infinite;
-    }
-    @keyframes rackFlicker {
-      0%   { opacity: 0.4; }
-      50%  { opacity: 0.2; }
-      100% { opacity: 0.4; }
-    }
-    #rack.overclock .led.lit {
-      background: var(--amber);
-      box-shadow: 0 0 6px 1px var(--amber);
-    }
-    /* Slim row under the rack: a thin heat bar and the Overclock switch.
-       No numeric heat value, no COOLING text. */
-    #heat-slim {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 8px 0;
-    }
-    #heat-bar {
-      flex: 1;
-      height: 6px;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      background: #06080d;
-    }
-    #heat-fill { height: 100%; width: 0%; background: var(--heat-color, var(--cyan)); }
-    #overclock { min-height: 44px; }
-
-    /* Advice: the single highlighted card above the generators. Two lines
-       on the left ("Next: name", "+gain/s" in lime), a buy button on the
-       right, the same style as the affordable row buttons. A fixed minimum
-       height, so the card never causes a layout jump. */
-    #advice-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-      min-height: 56px;
-      margin: 8px 0;
-      padding: 8px 12px;
-      background: var(--panel);
-      border: 1px solid var(--cyan);
-      box-shadow: 0 0 12px -6px var(--cyan);
-    }
-    #advice-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    #advice-name { font-size: 14px; }
-    #advice-gain { color: var(--lime); font-size: 13px; }
-    #advice-buy {
-      min-height: 44px;
-      min-width: 118px;
-      border: 1px solid var(--lime);
-      border-radius: 6px;
-      background: rgba(74, 222, 128, 0.12);
-      color: var(--lime);
-    }
-    #advice-buy:disabled {
-      border-color: var(--border);
-      background: transparent;
-      color: var(--dim);
-    }
-
-    /* Purchase flash: a brief green pulse on the row/card that was bought */
-    .flash { animation: buyFlash 0.4s ease-out; }
-    @keyframes buyFlash {
-      0%, 50% { box-shadow: inset 0 0 0 1px var(--lime), 0 0 14px -2px var(--lime); }
-      100%    { box-shadow: none; }
-    }
-
-    /* Generators: compact one-line rows (at most 56px tall), a segmented
-       x1/x10/Max control as the section header, a thin progress bar along
-       each row's bottom edge. */
-    .buy-sel {
-      display: inline-flex;
-      margin-bottom: 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    #weights-chip { color: var(--affordable); }
+    #rush { cursor: pointer; }
+    .buy-sel { display: flex; gap: 4px; }
     .buy-sel button {
-      min-height: 44px;
-      padding: 0 16px;
-      border: none;
-      border-right: 1px solid var(--border);
-      color: var(--dim);
-      background: transparent;
+      min-height: 44px; padding: 0 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); font-size: 13px; cursor: pointer;
     }
-    .buy-sel button:last-child { border-right: none; }
-    .buy-sel button.active { background: var(--cyan); color: #04050a; }
-    .row {
-      position: relative;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 0;
-      border-top: 1px solid var(--border);
-    }
-    .row:first-of-type { border-top: none; }
-    .row[hidden] { display: none; }
-    .row .name-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-      padding: 0;
-      background: transparent;
-      border: none;
-      color: var(--text);
-      font-size: 15px;
-      text-align: left;
-    }
-    .row .name-btn[aria-expanded="true"] { color: var(--cyan); }
-    .row .owned { color: var(--dim); font-size: 13px; }
-    .row .buy {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      min-width: 118px; /* stable width as the cost text changes */
-      padding: 0 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--dim);
-      background: transparent;
-    }
-    /* The button shows gain and price, with the price brighter. */
-    .row .buy .be { color: var(--dim); }
-    .row .buy .bc { color: var(--text); }
-    .row .buy.afford {
-      border-color: var(--lime);
-      background: rgba(74, 222, 128, 0.12);
-    }
-    .row .buy.afford .bc { color: var(--lime); }
-    /* Progress bar: 2px, subtle, dim colour; hidden when the item is
-       affordable (toggled in ui.js). */
-    .row .bar {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 2px;
-      overflow: hidden;
-    }
-    .row .bar-fill { height: 100%; width: 0%; background: var(--dim); opacity: 0.6; }
-    /* Prestige hint (shown until the first Weight is in reach): a progress
-       bar toward the unlock threshold, the percentage in words, and the
-       current weight bonus. */
-    #prestige-hint { display: flex; flex-direction: column; gap: 8px; }
-    #prestige-hint .hint-bar {
-      height: 8px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      overflow: hidden;
-      background: #101522;
-    }
-    #prestige-hint-fill { height: 100%; width: 0%; background: var(--magenta); }
-    .row .details {
-      flex-basis: 100%;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 16px;
-      padding-top: 6px;
-      font-size: 13px;
-      color: var(--dim);
-    }
-    .row .details[hidden] { display: none; }
-    .row .details .each { color: var(--lime); }
-    @media (max-width: 599px) {
-      /* Phone: every button is a 44px tap target. */
-      button { min-height: 44px; }
-      #rush { min-height: 44px; }
+    .buy-sel button.active {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
     }
 
-    /* Upgrades: one column, top to bottom, at every width. */
-    #up-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    #buy-all {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      width: 100%;
-      min-height: 44px;
-      background: var(--lime);
-      color: #06080d;
-      border: 1px solid var(--lime);
-      font-weight: 700;
-    }
-    #buy-all:disabled {
-      background: var(--panel);
-      color: var(--dim);
-      border-color: var(--border);
-    }
-    #shop-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .card[hidden] { display: none; }
-    .card .name { color: var(--cyan); }
-    .card .effect { color: var(--dim); font-size: 12px; }
-    .card .now { color: var(--lime); font-size: 12px; }
-    .card .bar {
-      height: 4px;
-      border: 1px solid var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      background: #06080d;
-    }
-    .card .bar-fill { height: 100%; width: 0%; background: var(--cyan); }
-    .card .buy.afford { border-color: var(--lime); color: var(--lime); }
-    .card .buy .bc.amber { color: var(--amber); }
-    .card.owned { opacity: 0.45; }
-    /* Upgrades: one-line rows, at most 56px tall, in the generator style:
-       name and short effect on the left, a button with the price (and the
-       gain, if it has one) on the right. Unaffordable rows dim. Owned rows
-       shrink to a thin single line with a check mark, in place. */
-    .up-row {
-      position: relative;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 0;
-      border-top: 1px solid var(--border);
-    }
-    .up-row:first-of-type { border-top: none; }
-    .up-row .up-left {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 8px;
-    }
-    .up-row .name { color: var(--cyan); font-size: 15px; }
-    .up-row .effect { color: var(--dim); font-size: 13px; }
-    .up-row .buy {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      min-width: 96px; /* stable width as the cost text changes */
-      padding: 0 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--dim);
-      background: transparent;
-    }
-    .up-row .buy .bc { color: var(--dim); }
-    .up-row .buy .gain { color: var(--lime); }
-    .up-row .buy.afford {
-      border-color: var(--lime);
-      background: rgba(74, 222, 128, 0.12);
-    }
-    .up-row .buy.afford .bc { color: var(--lime); }
-    .up-row .check { display: none; color: var(--lime); }
-    .up-row.dim { opacity: 0.55; }
-    .up-row.owned { padding: 2px 0; }
-    .up-row.owned .effect,
-    .up-row.owned .buy { display: none; }
-    .up-row.owned .check { display: inline; }
-
-    /* Prestige */
-    #prestige-box { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-bottom: 10px; }
-    #prestige-btn { border-color: var(--magenta); color: var(--magenta); }
-    #prestige-btn.armed { background: var(--magenta); color: #04050a; }
-    #prestige-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    .wu {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .wu .name { color: var(--magenta); }
-    .wu .effect { color: var(--dim); font-size: 12px; }
-    .wu .cost { color: var(--amber); font-size: 12px; }
-
-    /* Rush: a small chip row beneath the generators — "Rush ready · Play"
-       or "Rush in 7:32" (play disabled), with a small info button that
-       shows the explanation. */
-    #rush-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
-    #rush {
-      display: inline-block;
-      min-height: 44px;
-      padding: 8px 14px;
-      border: 1px solid var(--cyan);
-      border-radius: 999px;
-      text-decoration: none;
-    }
-    #rush.disabled { opacity: 0.4; pointer-events: none; }
-    #rush-info {
-      min-height: 44px;
-      width: 44px;
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      background: transparent;
-      color: var(--dim);
-    }
-    #rush-explain { flex-basis: 100%; font-size: 12px; }
-
-    /* Settings */
-    #settings[hidden] { display: none; }
-    #settings label { display: block; color: var(--dim); margin: 10px 0 4px; font-size: 12px; }
-    #settings textarea {
-      width: 100%;
-      height: 64px;
-      background: #06080d;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font: inherit;
-      font-size: 11px;
-    }
-    #settings .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-    #settings-msg { color: var(--lime); min-height: 1.2em; }
-    #reset-btn.armed { background: var(--red); color: #04050a; }
-
-    /* Bottom navigation: a flex child of #app, not fixed. The background is
-       solid and opaque, so nothing shows through or behind it. */
-    .tab-panel[hidden] { display: none; }
+    /* Tabs */
     #tabs {
-      flex: 0 0 auto;
-      display: flex;
-      background: var(--panel);
-      border-top: 1px solid var(--border);
-      padding-bottom: env(safe-area-inset-bottom);
+      display: flex; gap: 4px; padding: 8px 12px 0;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
     #tabs button {
-      flex: 1;
-      min-height: 44px;
-      margin: 0;
-      border: none;
-      border-radius: 0;
-      background: transparent;
-      color: var(--dim);
-      font-size: 12px;
-      position: relative;
-      padding: 4px 2px;
+      position: relative; min-height: 44px; padding: 0 14px;
+      border-radius: 8px 8px 0 0;
+      border: 1px solid var(--border); border-bottom: none;
+      background: var(--card); color: var(--dim);
+      font-size: 14px; cursor: pointer; white-space: nowrap;
     }
-    #tabs button:hover { border-color: transparent; }
-    #tabs button[aria-current="page"] { color: var(--cyan); }
+    #tabs button[aria-current="page"] {
+      background: var(--bg); color: var(--text); font-weight: 700;
+    }
     .tab-dot {
-      position: absolute;
-      top: 4px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--lime);
+      position: absolute; top: 8px; right: 8px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--affordable);
     }
-    .tab-dot[hidden] { display: none; }
 
-    /* Reduced motion: turn every animation off (tier slide-in, purchase
-       flash, LED blink, throttled flicker, floating +N). */
-    @media (prefers-reduced-motion: reduce) {
-      #rack .unit.slide-in,
-      #rack .float,
-      #rack .led.lit,
-      #rack.throttled .unit,
-      .flash { animation: none !important; }
+    /* Scroll area */
+    #tab-scroll {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 12px;
     }
+
+    /* Banner */
+    #banner { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .banner-msg {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 13px; color: var(--text);
+    }
+    .banner-msg button {
+      min-height: 44px; min-width: 44px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); cursor: pointer;
+    }
+
+    /* Generator cards */
+    #gen-cards { display: flex; flex-direction: column; gap: 10px; }
+    .gen-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .gen-top { display: flex; align-items: center; gap: 10px; }
+    .gen-icon {
+      position: relative; width: 48px; height: 48px; border-radius: 50%;
+      border: 3px solid var(--tier-color, var(--dim));
+      background: var(--bg); color: var(--text);
+      font-size: 14px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+    }
+    .gen-icon-count {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gen-id { min-width: 0; }
+    .gen-name { font-size: 16px; font-weight: 700; color: var(--text); }
+    .gen-milestone { font-size: 12px; color: var(--dim); }
+    .gen-bar {
+      position: relative; height: 30px; border-radius: 6px;
+      background: var(--bg); border: 1px solid var(--border); overflow: hidden;
+    }
+    .gen-bar-fill {
+      position: absolute; inset: 0;
+      transform-origin: left center; transform: scaleX(0);
+      background: var(--affordable); opacity: 0.22;
+    }
+    .gen-bar-payout {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .gen-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .gen-buy {
+      flex: 1; min-height: 44px; padding: 0 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); font-size: 14px; cursor: pointer;
+    }
+    .gen-buy.afford {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    .gen-buy:disabled { opacity: 0.5; cursor: default; }
+    .gen-status { font-size: 13px; color: var(--dim); white-space: nowrap; }
+
+    /* Upgrades tab */
+    #up-grid { display: flex; flex-direction: column; gap: 8px; }
+    #buy-all {
+      min-height: 44px; width: 100%; border-radius: 8px; margin-bottom: 4px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--text); font-size: 14px; cursor: pointer;
+    }
+    #buy-all:disabled { opacity: 0.5; cursor: default; }
+    .up-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .up-row.dim { opacity: 0.55; }
+    .up-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .up-row .name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .up-row .effect { font-size: 12px; color: var(--dim); }
+    .up-row .buy {
+      min-height: 44px; padding: 0 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    .up-row .buy.afford {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    .up-row .buy:disabled { opacity: 0.5; cursor: default; }
+    .up-row .buy .gain { display: block; font-size: 11px; }
+    .up-row .check { color: var(--affordable); font-size: 18px; }
+    .up-row.owned { padding: 8px 12px; }
+    .up-row.owned .buy { display: none; }
+
+    /* Prestige tab */
+    #tab-prestige h2 { font-size: 18px; color: var(--text); margin: 0; }
+    #tab-prestige p { font-size: 13px; color: var(--dim); margin: 4px 0 0; }
+    #prestige-hint { margin-bottom: 12px; }
+    .hint-bar {
+      height: 8px; border-radius: 4px;
+      background: var(--bg); border: 1px solid var(--border); overflow: hidden;
+    }
+    #prestige-hint-fill { height: 100%; width: 0; background: var(--affordable); }
+    #prestige-hint-text { font-size: 13px; color: var(--dim); margin-top: 6px; }
+    #prestige-hint-bonus { font-size: 12px; color: var(--dim); margin-top: 2px; }
+    #prestige {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px;
+    }
+    .p-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 12px;
+    }
+    .p-avail { display: flex; flex-direction: column; align-items: flex-end; }
+    .p-avail span:first-child { font-size: 22px; font-weight: 800; color: var(--affordable); }
+    .p-avail span:last-child { font-size: 11px; color: var(--dim); }
+    #prestige-btn {
+      width: 100%; min-height: 48px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--dim); font-size: 16px; font-weight: 800;
+      letter-spacing: 0.08em; cursor: pointer;
+    }
+    #prestige-btn:not(:disabled) {
+      background: var(--affordable); border-color: var(--affordable); color: #0b0f17;
+    }
+    #prestige-btn.armed { background: #fc8181; border-color: #fc8181; color: #0b0f17; }
+    #prestige-btn:disabled { opacity: 0.5; cursor: default; }
+    #prestige-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .wu {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .wu-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .wu .name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .wu .effect { font-size: 12px; color: var(--dim); }
+    .wu .buy {
+      min-height: 44px; padding: 0 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--dim); font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    .wu .buy:not(:disabled) {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    .wu .buy:disabled { opacity: 0.5; cursor: default; }
+    .wu .check { color: var(--affordable); font-size: 18px; }
+
+    /* Shop tab */
+    .shop-note { font-size: 14px; color: var(--dim); }
+
+    /* Settings tab */
+    #tab-settings { display: flex; flex-direction: column; gap: 12px; }
+    .settings-row { display: flex; flex-direction: column; gap: 6px; }
+    .settings-row button {
+      min-height: 44px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 14px; cursor: pointer;
+    }
+    .settings-row button.armed {
+      background: #fc8181; border-color: #fc8181; color: #0b0f17; font-weight: 700;
+    }
+    #tab-settings textarea {
+      width: 100%; min-height: 70px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 12px; padding: 8px; resize: vertical;
+    }
+    #settings-msg { font-size: 13px; color: var(--dim); min-height: 1em; }
+
+    @keyframes flash {
+      0% { box-shadow: 0 0 0 0 rgba(255, 181, 71, 0.6); }
+      100% { box-shadow: 0 0 0 8px rgba(255, 181, 71, 0); }
+    }
+    .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
 <body>
   <div id="app">
-    <header id="hud" class="panel">
-      <div id="hud-main">
-        <span id="tokens" class="value">0</span>
-        <span id="rate"><span id="tps" class="value">+0/s</span></span>
+    <header id="hud">
+      <div id="hud-left">
+        <div id="tokens" class="value">0</div>
+        <div id="rate"><span id="tps">0</span> per sec</div>
       </div>
-      <span id="weights-chip" hidden>weights 0</span>
+      <div id="hud-right">
+        <div id="weights-chip" class="chip" hidden>Weights +0%</div>
+        <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
+          <button type="button" data-mode="1" class="active">x1</button>
+          <button type="button" data-mode="10">x10</button>
+          <button type="button" data-mode="100">x100</button>
+          <button type="button" data-mode="max">Max</button>
+        </div>
+        <a href="#" id="rush" class="chip rush">Rush ready</a>
+      </div>
     </header>
 
-    <main id="tab-scroll">
-      <div id="tab-game" class="tab-panel">
-        <div id="banner" class="panel" hidden></div>
-
-        <div id="rack-wrap"></div>
-
-        <div id="heat-slim">
-          <div id="heat-bar"><div id="heat-fill"></div></div>
-          <button id="overclock" type="button" disabled>OVERCLOCK OFF</button>
-        </div>
-
-        <div id="advice-card" hidden>
-          <div id="advice-left">
-            <div id="advice-name"></div>
-            <div id="advice-gain"></div>
-          </div>
-          <button id="advice-buy" type="button"></button>
-        </div>
-
-        <section id="generators" class="panel">
-          <h2>GENERATORS</h2>
-          <div class="buy-sel" role="group" aria-label="buy amount">
-            <button type="button" data-mode="1" class="active">x1</button>
-            <button type="button" data-mode="10">x10</button>
-            <button type="button" data-mode="max">Max</button>
-          </div>
-          <div id="gen-rows"></div>
-        </section>
-
-        <div id="rush-row">
-          <a id="rush" href="rush.html">Rush ready · Play</a>
-          <button id="rush-info" type="button" aria-label="About Rush">i</button>
-          <span id="rush-explain" class="dim" hidden>
-            Bonus arcade mode. Run the GPUs by hand for a token payout.
-            Payout: up to 10 minutes of your current production.
-          </span>
-        </div>
-      </div>
-
-      <div id="tab-upgrades" class="tab-panel" hidden>
-        <section id="upgrades" class="panel">
-          <h2>UPGRADES</h2>
-          <div id="up-grid"></div>
-        </section>
-      </div>
-
-      <div id="tab-prestige" class="tab-panel" hidden>
-        <section id="prestige" class="panel">
-          <h2>PRESTIGE</h2>
-          <div id="prestige-box">
-            <div>weights available <span id="w-avail" class="value">0</span></div>
-            <div class="dim">resets: tokens, generators, upgrades, heat</div>
-            <button id="prestige-btn" type="button" disabled>PRESTIGE</button>
-          </div>
-          <div id="prestige-grid"></div>
-        </section>
-        <div id="prestige-hint" class="panel" hidden>
-          <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
-          <div id="prestige-hint-text"></div>
-          <div id="prestige-hint-bonus" class="dim"></div>
-        </div>
-      </div>
-
-      <div id="tab-shop" class="tab-panel" hidden>
-        <section id="shop" class="panel">
-          <h2>SHOP</h2>
-          <p class="dim">Coming soon. Nothing here is for sale yet, and no payment is taken.</p>
-          <div id="shop-grid">
-            <div class="card">
-              <span class="name">Supporter Badge</span>
-              <span class="effect">A badge next to your name, with thanks.</span>
-              <button type="button" disabled>Coming soon</button>
-            </div>
-            <div class="card">
-              <span class="name">Neon Theme Pack</span>
-              <span class="effect">Extra colour themes for the server room.</span>
-              <button type="button" disabled>Coming soon</button>
-            </div>
-            <div class="card">
-              <span class="name">Rack Skins</span>
-              <span class="effect">Cosmetic looks for your hardware.</span>
-              <button type="button" disabled>Coming soon</button>
-            </div>
-            <div class="card">
-              <span class="name">Tip Jar</span>
-              <span class="effect">Help keep the game free and open source.</span>
-              <button type="button" disabled>Coming soon</button>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div id="tab-settings" class="tab-panel" hidden>
-        <section id="settings" class="panel">
-          <h2>SETTINGS</h2>
-          <label for="export-area">export (copy this text)</label>
-          <textarea id="export-area" readonly></textarea>
-          <div class="row-actions">
-            <button id="export-btn" type="button">EXPORT</button>
-          </div>
-          <label for="import-area">import (paste save text)</label>
-          <textarea id="import-area"></textarea>
-          <div class="row-actions">
-            <button id="import-btn" type="button">IMPORT</button>
-            <button id="reset-btn" type="button">HARD RESET</button>
-          </div>
-          <div id="settings-msg" role="status"></div>
-        </section>
-      </div>
-    </main>
-
-    <nav id="tabs" aria-label="sections">
+    <nav id="tabs" aria-label="Sections">
       <button type="button" data-tab="game" aria-current="page">Game</button>
       <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="shop">Shop</button>
       <button type="button" data-tab="settings">Settings</button>
     </nav>
+
+    <main id="tab-scroll">
+      <section id="tab-game" aria-label="Game">
+        <div id="banner" hidden></div>
+        <div id="gen-cards"></div>
+      </section>
+
+      <section id="tab-upgrades" aria-label="Upgrades" hidden>
+        <div id="up-grid"></div>
+      </section>
+
+      <section id="tab-prestige" aria-label="Prestige" hidden>
+        <div id="prestige-hint">
+          <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
+          <div id="prestige-hint-text">…</div>
+          <div id="prestige-hint-bonus"></div>
+        </div>
+        <section id="prestige">
+          <div class="p-head">
+            <div>
+              <h2>Prestige</h2>
+              <p>Reset the run, keep your Weights.</p>
+            </div>
+            <div class="p-avail">
+              <span>+<span id="w-avail">0</span></span>
+              <span>weights available</span>
+            </div>
+          </div>
+          <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
+          <div id="prestige-grid"></div>
+        </section>
+      </section>
+
+      <section id="tab-shop" aria-label="Shop" hidden>
+        <p class="shop-note">The arcade is the shop: play Rush, come back with a score.</p>
+      </section>
+
+      <section id="tab-settings" aria-label="Settings" hidden>
+        <div class="settings-row">
+          <button type="button" id="export-btn">Export save</button>
+          <textarea id="export-area" rows="3" readonly></textarea>
+        </div>
+        <div class="settings-row">
+          <button type="button" id="import-btn">Import save</button>
+          <textarea id="import-area" rows="3" placeholder="Paste a save string"></textarea>
+        </div>
+        <div class="settings-row">
+          <button type="button" id="reset-btn">HARD RESET</button>
+        </div>
+        <p id="settings-msg" role="status"></p>
+      </section>
+    </main>
   </div>
-  <script type="module" src="src/idle/app.js"></script>
+  <script type="module" src="/src/idle/app.js"></script>
 </body>
 </html>

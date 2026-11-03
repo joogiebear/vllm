@@ -1,393 +1,184 @@
-// Render the idle state to the DOM and turn clicks into core calls.
-// This module never reads the clock: app.js passes `now` into update().
-// Rows and cards are built once; update() only changes text, classes and
-// visibility, so the DOM is not rebuilt on every frame.
 import {
-  buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, setOverclock, prestige,
+  buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState,
+  runRow, rowRate, cyclePayout, cycleTime, hasManager,
 } from './core.js';
-import { createRack } from './rack.js';
-import { nextBestBuy } from './advice.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
-  PRESTIGE_DIVISOR,
-  WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
+  PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
+  CONTINUOUS_CYCLE_MAX,
 } from './data.js';
 
-// --- number formatting ----------------------------------------------------
-// Principle 4: at most 3 significant figures, no commas, integers below 1000
-// (502K, not 502,341). Exact values appear only in a generator's details
-// (fmtExact).
-const SUFFIXES = [
-  [1e18, 'Qi'],
-  [1e15, 'Qa'],
-  [1e12, 'T'],
-  [1e9, 'B'],
-  [1e6, 'M'],
-  [1e3, 'K'],
-];
-// 3 significant figures for a value in [1, 1000): "1.23", "12.3", "100",
-// "502". Returns null only when the rounded value is 1000 (999.999K), so
-// the caller can carry into the next bigger suffix.
-function sig3(x) {
-  if (x >= 100) {
-    const r = Math.round(x);
-    return r >= 1000 ? null : String(r);
-  }
-  if (x >= 10) {
-    const r = Math.round(x * 10) / 10;
-    return r === 100 ? '100' : r.toFixed(1); // 99.999Qa rounds to 100Qa
-  }
-  const r = Math.round(x * 100) / 100;
-  return r >= 10 ? r.toFixed(1) : r.toFixed(2); // 9.9999B rounds to 10.0B
-}
+// Tier colours (data.js is owned by the balance pass, so colours live here).
+const TIER_COLORS = {
+  pi: '#4fd1c5',
+  gamer: '#63b3ed',
+  workstation: '#b794f4',
+  rack: '#f6ad55',
+  cluster: '#f687b3',
+  datacenter: '#68d391',
+  campus: '#f6e05e',
+  swarm: '#fc8181',
+};
 
 export function fmt(n) {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return '0';
-  const sign = n < 0 ? '-' : '';
-  const abs = Math.abs(n);
-  if (abs < 1000) return sign + String(Math.floor(abs));
-  for (let i = 0; i < SUFFIXES.length; i++) {
-    const [v, s] = SUFFIXES[i];
-    if (abs >= v) {
-      const str = sig3(abs / v);
-      if (str !== null) return sign + str + s;
-      // 999.999K rounds to 1000K, 99.999Qa to 100.0Qa — carry into the
-      // next (bigger) suffix, where the value is < 1.
-      if (i > 0) {
-        const [pv, ps] = SUFFIXES[i - 1];
-        return sign + sig3(abs / pv) + ps;
-      }
-      // 1.234e21 is 1234Qi — beyond Qi, fall back to exponential.
-      return sign + abs.toExponential(2).replace('e+', 'e');
-    }
-  }
-  return sign + abs.toExponential(2).replace('e+', 'e');
+  if (!Number.isFinite(n)) return '∞';
+  if (n >= 1e15) return `${(n / 1e15).toFixed(1)}Q`;
+  if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  if (n >= 100) return `${Math.floor(n)}`;
+  if (n >= 10) return n % 1 ? n.toFixed(1) : `${Math.floor(n)}`;
+  return n % 1 ? n.toFixed(1) : `${Math.floor(n)}`;
 }
 
-// Exact value, no suffix, no commas — only for a generator's details.
-export function fmtExact(n) {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return '0';
-  if (Number.isInteger(n)) return String(n);
-  return String(Math.round(n * 1000) / 1000);
+function fmtExact(n) {
+  if (!Number.isFinite(n)) return '∞';
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 function fmtTime(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(s / 60);
-  return `${m}:${String(s % 60).padStart(2, '0')}`;
+  const s = Math.max(0, ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
 }
 
-// Heat colour for the rack outline/glow and the slim heat bar: the same
-// cyan, amber and red as the CSS variables, interpolated — cyan to amber
-// over the first half of the scale, amber to red over the second.
-const HEAT_CYAN = [0, 229, 255];
-const HEAT_AMBER = [255, 179, 0];
-const HEAT_RED = [255, 80, 80];
-function mix(a, b, t) {
-  return a.map((v, i) => Math.round(v + (b[i] - v) * t));
-}
-export function heatColor(heat) {
-  const h = Math.min(100, Math.max(0, heat));
-  const c = h <= 50 ? mix(HEAT_CYAN, HEAT_AMBER, h / 50) : mix(HEAT_AMBER, HEAT_RED, (h - 50) / 50);
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+// Max affordable units for a generator, given current tokens.
+function maxAffordable(state, g) {
+  let count = 0;
+  let total = 0;
+  let c = cost(state, g.id, 1);
+  while (c <= state.tokens && count < 1e7) {
+    total += c;
+    count += 1;
+    c = cost(state, g.id, 1, count);
+  }
+  return { count, total };
 }
 
 function upgradeWords(u) {
   switch (u.kind) {
-    case 'production': return `Production x${u.value}`;
-    case 'cacheRate': return `Cache rate +${Math.round(u.value * 100)}%`;
-    case 'cooling': return `Cooling +${u.value}/s`;
-    case 'clickFlat': return `Click +${u.value}`;
-    case 'clickShare': return `Click +${Math.round(u.value * 100)}% of rate`;
-    default: return '';
+    case 'production': return `×${u.value} production`;
+    case 'productionTier': return `×${u.value} ${u.tier} output`;
+    case 'cacheRate': return `+${Math.round(u.value * 100)}% cache rate`;
+    default: return `+${Math.round(u.value * 100)}%`;
   }
 }
 
-// Weight upgrades in words (phrasing from docs/IDLE-DESIGN.md). The distill
-// line is generated from the data.js values so it can never drift from them.
-const DISTILL_WU = WEIGHT_UPGRADES.find((w) => w.id === 'distill');
 const WU_WORDS = {
-  seed: 'Start each run with 1,000 tokens',
-  night: 'Offline rate 50% becomes 75%',
-  warm: 'Cache rate +25%',
-  procure: 'Adds a Buy All button to the Upgrades tab',
-  long: 'Offline cap 8 hours becomes 24',
-  auto: 'Overclock auto-cycles: off at 95 heat, on at 40',
-  distill: `Weight bonus ${Math.round(WEIGHT_BONUS_PER_WEIGHT * 100)}% becomes ${Math.round(DISTILL_WU.value * 100)}% each`,
+  auto: 'Managers auto-run their rows',
+  distill: '+% bonus per weight',
+  offline: 'Offline progress',
 };
 
 export function createUI(state, io) {
   const view = {
-    buyMode: '1', // '1' | '10' | 'max'
-    openGen: null, // id of the one open generator row, or null
+    buyMode: '1',
     prestigeArmed: false,
     resetArmed: false,
-    lastNow: 0,
+    lastNow: Date.now(),
   };
-  let prestigeTimer = null;
-  let resetTimer = null;
 
-  // --- element refs -------------------------------------------------------
-  const $ = (id) => document.getElementById(id);
   const els = {
-    tokens: $('tokens'),
-    tps: $('tps'),
-    weightsChip: $('weights-chip'),
-    banner: $('banner'),
-    heatFill: $('heat-fill'),
-    overclock: $('overclock'),
-    adviceCard: $('advice-card'),
-    adviceName: $('advice-name'),
-    adviceGain: $('advice-gain'),
-    adviceBuy: $('advice-buy'),
-    genRows: $('gen-rows'),
-    upGrid: $('up-grid'),
-    wAvail: $('w-avail'),
-    prestige: $('prestige'),
-    prestigeHint: $('prestige-hint'),
-    prestigeHintFill: $('prestige-hint-fill'),
-    prestigeHintText: $('prestige-hint-text'),
-    prestigeHintBonus: $('prestige-hint-bonus'),
-    prestigeBtn: $('prestige-btn'),
-    prestigeGrid: $('prestige-grid'),
-    rush: $('rush'),
-    rushInfo: $('rush-info'),
-    rushExplain: $('rush-explain'),
-    exportArea: $('export-area'),
-    exportBtn: $('export-btn'),
-    importArea: $('import-area'),
-    importBtn: $('import-btn'),
-    resetBtn: $('reset-btn'),
-    settingsMsg: $('settings-msg'),
-    upDot: document.querySelector('[data-tab="upgrades"] .tab-dot'),
-    prestigeDot: document.querySelector('[data-tab="prestige"] .tab-dot'),
+    tokens: document.getElementById('tokens'),
+    tps: document.getElementById('tps'),
+    weightsChip: document.getElementById('weights-chip'),
+    rush: document.getElementById('rush'),
+    banner: document.getElementById('banner'),
+    genCards: document.getElementById('gen-cards'),
+    upGrid: document.getElementById('up-grid'),
+    wAvail: document.getElementById('w-avail'),
+    prestigeHintFill: document.getElementById('prestige-hint-fill'),
+    prestigeHintText: document.getElementById('prestige-hint-text'),
+    prestigeHintBonus: document.getElementById('prestige-hint-bonus'),
+    prestigeBtn: document.getElementById('prestige-btn'),
+    prestigeGrid: document.getElementById('prestige-grid'),
+    exportArea: document.getElementById('export-area'),
+    importArea: document.getElementById('import-area'),
+    resetBtn: document.getElementById('reset-btn'),
+    settingsMsg: document.getElementById('settings-msg'),
+    upDot: document.querySelector('#tabs [data-tab="upgrades"] .tab-dot'),
+    prestigeDot: document.querySelector('#tabs [data-tab="prestige"] .tab-dot'),
   };
 
-  function setMsg(text) {
-    els.settingsMsg.textContent = text;
-  }
-
-  // --- the rack (the new centrepiece) ---------------------------------------
-  // One large "Serve" button with one unit per owned tier. Built once;
-  // update() only touches classes and CSS custom properties, and a unit
-  // appears (with a slide-in) only when its tier is first owned.
-  const rack = createRack(state, fmt);
-  document.getElementById('rack-wrap').appendChild(rack.el);
-
-  // --- the advice card ("Next: …") ----------------------------------------
-  // The single highlighted card above the generators. Built once; update()
-  // only changes text and visibility. The buy button buys the currently
-  // highlighted candidate.
-  let advice = null;
-  els.adviceBuy.addEventListener('click', () => {
-    if (!advice || !advice.affordable) return;
-    const ok = advice.kind === 'generator'
-      ? buy(state, advice.id, 1) > 0
-      : buyUpgrade(state, advice.id);
-    if (ok) flash(els.adviceCard);
+  // Buy-mode switch (header): x1 / x10 / x100 / Max.
+  const buyModeBtns = Array.from(
+    document.querySelectorAll('#buy-sel button'),
+  );
+  buyModeBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      view.buyMode = b.dataset.mode;
+      buyModeBtns.forEach((x) => x.classList.toggle('active', x === b));
+      updateGenCards(state);
+    });
   });
 
-  // Purchase flash: a brief green pulse on the row/card that was bought.
-  // Re-triggered by removing the class, forcing a reflow, re-adding it.
-  function flash(el) {
-    el.classList.remove('flash');
-    void el.offsetWidth;
-    el.classList.add('flash');
-  }
-
-  // --- build generator rows (once) -----------------------------------------
-  // Each row is one line, at most 56px tall: "Name  x12" on the left
-  // (tappable to expand the details), a single "+60/s  20K" button on the
-  // right, and a thin progress bar along the row's bottom edge. The
-  // details (producing now, share of total, gain per unit, next doubling)
-  // show when the row is open — one row open at a time.
+  // Build one card per generator once (DOM stays stable); visibility is toggled.
   const genRefs = GENERATORS.map((g) => {
-    const row = document.createElement('div');
-    row.className = 'row';
-    const nameBtn = document.createElement('button');
-    nameBtn.type = 'button';
-    nameBtn.className = 'name-btn';
-    nameBtn.setAttribute('aria-expanded', 'false');
-    const name = document.createElement('span');
-    name.className = 'name';
+    const card = document.createElement('div');
+    card.className = 'gen-card';
+
+    const top = document.createElement('div');
+    top.className = 'gen-top';
+
+    const icon = document.createElement('button');
+    icon.type = 'button';
+    icon.className = 'gen-icon';
+    icon.style.setProperty('--tier-color', TIER_COLORS[g.id]);
+    const iconCount = document.createElement('span');
+    iconCount.className = 'gen-icon-count';
+    icon.append(iconCount);
+    icon.addEventListener('click', () => {
+      if (runRow(state, g.id)) updateGenCards(state);
+    });
+
+    const id = document.createElement('div');
+    id.className = 'gen-id';
+    const name = document.createElement('div');
+    name.className = 'gen-name';
     name.textContent = g.name;
-    const owned = document.createElement('span');
-    owned.className = 'owned';
-    nameBtn.append(name, owned);
+    const milestone = document.createElement('div');
+    milestone.className = 'gen-milestone';
+    id.append(name, milestone);
+    top.append(icon, id);
+
+    const bar = document.createElement('div');
+    bar.className = 'gen-bar';
+    const barFill = document.createElement('div');
+    barFill.className = 'gen-bar-fill';
+    const barPayout = document.createElement('span');
+    barPayout.className = 'gen-bar-payout';
+    bar.append(barFill, barPayout);
+
+    const bottom = document.createElement('div');
+    bottom.className = 'gen-bottom';
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
-    buyBtn.className = 'buy';
-    const bEffect = document.createElement('span');
-    bEffect.className = 'be';
-    const bCost = document.createElement('span');
-    bCost.className = 'bc';
-    buyBtn.append(bEffect, bCost);
+    buyBtn.className = 'gen-buy';
     buyBtn.addEventListener('click', () => {
-      const bought = buy(state, g.id, view.buyMode === 'max' ? 'max' : Number(view.buyMode));
-      if (bought > 0) flash(row);
-      updateGenRows(state, false); // immediate, without waiting for the next 10 Hz pass
+      const mode = view.buyMode === 'max' ? 'max' : Number(view.buyMode);
+      const bought = buy(state, g.id, mode);
+      if (bought > 0) flash(card);
+      updateGenCards(state);
     });
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    const barFill = document.createElement('div');
-    barFill.className = 'bar-fill';
-    bar.append(barFill);
-    const details = document.createElement('div');
-    details.className = 'details';
-    details.hidden = true;
-    const dOut = document.createElement('span');
-    const dShare = document.createElement('span');
-    const dEach = document.createElement('span');
-    dEach.className = 'each';
-    const dDbl = document.createElement('span');
-    details.append(dOut, dShare, dEach, dDbl);
-    nameBtn.addEventListener('click', () => {
-      view.openGen = view.openGen === g.id ? null : g.id;
-      for (const r of genRefs) {
-        const isOpen = view.openGen === r.g.id;
-        r.details.hidden = !isOpen;
-        r.nameBtn.setAttribute('aria-expanded', String(isOpen));
-      }
-    });
-    row.append(nameBtn, buyBtn, details, bar);
-    els.genRows.appendChild(row);
-    return {
-      g, row, nameBtn, owned, buyBtn, bEffect, bCost, bar, barFill,
-      details, dOut, dShare, dEach, dDbl,
-      eff: { producing: 0, share: 0, each: 0, mode: 0 },
-    };
+    const status = document.createElement('div');
+    status.className = 'gen-status';
+    bottom.append(buyBtn, status);
+
+    card.append(top, bar, bottom);
+    els.genCards.appendChild(card);
+    return { g, card, icon, iconCount, name, milestone, bar, barFill, barPayout, buyBtn, status };
   });
 
-  // Max affordable count for a generator, mirroring core.js buy() without
-  // mutating state (display only).
-  function maxAffordable(state, g) {
-    const owned = state.generators[g.id] || 0;
-    let count = 0;
-    let total = 0;
-    while (count < 100000) {
-      const next = Math.ceil(g.baseCost * Math.pow(COST_GROWTH, owned + count));
-      if (total + next > state.tokens) break;
-      total += next;
-      count++;
-    }
-    return { count, total };
-  }
-
-  // tps delta when adding n units of generator g. The state is cloned with
-  // JSON, so the real state is never mutated; doubling thresholds are picked
-  // up automatically because the clone goes through tokensPerSecond.
-  function tpsGain(state, g, n) {
-    const before = tokensPerSecond(state);
-    const clone = JSON.parse(JSON.stringify(state));
-    clone.generators[g.id] = (clone.generators[g.id] || 0) + n;
-    return tokensPerSecond(clone) - before;
-  }
-
-  // This generator's contribution to the total tps, all multipliers included:
-  // the total minus what remains with its count set to zero.
-  function genContribution(state, g) {
-    const total = tokensPerSecond(state);
-    const clone = JSON.parse(JSON.stringify(state));
-    clone.generators[g.id] = 0;
-    return total - tokensPerSecond(clone);
-  }
-
-  // tps delta when buying upgrade u (used for production upgrades), same
-  // clone-and-compare approach, so the real state is never mutated.
-  function upgradeGain(state, u) {
-    const before = tokensPerSecond(state);
-    const clone = JSON.parse(JSON.stringify(state));
-    clone.upgrades = [...clone.upgrades, u.id];
-    return tokensPerSecond(clone) - before;
-  }
-
-  // Generator rows: called with recompute=true on each 10 Hz update — the
-  // only place the producing/share/per-unit tps figures are computed, and
-  // only for visible rows — and with recompute=false on mode change /
-  // purchase, which reuses those figures but recomputes the mode gain, so
-  // the button never shows a stale figure. The cost shown is the true cost
-  // of the mode: x1 -> 1, x10 -> 10, max -> the affordable count, or 1 when
-  // nothing is affordable (and the button is disabled).
-  // Visibility: all owned tiers plus the next unowned one; later tiers stay
-  // hidden until reached.
-  function updateGenRows(state, recompute) {
-    let nextUnowned = null;
-    for (const r of genRefs) {
-      if ((state.generators[r.g.id] || 0) === 0 && nextUnowned === null) {
-        nextUnowned = r.g.id;
-      }
-    }
-    for (const r of genRefs) {
-      // A missing key (e.g. an imported save predating this generator)
-      // counts as 0.
-      const owned = state.generators[r.g.id] || 0;
-      const visible = owned > 0 || r.g.id === nextUnowned;
-      r.row.hidden = !visible;
-      if (!visible) continue;
-      if (recompute) {
-        const total = tokensPerSecond(state);
-        r.eff.producing = genContribution(state, r.g);
-        r.eff.share = total > 0 ? Math.round((r.eff.producing / total) * 100) : 0;
-        r.eff.each = tpsGain(state, r.g, 1);
-      }
-      // The mode gain is recomputed on every pass (mode change and purchase
-      // call updateGenRows with recompute=false): tokensPerSecond on a JSON
-      // clone before and after adding that many owned, so a purchase that
-      // crosses a doubling threshold shows the full gain.
-      if (view.buyMode === 'max') {
-        const m = maxAffordable(state, r.g);
-        r.eff.mode = m.count > 0 ? tpsGain(state, r.g, m.count) : r.eff.each;
-      } else {
-        r.eff.mode = tpsGain(state, r.g, Number(view.buyMode));
-      }
-      // The line: "Name  x12" on the left.
-      r.owned.textContent = `x${fmt(owned)}`;
-      // The button carries the mode's cost and its gain: "+60/s  20K".
-      let c;
-      let disabled;
-      if (view.buyMode === 'max') {
-        const m = maxAffordable(state, r.g);
-        c = m.count > 0 ? m.total : cost(state, r.g.id, 1);
-        disabled = m.count === 0;
-      } else {
-        c = cost(state, r.g.id, Number(view.buyMode));
-        disabled = c > state.tokens;
-      }
-      r.bEffect.textContent = `+${fmt(r.eff.mode)}/s`;
-      r.bCost.textContent = fmt(c);
-      r.buyBtn.disabled = disabled;
-      r.buyBtn.classList.toggle('afford', !disabled);
-      // Thin bar along the bottom edge: progress to affordable. Hidden
-      // when the mode is affordable.
-      r.bar.hidden = !disabled;
-      r.barFill.style.width = disabled
-        ? `${Math.min(100, (state.tokens / c) * 100)}%`
-        : '0%';
-      // Details: open for the one open row only.
-      const open = view.openGen === r.g.id;
-      r.details.hidden = !open;
-      r.nameBtn.setAttribute('aria-expanded', String(open));
-      if (open) {
-        r.dOut.textContent = `Producing ${fmt(r.eff.producing)}/s`;
-        r.dShare.textContent = `${r.eff.share}% of total`;
-        r.dEach.textContent = `+${fmt(r.eff.each)}/s each`;
-        const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
-        r.dDbl.textContent = next === undefined ? '' : `x2 at ${next}`;
-      }
-    }
-  }
-
-  // --- build upgrade cards (once) ------------------------------------------
-  // Card layout: name, the effect in words, what it means now (production
-  // and cache: "+1.2K/s" from the before/after comparison; cooling/click:
-  // hidden, the effect line says it all), a slim progress bar, and a
-  // "Buy · 1,000" button.
-  const upRefs = [...UPGRADES]
-    .sort((a, b) => a.cost - b.cost)
-    .map((u) => {
-    const card = document.createElement('div');
-    card.className = 'up-row';
+  // Upgrades tab (no Managers segment — that is the next pass).
+  const upRefs = UPGRADES.map((u) => {
+    const row = document.createElement('div');
+    row.className = 'up-row';
     const left = document.createElement('div');
     left.className = 'up-left';
     const name = document.createElement('span');
@@ -400,363 +191,299 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
-    const bc = document.createElement('span');
-    bc.className = 'bc';
-    const gainEl = document.createElement('span');
-    gainEl.className = 'gain';
-    gainEl.hidden = true;
-    buyBtn.append(bc, gainEl);
     buyBtn.addEventListener('click', () => {
-      if (buyUpgrade(state, u.id)) flash(card);
+      if (buyUpgrade(state, u.id)) flash(row);
+      updateUpgrades(state);
     });
-    const check = document.createElement('span');
-    check.className = 'check';
-    check.hidden = true;
-    check.textContent = '✓';
-    card.append(left, buyBtn, check);
-    els.upGrid.appendChild(card);
-    return { u, card, gainEl, buyBtn, bc, check, gain: 0 };
+    row.append(left, buyBtn);
+    els.upGrid.appendChild(row);
+    return { u, row, buyBtn };
   });
-
-  // Buy All: shown at the top of the list only while the 'procure' weight
-  // upgrade is owned. N is how many it would buy now, computed on a copy of
-  // the token count so the real state is never mutated.
   const buyAllBtn = document.createElement('button');
   buyAllBtn.type = 'button';
   buyAllBtn.id = 'buy-all';
-  buyAllBtn.hidden = true;
-  function buyAllCount() {
-    let count = 0;
-    let tokens = state.tokens;
-    for (const u of [...UPGRADES].sort((a, b) => a.cost - b.cost)) {
-      if (state.upgrades.includes(u.id)) continue;
-      if (tokens < u.cost) break;
-      tokens -= u.cost;
-      count++;
-    }
-    return count;
-  }
+  buyAllBtn.textContent = 'Buy all';
   buyAllBtn.addEventListener('click', () => {
-    buyAllUpgrades(state);
-    updateUpgrades(state); // immediate, without waiting for the next 10 Hz pass
+    const n = buyAllUpgrades(state);
+    if (n > 0) flash(els.upGrid);
+    updateUpgrades(state);
   });
-  els.upGrid.parentNode.insertBefore(buyAllBtn, els.upGrid);
+  els.upGrid.prepend(buyAllBtn);
 
-  // --- build weight upgrade rows (once) ------------------------------------
-  // One-line rows, like the Upgrades tab: name and the effect in words on
-  // the left, a button with the weight price on the right. Sorted by cost,
-  // cheapest first.
-  const wuRefs = [...WEIGHT_UPGRADES]
-    .sort((a, b) => a.cost - b.cost)
-    .map((wu) => {
+  // Weight upgrades (prestige tab).
+  const wuRefs = WEIGHT_UPGRADES.map((u) => {
     const row = document.createElement('div');
     row.className = 'wu';
     const left = document.createElement('div');
     left.className = 'wu-left';
     const name = document.createElement('span');
     name.className = 'name';
-    name.textContent = wu.name;
+    name.textContent = u.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
-    effect.textContent = WU_WORDS[wu.id] || '';
+    effect.textContent = WU_WORDS[u.id] || `×${u.value}`;
     left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
-    const bc = document.createElement('span');
-    bc.className = 'bc';
-    bc.textContent = wu.cost === 1 ? '1 weight' : `${wu.cost} weights`;
-    buyBtn.append(bc);
-    buyBtn.addEventListener('click', () => buyWeightUpgrade(state, wu.id));
-    const check = document.createElement('span');
-    check.className = 'check';
-    check.hidden = true;
-    check.textContent = '✓';
-    row.append(left, buyBtn, check);
-    els.prestigeGrid.appendChild(row);
-    return { wu, buyBtn, check };
-  });
-
-  // --- buy amount selector (applies to all generator rows) ------------------
-  const selBtns = document.querySelectorAll('.buy-sel button');
-  selBtns.forEach((b) => {
-    b.addEventListener('click', () => {
-      view.buyMode = b.dataset.mode;
-      selBtns.forEach((x) => x.classList.toggle('active', x === b));
-      updateGenRows(state, false); // highlight and rows update immediately
+    buyBtn.addEventListener('click', () => {
+      if (buyWeightUpgrade(state, u.id)) flash(row);
+      updateWeightUpgrades(state);
     });
+    row.append(left, buyBtn);
+    els.prestigeGrid.appendChild(row);
+    return { u, row, buyBtn };
   });
 
-  // --- overclock toggle ----------------------------------------------------
-  els.overclock.addEventListener('click', () => setOverclock(state, !state.overclock));
-
-  // --- rush: the small info button shows the explanation -------------------
-  els.rushInfo.addEventListener('click', () => {
-    els.rushExplain.hidden = !els.rushExplain.hidden;
-  });
-
-  // --- prestige: two-step confirm -------------------------------------------
-  function disarmPrestige() {
-    view.prestigeArmed = false;
-    els.prestigeBtn.classList.remove('armed');
-    els.prestigeBtn.textContent = 'PRESTIGE';
-  }
+  // Prestige.
   els.prestigeBtn.addEventListener('click', () => {
-    if (weightsAvailable(state) < 1) return;
     if (!view.prestigeArmed) {
       view.prestigeArmed = true;
       els.prestigeBtn.classList.add('armed');
-      els.prestigeBtn.textContent = 'CONFIRM PRESTIGE?';
-      clearTimeout(prestigeTimer);
-      prestigeTimer = setTimeout(disarmPrestige, 5000);
+      els.prestigeBtn.textContent = 'CONFIRM PRESTIGE';
       return;
     }
-    clearTimeout(prestigeTimer);
-    prestige(state);
-    disarmPrestige();
+    view.prestigeArmed = false;
+    els.prestigeBtn.classList.remove('armed');
+    els.prestigeBtn.textContent = 'PRESTIGE';
+    const gained = prestige(state);
+    showBanner(
+      `Prestige! +${gained} weights. New run begins — buy a Raspberry Pi.`,
+      'New run',
+    );
   });
 
-  // --- tabs (one screen at a time; last tab remembered) ----------------------
-  const TAB_KEY = 'overclock.idle.tab';
-  const tabPanels = {
+  // Tabs.
+  const tabs = Array.from(document.querySelectorAll('#tabs button'));
+  const sections = {
     game: document.getElementById('tab-game'),
     upgrades: document.getElementById('tab-upgrades'),
     prestige: document.getElementById('tab-prestige'),
     shop: document.getElementById('tab-shop'),
     settings: document.getElementById('tab-settings'),
   };
-  const tabBtns = document.querySelectorAll('#tabs button');
-  const tabScrollEl = document.getElementById('tab-scroll');
-  const tabScrollPos = {}; // per-tab scroll position in the shared middle region
-  let currentTab = null;
-  function showTab(name) {
-    if (!tabPanels[name]) name = 'game';
-    if (currentTab !== null) tabScrollPos[currentTab] = tabScrollEl.scrollTop;
-    currentTab = name;
-    for (const [key, panel] of Object.entries(tabPanels)) panel.hidden = key !== name;
-    tabBtns.forEach((b) => {
-      if (b.dataset.tab === name) b.setAttribute('aria-current', 'page');
-      else b.removeAttribute('aria-current');
+  tabs.forEach((t) => {
+    t.addEventListener('click', () => {
+      const tab = t.dataset.tab;
+      Object.entries(sections).forEach(([k, s]) => {
+        s.hidden = k !== tab;
+      });
+      tabs.forEach((x) => {
+        if (x === t) x.setAttribute('aria-current', 'page');
+        else x.removeAttribute('aria-current');
+      });
     });
-    tabScrollEl.scrollTop = tabScrollPos[name] || 0;
-    try {
-      localStorage.setItem(TAB_KEY, name);
-    } catch (err) {
-      // ignore
-    }
-  }
-  tabBtns.forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  let startTab = 'game';
-  try {
-    const saved = localStorage.getItem(TAB_KEY);
-    if (saved && tabPanels[saved]) startTab = saved;
-  } catch (err) {
-    // ignore
-  }
-  showTab(startTab);
-
-  // --- settings ------------------------------------------------------------
-  els.exportBtn.addEventListener('click', () => {
-    els.exportArea.value = io.exportSave(state, view.lastNow);
-  });
-  els.importBtn.addEventListener('click', () => {
-    const s = io.importSave(els.importArea.value);
-    if (s) {
-      io.replaceState(s);
-      setMsg('Save imported.');
-    } else {
-      setMsg('Invalid save text.');
-    }
   });
 
-  // --- hard reset: two-step confirm -----------------------------------------
-  function disarmReset() {
-    view.resetArmed = false;
-    els.resetBtn.classList.remove('armed');
-    els.resetBtn.textContent = 'HARD RESET';
-  }
+  // Settings.
+  document.getElementById('export-btn').addEventListener('click', () => {
+    els.exportArea.value = io.exportSave(state, Date.now());
+  });
+  document.getElementById('import-btn').addEventListener('click', () => {
+    const imported = io.importSave(els.importArea.value.trim());
+    if (imported === null) {
+      showBanner('Import failed: bad save string.', 'Import error');
+      return;
+    }
+    io.replaceState(imported);
+    showBanner('Save imported.', 'Imported');
+  });
   els.resetBtn.addEventListener('click', () => {
     if (!view.resetArmed) {
       view.resetArmed = true;
       els.resetBtn.classList.add('armed');
-      els.resetBtn.textContent = 'CONFIRM RESET?';
-      clearTimeout(resetTimer);
-      resetTimer = setTimeout(disarmReset, 5000);
+      els.resetBtn.textContent = 'CONFIRM RESET';
       return;
     }
-    clearTimeout(resetTimer);
+    view.resetArmed = false;
+    els.resetBtn.classList.remove('armed');
+    els.resetBtn.textContent = 'HARD RESET';
     io.hardReset();
     io.replaceState(createState());
-    disarmReset();
-    setMsg('Reset.');
+    showBanner('Hard reset. Fresh run.', 'Reset');
   });
 
-  // --- banners (offline earnings, rush payout) ------------------------------
-  // Each message is its own row with its own close button and auto-dismiss,
-  // so several can be visible at once, one below the other.
-  function showBanner(text) {
-    const msg = document.createElement('div');
-    msg.className = 'banner-msg';
-    const span = document.createElement('span');
-    span.textContent = text;
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'dismiss');
-    closeBtn.textContent = 'x';
-    let timer = null;
-    const dismiss = () => {
-      if (timer !== null) clearTimeout(timer);
-      msg.remove();
-      if (els.banner.children.length === 0) els.banner.hidden = true;
-    };
-    closeBtn.addEventListener('click', dismiss);
-    timer = setTimeout(dismiss, 20000);
-    msg.append(span, closeBtn);
-    els.banner.appendChild(msg);
+  // Banner.
+  let bannerTimer = null;
+  function showBanner(msg, actionLabel) {
     els.banner.hidden = false;
+    els.banner.textContent = '';
+    const line = document.createElement('div');
+    line.className = 'banner-msg';
+    const text = document.createElement('span');
+    text.textContent = msg;
+    line.append(text);
+    if (actionLabel) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = actionLabel;
+      btn.addEventListener('click', () => {
+        els.banner.hidden = true;
+      });
+      line.append(btn);
+    }
+    els.banner.appendChild(line);
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => {
+      els.banner.hidden = true;
+    }, 6000);
   }
 
-  // --- upgrades (the 10 Hz pass, and immediately after a Buy All tap) ------
-  function updateUpgrades(state) {
-    // Every row is always shown (sorted by cost, cheapest first), whether or
-    // not it is affordable. An owned row shrinks in place to a thin single
-    // line with a check mark; an unaffordable row dims. Both directions
-    // follow state on every pass, so a prestige, import or reset that clears
-    // (or changes) state.upgrades brings the rows back in sync.
+  function flash(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+
+  function updateGenCards() {
+    let nextUnowned = null;
+    for (const r of genRefs) {
+      if ((state.generators[r.g.id] || 0) === 0 && nextUnowned === null) {
+        nextUnowned = r.g.id;
+      }
+    }
+    for (const r of genRefs) {
+      const g = r.g;
+      const owned = state.generators[g.id] || 0;
+      const visible = owned > 0 || g.id === nextUnowned;
+      r.card.hidden = !visible;
+      if (!visible) continue;
+
+      const managed = hasManager(state, g.id);
+      const progress = state.cycles[g.id];
+      const ct = cycleTime(state, g);
+      const continuous = ct < CONTINUOUS_CYCLE_MAX;
+      const running = progress !== null && progress !== undefined;
+
+      r.iconCount.textContent = fmt(owned);
+
+      const next = DOUBLING_THRESHOLDS.find((t) => owned < t);
+      r.milestone.textContent = next === undefined ? '' : `x2 speed at ${next}`;
+
+      let fill;
+      if (continuous) fill = 1;
+      else if (running) fill = Math.min(1, progress / ct);
+      else fill = 0;
+      r.barFill.style.transform = `scaleX(${fill})`;
+
+      if (continuous) {
+        r.barPayout.textContent = `${fmt(rowRate(state, g))}/s`;
+      } else {
+        r.barPayout.textContent = `+${fmt(cyclePayout(state, g))}`;
+      }
+
+      const isLocked = owned === 0;
+      let c;
+      let disabled;
+      if (view.buyMode === 'max') {
+        const m = maxAffordable(state, g);
+        c = m.count > 0 ? m.total : cost(state, g.id, 1);
+        disabled = m.count === 0;
+      } else {
+        c = cost(state, g.id, Number(view.buyMode));
+        disabled = c > state.tokens;
+      }
+      r.buyBtn.textContent = isLocked
+        ? `Unlock ${fmt(c)}`
+        : `Buy x${view.buyMode === 'max' ? 'Max' : view.buyMode} · ${fmt(c)}`;
+      r.buyBtn.disabled = disabled;
+      r.buyBtn.classList.toggle('afford', !disabled);
+
+      if (continuous) {
+        r.status.textContent = `${fmt(rowRate(state, g))}/s`;
+      } else if (managed) {
+        r.status.textContent = 'Auto';
+      } else if (!running) {
+        r.status.textContent = 'Tap to run';
+      } else {
+        const remaining = Math.max(0, ct - progress);
+        r.status.textContent = fmtTime(remaining * 1000);
+      }
+    }
+  }
+
+  function updateUpgrades() {
     for (const r of upRefs) {
       const owned = state.upgrades.includes(r.u.id);
-      r.card.classList.toggle('owned', owned);
+      r.row.classList.toggle('owned', owned);
+      r.row.classList.toggle('dim', !owned);
       if (owned) {
-        r.buyBtn.hidden = true;
-        r.check.hidden = false;
-        continue;
-      }
-      r.buyBtn.hidden = false;
-      r.check.hidden = true;
-      // The before/after figure is computed here, at the 10 Hz pass.
-      if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
-        r.gain = upgradeGain(state, r.u);
-        r.gainEl.hidden = false;
-        r.gainEl.textContent = `+${fmt(r.gain)}/s`;
+        r.buyBtn.textContent = '✓';
+        r.buyBtn.disabled = true;
+        r.buyBtn.classList.remove('afford');
       } else {
-        // Cooling and click upgrades have no tps figure: the effect text
-        // says it all, so the gain is hidden.
-        r.gainEl.hidden = true;
+        const c = r.u.cost;
+        const afford = c <= state.tokens;
+        r.buyBtn.textContent = fmt(c);
+        r.buyBtn.disabled = !afford;
+        r.buyBtn.classList.toggle('afford', afford);
       }
-      const affordable = state.tokens >= r.u.cost;
-      r.buyBtn.disabled = !affordable;
-      r.buyBtn.classList.toggle('afford', affordable);
-      r.card.classList.toggle('dim', !affordable);
-      r.bc.textContent = fmt(r.u.cost);
     }
-    // Buy All: visible only while 'procure' is owned; N is how many it would
-    // buy now (computed without touching state), disabled at 0.
-    const ownsProcure = state.weightUpgrades.includes('procure');
-    buyAllBtn.hidden = !ownsProcure;
-    if (ownsProcure) {
-      const n = buyAllCount();
-      buyAllBtn.textContent = `Buy All (${n})`;
-      buyAllBtn.disabled = n === 0;
+    const affordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
+    buyAllBtn.disabled = !affordable;
+  }
+
+  function updateWeightUpgrades() {
+    for (const r of wuRefs) {
+      const owned = state.weightUpgrades.includes(r.u.id);
+      if (owned) {
+        r.buyBtn.textContent = '✓';
+        r.buyBtn.disabled = true;
+      } else {
+        r.buyBtn.textContent = `${r.u.cost}w`;
+        r.buyBtn.disabled = state.weights < r.u.cost;
+      }
     }
   }
 
-  // --- update (called at most 10 times per second by app.js) ----------------
-  function update(state, now) {
-    view.lastNow = now;
+  function updatePrestige() {
+    const avail = weightsAvailable(state);
+    els.wAvail.textContent = fmt(avail);
+    const next = Math.floor(state.lifetime / PRESTIGE_DIVISOR) + 1;
+    const frac = Math.min(1, state.lifetime / (PRESTIGE_DIVISOR * next));
+    els.prestigeHintFill.style.width = `${Math.round(frac * 100)}%`;
+    els.prestigeHintText.textContent = `Next weight at ${fmt(PRESTIGE_DIVISOR * next)} lifetime`;
+    const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
+    const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
+    const bonus = Math.round(perWeight * (state.weights || 0) * 100);
+    els.prestigeHintBonus.textContent = `Current bonus +${bonus}%`;
+    els.prestigeBtn.disabled = avail < 1;
+  }
+
+  function updateTabDots() {
+    const upAffordable = upRefs.some((r) => !state.upgrades.includes(r.u.id) && r.u.cost <= state.tokens);
+    els.upDot.hidden = !upAffordable;
+    els.prestigeDot.hidden = weightsAvailable(state) < 1;
+  }
+
+  function updateRushChip() {
+    const ready =
+      state.rushCooldownUntil === null || state.rushCooldownUntil <= view.lastNow;
+    els.rush.textContent = ready
+      ? 'Rush ready'
+      : `Rush in ${fmtTime(state.rushCooldownUntil - view.lastNow)}`;
+  }
+
+  function update() {
+    view.lastNow = Date.now();
     els.tokens.textContent = fmt(state.tokens);
-    els.tps.textContent = `+${fmt(tokensPerSecond(state))}/s`;
-    // Weights appear only after the first is earned, as a small magenta chip.
+    els.tps.textContent = fmt(tokensPerSecond(state));
+
     const hasWeights = state.weights > 0 || (state.weightsEarnedThisCycle || 0) > 0;
     els.weightsChip.hidden = !hasWeights;
-    if (hasWeights) els.weightsChip.textContent = `weights ${fmt(state.weights)}`;
-
-    // Rack: classes and CSS custom properties only (see rack.js).
-    rack.update(state);
-
-    // Heat: the outline/glow colour (cyan -> amber -> red) is a CSS custom
-    // property on the tab, inherited by the rack and the slim heat bar.
-    document.getElementById('tab-game').style.setProperty('--heat-color', heatColor(state.heat));
-    els.heatFill.style.width = `${Math.min(100, Math.max(0, state.heat))}%`;
-    els.overclock.textContent = state.overclock ? 'OVERCLOCK ON' : 'OVERCLOCK OFF';
-    els.overclock.disabled = state.throttled;
-
-    // Advice: the single highlighted card above the generators. Two lines
-    // on the left ("Next: name", "+gain/s" in lime), a buy button on the
-    // right, the same style as the affordable row buttons.
-    advice = nextBestBuy(state);
-    if (!advice) {
-      els.adviceCard.hidden = true;
-    } else {
-      els.adviceCard.hidden = false;
-      const def = advice.kind === 'generator'
-        ? GENERATORS.find((g) => g.id === advice.id)
-        : UPGRADES.find((u) => u.id === advice.id);
-      els.adviceName.textContent = `Next: ${def.name}`;
-      els.adviceGain.textContent = `+${fmt(advice.gain)}/s`;
-      els.adviceBuy.textContent = `Buy ${fmt(advice.cost)}`;
-      els.adviceBuy.disabled = !advice.affordable;
-    }
-
-    // Generators (immediate updates on mode change / purchase call this too).
-    updateGenRows(state, true);
-
-    // Upgrades (and the Buy All button), same pass.
-    updateUpgrades(state);
-
-    // Prestige: hidden until the first weight is in reach or already earned;
-    // a hint line takes its place in the meantime.
-    const w = weightsAvailable(state);
-    const revealed = w >= 1 || state.weights > 0 || state.weightsEarnedThisCycle > 0;
-    els.prestige.hidden = !revealed;
-    els.prestigeHint.hidden = revealed;
-    if (!revealed) {
-      const target = PRESTIGE_DIVISOR * Math.pow(state.weightsEarnedThisCycle + 1, 2);
-      const pct = Math.min(100, ((state.totalLifetime || 0) / target) * 100);
-      els.prestigeHintFill.style.width = `${pct}%`;
-      els.prestigeHintText.textContent =
-        `${Math.floor(pct)}% of the way to your first Weight — unlocks at ${fmt(target)} lifetime tokens`;
-      // Current bonus: weights times the per-weight rate (the weightBonus
-      // upgrade, e.g. Knowledge Distillation, replaces the base rate).
-      const wu = WEIGHT_UPGRADES.find(
-        (u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id)
-      );
+    if (hasWeights) {
+      const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
       const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
-      els.prestigeHintBonus.textContent =
-        `Your Weights add +${Math.round(perWeight * (state.weights || 0) * 100)}% production`;
-    }
-    els.wAvail.textContent = fmt(w);
-    els.prestigeBtn.disabled = w < 1;
-
-    // Tab dots: Upgrades lights up when an upgrade is affordable,
-    // Prestige when a weight is available.
-    let upAffordable = false;
-    for (const r of upRefs) {
-      if (!state.upgrades.includes(r.u.id) && state.tokens >= r.u.cost) {
-        upAffordable = true;
-        break;
-      }
-    }
-    els.upDot.hidden = !upAffordable;
-    els.prestigeDot.hidden = w < 1;
-
-    // Weight upgrades.
-    for (const r of wuRefs) {
-      const owned = state.weightUpgrades.includes(r.wu.id);
-      r.buyBtn.disabled = owned || state.weights < r.wu.cost;
-      r.buyBtn.textContent = owned ? 'OWNED' : 'BUY';
+      const bonus = Math.round(perWeight * (state.weights || 0) * 100);
+      els.weightsChip.textContent = `Weights +${bonus}%`;
     }
 
-    // Rush chip: "Rush ready · Play" or "Rush in 7:32" (play disabled).
-    const remaining = state.rushCooldownUntil !== null ? state.rushCooldownUntil - now : 0;
-    if (remaining > 0) {
-      els.rush.classList.add('disabled');
-      els.rush.setAttribute('aria-disabled', 'true');
-      els.rush.textContent = `Rush in ${fmtTime(remaining)}`;
-    } else {
-      els.rush.classList.remove('disabled');
-      els.rush.removeAttribute('aria-disabled');
-      els.rush.textContent = 'Rush ready · Play';
-    }
+    updateGenCards();
+    updateUpgrades();
+    updatePrestige();
+    updateTabDots();
+    updateWeightUpgrades();
+    updateRushChip();
   }
 
   return { update, showBanner };
