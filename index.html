@@ -157,7 +157,7 @@
     .gen-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px;
-      display: flex; flex-direction: column;
+      display: flex; flex-direction: column; gap: 6px;
     }
     .gen-top { display: flex; align-items: center; gap: 10px; }
     .gen-card.locked .gen-top { opacity: 0.5; }
@@ -184,7 +184,7 @@
       flex: 1; min-width: 0;
       display: flex; flex-direction: column; gap: 4px;
     }
-    .gen-name-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+    .gen-name-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex-wrap: wrap; }
     .gen-name {
       font-size: 15px; font-weight: 700; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
