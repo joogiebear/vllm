@@ -19,6 +19,7 @@ import {
   migrate,
   click,
   setOverclock,
+  claimEvent,
 } from '../src/idle/core.js';
 import { ACHIEVEMENTS } from '../src/idle/data.js';
 import { checkAchievements } from '../src/idle/achievements.js';
@@ -34,6 +35,10 @@ test('createState: fresh state has the right fields', () => {
   assert.equal(s.upgrades.length, 0);
   assert.equal(s.weightUpgrades.length, 0);
   assert.equal(s.rushCooldownUntil, null);
+  assert.equal(s.rng, 42);
+  assert.equal(s.nextEventIn, 120);
+  assert.equal(s.eventOffer, null);
+  assert.equal(s.eventActive, null);
   assert.equal(s.generators.pi, 0);
   assert.equal(s.generators.swarm, 0);
   assert.equal(s.cycles.pi, null);
@@ -411,6 +416,7 @@ test('createState: stats start at zero', () => {
     rushGames: 0,
     bestRushScore: 0,
     runStartedAt: 0,
+    eventsClaimed: 0,
   });
 });
 
@@ -574,16 +580,17 @@ test('migrate: old saves get zero stats', () => {
     rushGames: 0,
     bestRushScore: 0,
     runStartedAt: 0,
+    eventsClaimed: 0,
   });
 });
 
-test('ACHIEVEMENTS: 60 entries (48 owned + 12 others), unique ids, JSON-safe tests', () => {
-  assert.equal(ACHIEVEMENTS.length, 60);
+test('ACHIEVEMENTS: 62 entries (48 owned + 14 others), unique ids, JSON-safe tests', () => {
+  assert.equal(ACHIEVEMENTS.length, 62);
   const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
-  assert.equal(ids.size, 60);
+  assert.equal(ids.size, 62);
   const owned = ACHIEVEMENTS.filter((a) => a.test.kind === 'owned');
   assert.equal(owned.length, 48);
-  assert.equal(ACHIEVEMENTS.length - owned.length, 12);
+  assert.equal(ACHIEVEMENTS.length - owned.length, 14);
   for (const a of ACHIEVEMENTS) {
     assert.equal(typeof a.name, 'string');
     assert.equal(typeof a.desc, 'string');
@@ -761,4 +768,192 @@ test('migrate: an old 8-tier save gets the new tiers at 0 owned / null cycles', 
   // old tiers preserved
   assert.equal(s.generators.pi, 3);
   assert.equal(s.cycles.pi, 3.5);
+});
+
+// Timed events (docs/TIERS-EVENTS.md)
+
+test('events: the first offer appears at 120 seconds', () => {
+  const s = createState();
+  tick(s, 119);
+  assert.equal(s.eventOffer, null);
+  tick(s, 1);
+  assert.ok(s.eventOffer, 'offer at 120s');
+  assert.equal(s.eventOffer.claimBy, 20);
+  assert.ok(['spike', 'turbo', 'windfall'].includes(s.eventOffer.kind));
+});
+
+test('events: the delay between offers stays within 180 to 360', () => {
+  const s = createState();
+  tick(s, 120);
+  for (let i = 0; i < 5; i++) {
+    assert.ok(s.eventOffer, `offer ${i}`);
+    assert.ok(
+      s.nextEventIn >= 180 && s.nextEventIn <= 360,
+      `gap ${s.nextEventIn} out of [180, 360]`,
+    );
+    tick(s, s.nextEventIn); // the offer drains (20s), the rest counts down
+    assert.equal(s.eventOffer, null);
+    assert.equal(s.nextEventIn, 20); // the countdown left gap - (gap - 20) = 20
+    tick(s, 20); // wait out the remainder -> a new offer spawns
+  }
+});
+
+test('events: an offer expires after 20 seconds', () => {
+  const s = createState();
+  tick(s, 120);
+  assert.ok(s.eventOffer);
+  tick(s, 19);
+  assert.ok(s.eventOffer, 'still on screen at 19s');
+  tick(s, 1);
+  assert.equal(s.eventOffer, null, 'gone at 20s');
+});
+
+test('events: claiming each kind has the right effect and duration', () => {
+  // spike: production x3 for 30 seconds
+  let s = createState();
+  s.achievements.push('gen-pi-1', 'events-1'); // 2 * 1% = 0.02, kept constant
+  s.generators.pi = 10;
+  assert.equal(tokensPerSecond(s), 10 * (1 + 0.02));
+  s.eventOffer = { kind: 'spike', claimBy: 20 };
+  assert.equal(claimEvent(s), 'spike');
+  assert.deepEqual(s.eventActive, { kind: 'spike', remaining: 30 });
+  assert.equal(tokensPerSecond(s), 10 * 3 * (1 + 0.02));
+  tick(s, 30);
+  assert.equal(s.eventActive, null, 'spike ends at 30s');
+  assert.equal(tokensPerSecond(s), 10 * (1 + 0.02));
+
+  // turbo: every cycle runs 2 times as fast for 30 seconds
+  s = createState();
+  s.achievements.push('gen-pi-1');
+  s.generators.pi = 1;
+  s.managers.push('pi');
+  s.eventOffer = { kind: 'turbo', claimBy: 20 };
+  assert.equal(claimEvent(s), 'turbo');
+  assert.deepEqual(s.eventActive, { kind: 'turbo', remaining: 30 });
+  tick(s, 3.5); // 7s cycle -> 3.5s under turbo: one payout of 7
+  assert.equal(s.tokens, 7);
+  tick(s, 30); // turbo ends; the row runs 4 full 7s cycles
+  assert.equal(s.eventActive, null, 'turbo ends at 30s');
+  assert.equal(s.tokens, 35);
+  tick(s, 3.5); // only half of a 7s cycle: no payout
+  assert.equal(s.tokens, 35);
+
+  // windfall: instantly pays 180 seconds of the current tokensPerSecond
+  s = createState();
+  s.achievements.push('gen-pi-1', 'events-1');
+  s.generators.pi = 10;
+  s.eventOffer = { kind: 'windfall', claimBy: 20 };
+  assert.equal(claimEvent(s), 'windfall');
+  assert.equal(s.eventActive, null, 'windfall is instant');
+  assert.equal(s.tokens, 10 * (1 + 0.02) * 180);
+  assert.equal(s.stats.eventsClaimed, 1);
+});
+
+test('events: spike and turbo end on time', () => {
+  const s = createState();
+  s.eventOffer = { kind: 'spike', claimBy: 20 };
+  claimEvent(s);
+  tick(s, 29);
+  assert.ok(s.eventActive, 'spike still running at 29s');
+  tick(s, 1);
+  assert.equal(s.eventActive, null, 'spike ends at 30s');
+  s.eventOffer = { kind: 'turbo', claimBy: 20 };
+  claimEvent(s);
+  tick(s, 29);
+  assert.ok(s.eventActive, 'turbo still running at 29s');
+  tick(s, 1);
+  assert.equal(s.eventActive, null, 'turbo ends at 30s');
+});
+
+test('events: a new claim replaces a running event', () => {
+  const s = createState();
+  s.eventOffer = { kind: 'spike', claimBy: 20 };
+  claimEvent(s);
+  s.eventOffer = { kind: 'turbo', claimBy: 20 };
+  assert.equal(claimEvent(s), 'turbo');
+  assert.deepEqual(s.eventActive, { kind: 'turbo', remaining: 30 });
+  assert.equal(s.stats.eventsClaimed, 2);
+});
+
+test('events: claimEvent returns null without an offer or when expired', () => {
+  const s = createState();
+  assert.equal(claimEvent(s), null);
+  s.eventOffer = { kind: 'spike', claimBy: 0 };
+  assert.equal(claimEvent(s), null);
+  assert.equal(s.eventOffer, null);
+});
+
+test('events: nothing spawns or counts down offline', () => {
+  const s = createState();
+  applyOffline(s, 3600 * 24);
+  assert.equal(s.nextEventIn, 120);
+  assert.equal(s.eventOffer, null);
+  const s2 = createState();
+  tick(s2, 120);
+  assert.ok(s2.eventOffer);
+  s2.eventActive = { kind: 'spike', remaining: 10 };
+  const gap = s2.nextEventIn;
+  applyOffline(s2, 3600 * 24);
+  assert.equal(s2.eventOffer, null);
+  assert.equal(s2.eventActive, null);
+  assert.equal(s2.nextEventIn, gap);
+});
+
+test('events: the RNG is deterministic and lives in state.rng', () => {
+  const kinds = (s) => {
+    const list = [];
+    for (let i = 0; i < 4; i++) {
+      tick(s, s.nextEventIn); // wait out the delay -> offer
+      assert.ok(s.eventOffer, `offer ${i}`);
+      list.push(s.eventOffer.kind);
+      claimEvent(s); // clear the offer so the next delay runs in full
+    }
+    return list;
+  };
+  const s1 = createState();
+  const s2 = createState();
+  assert.equal(s1.rng, s2.rng);
+  assert.deepEqual(kinds(s1), kinds(s2));
+  const r0 = s1.rng;
+  tick(s1, s1.nextEventIn);
+  assert.notEqual(s1.rng, r0, 'the rng state advances');
+});
+
+test('events: claiming counts stats.eventsClaimed and unlocks the achievement', () => {
+  const s = createState();
+  s.eventOffer = { kind: 'spike', claimBy: 20 };
+  assert.equal(claimEvent(s), 'spike');
+  assert.equal(s.stats.eventsClaimed, 1);
+  assert.ok(s.achievements.includes('events-1'));
+});
+
+test('achievements: events unlock at 1 and 25 claimed', () => {
+  for (const [n, id] of [
+    [1, 'events-1'],
+    [25, 'events-25'],
+  ]) {
+    const s = createState();
+    s.stats.eventsClaimed = n - 1;
+    assert.ok(!checkAchievements(s).includes(id), `${id} below ${n}`);
+    s.stats.eventsClaimed = n;
+    assert.ok(checkAchievements(s).includes(id), id);
+  }
+});
+
+test('migrate: rng and nextEventIn are migrated, offer and active are cleared', () => {
+  const s = migrate({
+    version: 2,
+    rng: 999,
+    nextEventIn: 42,
+    eventOffer: { kind: 'spike', claimBy: 5 },
+    eventActive: { kind: 'turbo', remaining: 5 },
+  });
+  assert.equal(s.rng, 999);
+  assert.equal(s.nextEventIn, 42);
+  assert.equal(s.eventOffer, null);
+  assert.equal(s.eventActive, null);
+  const s2 = migrate({ version: 2 });
+  assert.equal(s2.rng, 42);
+  assert.equal(s2.nextEventIn, 120);
+  assert.equal(s2.stats.eventsClaimed, 0);
 });
