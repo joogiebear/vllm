@@ -49,6 +49,23 @@ function maxAffordable(state, g) {
   return { count, total };
 }
 
+// Two-line buy button: the two spans are created once and only their
+// text is updated afterwards, so the DOM stays stable.
+function makeLines(buyBtn) {
+  const l1 = document.createElement('span');
+  l1.className = 'btn-l1';
+  const l2 = document.createElement('span');
+  l2.className = 'btn-l2';
+  buyBtn.append(l1, l2);
+  return { l1, l2 };
+}
+
+function setLines(r, line1, line2) {
+  r.l1.textContent = line1;
+  r.l2.textContent = line2 ? line2 : '';
+  r.l2.hidden = !line2;
+}
+
 function upgradeWords(u) {
   switch (u.kind) {
     case 'production': return `×${u.value} production`;
@@ -208,6 +225,7 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'gen-buy';
+    const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
       const mode = view.buyMode === 'max' ? 'max' : Number(view.buyMode);
       const bought = buy(state, g.id, mode);
@@ -224,7 +242,7 @@ export function createUI(state, io) {
 
     card.append(top, bar, bottom);
     els.genCards.appendChild(card);
-    return { g, card, icon, iconCount, manMark, name, milestone, bar, barFill, barPayout, buyBtn, status };
+    return { g, card, icon, iconCount, manMark, name, milestone, bar, barFill, barPayout, buyBtn, l1, l2, status };
   });
 
   // Upgrades tab (Upgrades segment).
@@ -288,6 +306,7 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
+    const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
       if (buyManager(state, m.id)) {
         naturalDismiss('manager', state);
@@ -299,7 +318,7 @@ export function createUI(state, io) {
     });
     row.append(manIcon, left, buyBtn);
     els.manGrid.appendChild(row);
-    return { m, g, row, buyBtn };
+    return { m, g, row, buyBtn, l1, l2 };
   });
 
   // Segmented control: Managers | Upgrades, remembered across visits.
@@ -373,6 +392,7 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
+    const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
       if (buyWeightUpgrade(state, u.id)) {
         flash(row);
@@ -382,7 +402,7 @@ export function createUI(state, io) {
     });
     row.append(left, buyBtn);
     els.prestigeGrid.appendChild(row);
-    return { u, row, buyBtn };
+    return { u, row, buyBtn, l1, l2 };
   });
 
   // Prestige. The second confirm is skipped when confirmPrestige is off.
@@ -429,6 +449,7 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
+    const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
       if (buyRegionPerk(state, p.id)) {
         flash(row);
@@ -438,7 +459,7 @@ export function createUI(state, io) {
     });
     row.append(left, buyBtn);
     els.regionPerksGrid.appendChild(row);
-    return { p, row, buyBtn };
+    return { p, row, buyBtn, l1, l2 };
   });
 
   // Expand (the second prestige layer). The second confirm is skipped when
@@ -825,17 +846,24 @@ export function createUI(state, io) {
       if (isLocked) {
         c = cost(state, g.id, 1);
         disabled = c > state.tokens;
+        setLines(r, `Unlock · ${fmt(c)} tokens`, null);
       } else if (view.buyMode === 'max') {
         const m = maxAffordable(state, g);
         c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
+        setLines(
+          r,
+          m.count > 0
+            ? `Buy ${m.count} level${m.count === 1 ? '' : 's'}`
+            : 'Buy 1 level',
+          `${fmt(c)} tokens`,
+        );
       } else {
-        c = cost(state, g.id, Number(view.buyMode));
+        const n = Number(view.buyMode);
+        c = cost(state, g.id, n);
         disabled = c > state.tokens;
+        setLines(r, `Buy ${n} level${n === 1 ? '' : 's'}`, `${fmt(c)} tokens`);
       }
-      r.buyBtn.textContent = isLocked
-        ? `Unlock · ${fmt(c)}`
-        : `Buy x${view.buyMode === 'max' ? 'Max' : view.buyMode} · ${fmt(c)}`;
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
 
@@ -858,16 +886,16 @@ export function createUI(state, io) {
       const owned = state.generators[r.m.id] || 0;
       r.row.classList.toggle('dim', hired);
       if (hired) {
-        r.buyBtn.textContent = 'Hired';
+        setLines(r, 'Hired', null);
         r.buyBtn.disabled = true;
         r.buyBtn.classList.remove('afford');
       } else if (owned === 0) {
-        r.buyBtn.textContent = `Need ${r.g.name}`;
+        setLines(r, `Need ${r.g.name}`, null);
         r.buyBtn.disabled = true;
         r.buyBtn.classList.remove('afford');
       } else {
         const afford = r.m.cost <= state.tokens;
-        r.buyBtn.textContent = `Hire · ${fmt(r.m.cost)}`;
+        setLines(r, 'Hire', `${fmt(r.m.cost)} tokens`);
         r.buyBtn.disabled = !afford;
         r.buyBtn.classList.toggle('afford', afford);
       }
@@ -899,10 +927,10 @@ export function createUI(state, io) {
     for (const r of wuRefs) {
       const owned = state.weightUpgrades.includes(r.u.id);
       if (owned) {
-        r.buyBtn.textContent = '✓';
+        setLines(r, '✓', null);
         r.buyBtn.disabled = true;
       } else {
-        r.buyBtn.textContent = `${r.u.cost}w`;
+        setLines(r, 'Buy', `${r.u.cost} Weight${r.u.cost === 1 ? '' : 's'}`);
         r.buyBtn.disabled = state.weights < r.u.cost;
       }
     }
@@ -947,10 +975,10 @@ export function createUI(state, io) {
     for (const r of perkRefs) {
       const owned = (state.regionPerks || []).includes(r.p.id);
       if (owned) {
-        r.buyBtn.textContent = 'Owned';
+        setLines(r, 'Owned', null);
         r.buyBtn.disabled = true;
       } else {
-        r.buyBtn.textContent = `Buy · ${r.p.cost}`;
+        setLines(r, 'Buy', `${r.p.cost} Region${r.p.cost === 1 ? '' : 's'}`);
         r.buyBtn.disabled = (state.regions || 0) < r.p.cost;
       }
     }
