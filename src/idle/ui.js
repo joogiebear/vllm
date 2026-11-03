@@ -4,23 +4,24 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
-} from './core.js?v=20261103163205';
+  maxBuyable,
+} from './core.js?v=20261103164543';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS, REGION_DIVISOR, REGION_UNLOCK_WEIGHTS,
-} from './data.js?v=20261103163205';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261103163205';
-import { play } from './feedback.js?v=20261103163205';
-import { mountAchievements } from './achievements-ui.js?v=20261103163205';
-import { mountStats } from './stats-ui.js?v=20261103163205';
-import { mountEvents } from './events-ui.js?v=20261103163205';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103163205';
+} from './data.js?v=20261103164543';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261103164543';
+import { play } from './feedback.js?v=20261103164543';
+import { mountAchievements } from './achievements-ui.js?v=20261103164543';
+import { mountStats } from './stats-ui.js?v=20261103164543';
+import { mountEvents } from './events-ui.js?v=20261103164543';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261103164543';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon } from './icons.js?v=20261103163205';
-import { fmt } from './fmt.js?v=20261103163205';
+import { TIER_COLORS, icon as tierIcon, managerIcon } from './icons.js?v=20261103164543';
+import { fmt } from './fmt.js?v=20261103164543';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
@@ -41,19 +42,6 @@ function fmtTime(ms) {
   if (h > 0) return `${h}h ${m}m`;
   if (m > 0) return `${m}m ${sec}s`;
   return `${sec}s`;
-}
-
-// Max affordable units for a generator, given current tokens.
-function maxAffordable(state, g) {
-  let count = 0;
-  let total = 0;
-  let c = cost(state, g.id, 1);
-  while (c <= state.tokens && count < 1e7) {
-    total += c;
-    count += 1;
-    c = cost(state, g.id, 1, count);
-  }
-  return { count, total };
 }
 
 // Two-line buy button: the two spans are created once and only their
@@ -877,13 +865,13 @@ export function createUI(state, io) {
         disabled = c > state.tokens;
         setLines(r, `Unlock · ${fmtCost(c)} tokens`, null);
       } else if (view.buyMode === 'max') {
-        const m = maxAffordable(state, g);
+        const m = maxBuyable(state, g.id);
         c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
         setLines(
           r,
           m.count > 0
-            ? `Buy ${m.count} level${m.count === 1 ? '' : 's'}`
+            ? `Buy ${fmt(m.count)} level${m.count === 1 ? '' : 's'}`
             : 'Buy 1 level',
           `${fmtCost(c)} tokens`,
         );

@@ -3,7 +3,7 @@
 // (iOS Safari) or without localStorage (settings fall back to defaults).
 // Sounds are synthesized with WebAudio oscillators and gain envelopes; no
 // audio files. All are under 250 ms, except prestige (~600 ms).
-import { get as getSetting } from './settings.js?v=20261103163205';
+import { get as getSetting } from './settings.js?v=20261103164543';
 
 const MASTER_VOLUME = 0.25;
 const PAYOUT_MIN_GAP_MS = 120; // fast generators must not buzz
