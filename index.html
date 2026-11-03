@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#0b0f17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } input, textarea { -webkit-user-select: text; user-select: text; }</style>
   <script>
     // iOS Safari ignores user-scalable=no, so block pinch zoom here. touch-action handles double-tap.
@@ -30,6 +35,11 @@
     }
     [hidden] { display: none !important; }
     #app { display: flex; flex-direction: column; height: 100dvh; }
+    #boot {
+      position: fixed; inset: 0; z-index: 100;
+      background: #0b0f17;
+      display: flex; align-items: center; justify-content: center;
+    }
 
     /* Header: fixed-height rows that never wrap. Row 1 is 56 px (token
        count left, chip column right); row 2 is 44 px (buy-amount
@@ -365,6 +375,7 @@
   </style>
 </head>
 <body>
+  <div id="boot"><img src="icons/app-icon.svg" width="96" height="96" alt=""></div>
   <div id="app">
     <header id="hud">
       <div id="hud-row1">
