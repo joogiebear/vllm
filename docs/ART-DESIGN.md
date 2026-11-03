@@ -161,12 +161,47 @@ number of levels and the cost separately:
 Files: `ui.js` only (plus a CSS line in `index.html`). Do it in pass 1 with
 the hints.
 
+## 4. Fixed-height header (owner, 2026-11-03)
+
+Today `#hud` is two flex columns. When the token number gets wider,
+`#hud-right` (Weights chip, x1/x10/x100/Max, Rush chip) wraps to a second
+line and the whole page jumps. The header becomes three fixed rows that never
+change height or wrap, whatever the numbers are:
+
+```
++------------------------------------------+
+| 1.24M                        3.21K /sec  |  row 1, 44 px
+| [◆ 3 Weights +30%] [Iowa] [Rush ready]   |  row 2, 28 px chips
+| [  x1  |  x10  |  x100  |  Max  ]        |  row 3, 36 px, Game tab only
++------------------------------------------+
+```
+
+- Row 1: tokens on the left, per-second on the right, one line each,
+  `white-space: nowrap`, `font-variant-numeric: tabular-nums` so digits
+  don't jiggle as they tick. Tokens is 34 px; if the formatted string is
+  longer than 7 characters it drops to 28 px (a class, not measured layout).
+  Per-second is 14 px dim text, right-aligned.
+- Row 2: one line of chips (Weights, region name, Rush, timed event when
+  running). `flex-wrap: nowrap; overflow-x: auto` with the scrollbar hidden,
+  so extra chips scroll sideways instead of adding a line. Hidden chips leave
+  the row in place (the row always takes 28 px, even if empty).
+- Row 3: the buy amount as a full-width segmented control (4 equal
+  columns, 36 px tall, 44 px tap height via padding). It only shows on the
+  Game tab; other tabs don't use it.
+- `#hud` uses CSS grid with fixed row heights. Check at 320, 390 and 430 px
+  wide with 999.99Qa tokens and all chips showing: no wrap and no height
+  change while the numbers tick.
+
+Files: `index.html` (markup and CSS) and the small `ui.js` code that fills
+the header. Do it with the buy-count change (section 3); both touch the same
+area.
+
 ## Build passes
 
 Keep each Qwen pass to a few files; check the live site under `/vllm/` after
 each push.
 
-1. Hints, the row text cleanup and the buy-count button: `hints.js`, hooks in `ui.js`, `save.js`,
+1. Hints and the row text cleanup: `hints.js`, hooks in `ui.js`, `save.js`,
    `settings.js`, tests.
 2. `icons.js` with the 12 tier icons and `TIER_COLORS`; run buttons use them;
    `tools/icon-sheet.html`.
@@ -174,6 +209,8 @@ each push.
    Achievements views.
 4. App icon SVG, `tools/make-icons.js`, PNGs, manifest, `index.html` head
    tags and the boot splash.
+5. Buy-count buttons (section 3) and the fixed header (section 4) together,
+   after the art passes because they share `ui.js` and `index.html`.
 
 Acceptance: all tests pass; at 390 px wide every icon is recognisable and
 nothing overlaps; the version stamp script covers `icons.js` and `hints.js`;
