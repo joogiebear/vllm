@@ -19,6 +19,16 @@ const CACHE = 'overclock-20261103211501';
 // The named shell files, resolved against the scope.
 const SHELL = ['index.html', 'manifest.webmanifest', 'rush.html'];
 
+// The manager portrait ids and version, mirrored from PORTRAITS and
+// PORTRAIT_V in src/idle/data.js (docs/ART-PORTRAITS.md). sw.js is a
+// classic script and cannot import ES modules, so the lists are kept in
+// sync by test/sw-portraits.test.js.
+const PORTRAITS = [
+  'pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter',
+  'campus', 'swarm', 'orbital', 'lunar', 'matrioshka', 'singularity',
+];
+const PORTRAIT_V = 1;
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(precache());
@@ -159,5 +169,10 @@ async function precache() {
     const href = new URL(f, scope).href;
     if (f === 'manifest.webmanifest') await put(href);
     else await putHtml(href);
+  }
+  // The manager portraits, so they show offline after the first load.
+  for (const id of PORTRAITS) {
+    const href = new URL(`icons/managers/${id}.webp?v=${PORTRAIT_V}`, scope).href;
+    await put(href);
   }
 }
