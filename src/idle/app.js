@@ -1,7 +1,8 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
-import { tick, applyOffline, applyRush } from './core.js?v=20261103050553';
+import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261103050553';
 import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103050553';
 import { load, save, exportSave, importSave, hardReset } from './save.js?v=20261103050553';
+import { get } from './settings.js?v=20261103050553';
 import { createUI, fmt } from './ui.js?v=20261103050553';
 import { showWelcome } from './welcome.js?v=20261103050553';
 import { toast } from './toast.js?v=20261103050553';
@@ -105,6 +106,9 @@ function step() {
       const a = ACHIEVEMENTS.find((x) => x.id === after[i]);
       toast('Achievement: ' + (a ? a.name : after[i]));
     }
+    // Auto-Procure: every 10 s, when the perk is owned and the setting
+    // is not off.
+    if (autoProcureDue(state, dt) && get('autoProcure') !== false) buyAllUpgrades(state);
   }
   if (now - lastRender >= 100) {
     lastRender = now;

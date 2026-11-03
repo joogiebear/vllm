@@ -1033,10 +1033,12 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   assert.equal(s.lifetime, 0);
   assert.equal(s.totalLifetime, 0);
   assert.equal(s.weights, 0);
-  assert.deepEqual(s.weightUpgrades, []);
+  // Head Start re-applies: Seed Funding, Procurement Bot and Standing
+  // Orders owned, the first 3 managers hired.
+  assert.deepEqual(s.weightUpgrades, ['seed', 'procure', 'auto']);
   assert.equal(s.weightsEarnedThisCycle, 0);
   assert.equal(s.upgrades.length, 0);
-  assert.equal(s.managers.length, 0);
+  assert.deepEqual(s.managers, ['pi', 'gamer', 'workstation']);
   assert.equal(s.generators.pi, 1); // the starter Raspberry Pi
   assert.equal(s.generators.gamer, 0);
   assert.equal(s.cycles.pi, null);

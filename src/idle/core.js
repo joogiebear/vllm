@@ -12,6 +12,7 @@ import {
   PRESTIGE_DIVISOR,
   REGION_DIVISOR,
   REGION_NAMES,
+  REGION_PERKS,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
   RUSH_COOLDOWN_SECONDS,
@@ -54,6 +55,7 @@ export function createState() {
     regionsEarned: 0,
     weightsEverEarned: 0,
     regionPerks: [],
+    autoProcureTimer: 0,
     generators,
     upgrades: [],
     weightUpgrades: [],
@@ -102,6 +104,25 @@ function validState(state) {
 
 function hasWeightUpgrade(state, id) {
   return Array.isArray(state.weightUpgrades) && state.weightUpgrades.includes(id);
+}
+
+function hasRegionPerk(state, id) {
+  return Array.isArray(state.regionPerks) && state.regionPerks.includes(id);
+}
+
+// Head Start (docs/REGIONS-DESIGN.md): re-applied at the start of every
+// run (prestige) and every new region (expandRegion): adds Seed Funding,
+// Procurement Bot and Standing Orders to the owned weight upgrades and
+// hires the first 3 managers (granted, not bought, so the stats are not
+// incremented).
+function applyHeadStart(state) {
+  if (!hasRegionPerk(state, 'headStart')) return;
+  for (const id of ['seed', 'procure', 'auto']) {
+    if (!hasWeightUpgrade(state, id)) state.weightUpgrades.push(id);
+  }
+  for (const m of MANAGERS.slice(0, 3)) {
+    if (!hasManager(state, m.id)) state.managers.push(m.id);
+  }
 }
 
 function upgradeSum(state, kind) {
@@ -190,10 +211,12 @@ export function cyclePayout(state, g) {
   return owned * g.tps * g.cycleSeconds * tierMultiplier(state, g) * rateMultiplier(state);
 }
 
-// Cycle time in seconds; milestones halve it (speed x2).
+// Cycle time in seconds; milestones halve it (speed x2). Overclocked
+// Fabric (region perk) makes every cycle 20% shorter.
 export function cycleTime(state, g) {
   const owned = state.generators[g.id] || 0;
-  return g.cycleSeconds / speedFactor(owned);
+  const t = g.cycleSeconds / speedFactor(owned);
+  return hasRegionPerk(state, 'overclock') ? t * 0.8 : t;
 }
 
 export function hasManager(state, id) {
@@ -257,6 +280,8 @@ export function tick(state, seconds) {
       const kind = EVENT_KINDS[Math.floor(rngNext(state) * EVENT_KINDS.length)];
       const claimBy = EVENT_CLAIM_WINDOW + left;
       state.nextEventIn = EVENT_GAP_MIN + rngNext(state) * (EVENT_GAP_MAX - EVENT_GAP_MIN);
+      // Event Desk (region perk): events come twice as often.
+      if (hasRegionPerk(state, 'eventDesk')) state.nextEventIn /= 2;
       state.eventOffer = claimBy > 0 ? { kind: kind.id, claimBy } : null;
     }
   }
@@ -486,6 +511,37 @@ export function buyWeightUpgrade(state, id) {
   return true;
 }
 
+// Buy a region perk with Regions. Kept forever; the x2-per-Region
+// multiplier is based on regionsEarned, so spending Regions never lowers
+// it.
+export function buyRegionPerk(state, id) {
+  if (!validState(state)) return false;
+  const p = REGION_PERKS.find((x) => x.id === id);
+  if (!p || hasRegionPerk(state, id)) return false;
+  if ((state.regions || 0) < p.cost) return false;
+  state.regions -= p.cost;
+  state.regionPerks.push(id);
+  return true;
+}
+
+// Auto-Procure (region perk): bookkeeping only. Tracks the 10-second
+// timer on state.autoProcureTimer and returns true when a Buy All is
+// due. The caller (app.js) also checks the 'autoProcure' setting and
+// runs buyAllUpgrades() itself.
+export function autoProcureDue(state, seconds) {
+  if (!validState(state) || !isFiniteNumber(seconds) || seconds <= 0) return false;
+  if (!hasRegionPerk(state, 'autoProcure')) {
+    state.autoProcureTimer = 0;
+    return false;
+  }
+  state.autoProcureTimer = (state.autoProcureTimer || 0) + seconds;
+  if (state.autoProcureTimer >= 10) {
+    state.autoProcureTimer = 0;
+    return true;
+  }
+  return false;
+}
+
 export function weightsAvailable(state) {
   if (!validState(state)) return 0;
   return Math.floor(Math.sqrt(Math.max(0, state.totalLifetime || 0) / PRESTIGE_DIVISOR)) - (state.weightsEarnedThisCycle || 0);
@@ -497,6 +553,9 @@ export function prestige(state) {
   if (gained < 1) return 0;
   state.stats.prestiges += 1;
   state.stats.runStartedAt = state.stats.playSeconds;
+  // Head Start re-applies at the start of every run, so the granted
+  // Seed Funding counts for the starting tokens.
+  applyHeadStart(state);
   const seed = WEIGHT_UPGRADES.find((u) => u.id === 'seed');
   const startTokens = hasWeightUpgrade(state, 'seed') ? seed.value : 0;
   state.weights += gained;
@@ -512,8 +571,10 @@ export function prestige(state) {
   }
   state.upgrades = [];
   // Managers reset like regular upgrades; Standing Orders re-hires the
-  // Cron Job at the start of each run.
+  // Cron Job at the start of each run, and Head Start then hires the
+  // first 3 managers.
   state.managers = hasWeightUpgrade(state, 'auto') ? ['pi'] : [];
+  applyHeadStart(state);
   // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil, achievements.
   return gained;
 }
@@ -527,9 +588,10 @@ export function regionsAvailable(state) {
 // Second prestige layer (docs/REGIONS-DESIGN.md). Resets everything a
 // normal prestige resets, plus weights, weightUpgrades,
 // weightsEarnedThisCycle and totalLifetime (so Weights start from zero
-// again). weightUpgrades reset, so no Seed Funding or Standing Orders
-// on a new region. Returns the Regions gained, or 0 when none are
-// available.
+// again). Then the region perks re-apply: Head Start adds Seed Funding,
+// Procurement Bot and Standing Orders and hires the first 3 managers,
+// and Fresh Weights starts the run with 5 Weights, counted as earned.
+// Returns the Regions gained, or 0 when none are available.
 export function expandRegion(state) {
   if (!validState(state)) return 0;
   const gained = regionsAvailable(state);
@@ -551,6 +613,14 @@ export function expandRegion(state) {
   }
   state.upgrades = [];
   state.managers = [];
+  applyHeadStart(state);
+  // Fresh Weights: each new region starts with 5 Weights, counted as
+  // earned (weightsEarnedThisCycle).
+  if (hasRegionPerk(state, 'fresh')) {
+    const fresh = REGION_PERKS.find((p) => p.id === 'fresh');
+    state.weights += fresh.value;
+    state.weightsEarnedThisCycle += fresh.value;
+  }
   // Kept: regions, regionPerks, weightsEverEarned, achievements, stats,
   // rushCooldownUntil.
   return gained;
@@ -577,7 +647,10 @@ export function claimEvent(state) {
   if (kind === 'windfall') {
     addTokens(state, tokensPerSecond(state) * EVENT_WINDFALL_SECONDS);
   } else {
-    state.eventActive = { kind, remaining: EVENT_DURATION };
+    // Event Desk (region perk): timed events last 50% longer.
+    let remaining = EVENT_DURATION;
+    if (hasRegionPerk(state, 'eventDesk')) remaining *= 1.5;
+    state.eventActive = { kind, remaining };
   }
   state.stats.eventsClaimed += 1;
   checkAchievements(state);
@@ -592,7 +665,12 @@ export function applyOffline(state, seconds) {
   state.eventOffer = null;
   state.eventActive = null;
   const long = WEIGHT_UPGRADES.find((u) => u.id === 'long');
-  const capHours = hasWeightUpgrade(state, 'long') ? long.value : OFFLINE_CAP_HOURS;
+  // Long Haul (region perk): offline cap 24 h and offline rate 100%.
+  const capHours = hasRegionPerk(state, 'longHaul')
+    ? 24
+    : hasWeightUpgrade(state, 'long')
+      ? long.value
+      : OFFLINE_CAP_HOURS;
   const capped = Math.min(seconds, capHours * 3600);
   if (capped <= 0) return 0;
   const night = WEIGHT_UPGRADES.find((u) => u.id === 'night');
@@ -600,7 +678,11 @@ export function applyOffline(state, seconds) {
   for (const g of GENERATORS) {
     if (hasManager(state, g.id)) rate += rowRate(state, g);
   }
-  const offlineRate = hasWeightUpgrade(state, 'night') ? night.value : OFFLINE_RATE;
+  const offlineRate = hasRegionPerk(state, 'longHaul')
+    ? 1
+    : hasWeightUpgrade(state, 'night')
+      ? night.value
+      : OFFLINE_RATE;
   const earned = rate * capped * offlineRate;
   state.stats.offlineSeconds += capped;
   state.stats.offlineTokens += earned;
