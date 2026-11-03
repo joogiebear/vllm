@@ -334,13 +334,31 @@ async function runChecks(cdp, sessionId, url) {
     let detail = '';
     try {
       const r = await fn();
-      pass = !!r.value;
-      if (!pass) detail = JSON.stringify(r.value);
+      // Runtime.evaluate resolves to { result: { value }, exceptionDetails? }.
+      const value = r.result ? r.result.value : undefined;
+      pass = !!value;
+      if (!pass)
+        detail = r.exceptionDetails
+          ? (r.exceptionDetails.exception &&
+            r.exceptionDetails.exception.description) ||
+            r.exceptionDetails.text ||
+            'exception'
+          : JSON.stringify(value);
     } catch (err) {
       detail = err.message;
     }
     results.push({ name, pass, detail });
   };
+
+  // Wait for the game to finish loading (#gen-cards has children), up to 5 s.
+  await withTimeout(
+    poll(
+      5000,
+      'document.querySelector("#gen-cards") && document.querySelector("#gen-cards").children.length > 0'
+    ),
+    6000,
+    'game load'
+  );
 
   // Fresh game: empty storage (fresh profile; the game has not autosaved yet).
   await check(
