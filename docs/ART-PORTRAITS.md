@@ -1,6 +1,7 @@
 # Manager portraits
 
-Status: DRAFT, waiting on the owner's "go". Design owner: thread Claude.
+Status: APPROVED by the owner ("Go", 2026-11-03 23:46 UTC). The 12 WebP
+files are already in `icons/managers/`; start at code task 1. Design owner: thread Claude.
 Builder: desktop RC, with Qwen writing all code in small tasks (rules in
 ART-DESIGN.md). Art: drawn by the owner from the prompts in
 `docs/ART-MANAGERS.md` and the final list in the project files.
@@ -24,10 +25,11 @@ so the set can ship before all 12 exist.
 ## Files
 
 - `icons/managers/<id>.webp`, one per tier id that has art.
-- Prepared by the RC with ordinary image tools (no script in the repo):
+- DONE (thread Claude, 2026-11-03): all 12 in the repo, 15-21 KB each,
+  219 KB total. How they were made, for future redos (no script in the repo):
   trim to the solid outline (alpha > 200, ignoring faint stray pixels), pad
   to a square so the character fills about 88% of the width, scale to
-  256 x 256, WebP quality 80. Target 20-35 KB each, about 400 KB for all 12.
+  256 x 256, WebP quality 80.
 - Same margin on every portrait so they look the same size in the frame.
 
 ## Code (in this order, one task each)
