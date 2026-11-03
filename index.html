@@ -160,7 +160,9 @@
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
-      flex-direction: column;
+      /* column-reverse: the first tier (pi) sits in the bottom bay and
+         bays fill upward; empty bays sit above the owned ones. */
+      flex-direction: column-reverse;
       gap: 3px;
     }
     /* One colour per tier. */
