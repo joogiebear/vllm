@@ -13,6 +13,7 @@ import {
   REGION_DIVISOR,
   REGION_NAMES,
   REGION_PERKS,
+  TIER_GATES,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
   RUSH_COOLDOWN_SECONDS,
@@ -346,6 +347,7 @@ export function buyManager(state, id) {
   if (!validState(state)) return false;
   const m = MANAGERS.find((x) => x.id === id);
   if (!m || hasManager(state, id)) return false;
+  if (!isTierUnlocked(state, id)) return false;
   if (state.tokens < m.cost) return false;
   state.tokens -= m.cost;
   state.managers.push(id);
@@ -503,6 +505,17 @@ export function maxBuyable(state, id) {
   return { count, total };
 }
 
+// Tiers 9-12 unlock through Regions (docs/LATE-GAME-DESIGN.md, section 1):
+// a gated tier is usable once regionsEarned reaches its requirement, and a
+// tier the player already owns stays usable even before that.
+export function isTierUnlocked(state, id) {
+  if (!validState(state)) return false;
+  const gate = TIER_GATES.find((g) => g.id === id);
+  if (!gate) return true;
+  if ((state.regionsEarned || 0) >= gate.regions) return true;
+  return (state.generators[id] || 0) > 0;
+}
+
 // Buy up to `max` units of a generator (Infinity or 'max' = as many as
 // affordable). One step: the count is capped by maxBuyable, the total is
 // subtracted once, the count added once, and stats updated once.
@@ -511,6 +524,7 @@ export function buy(state, id, max = Infinity) {
   if (!validState(state) || typeof max !== 'number' || Number.isNaN(max) || max < 1) return 0;
   const g = GENERATORS.find((x) => x.id === id);
   if (!g) return 0;
+  if (!isTierUnlocked(state, id)) return 0;
   const { count: affordable } = maxBuyable(state, id);
   const count = max === Infinity ? affordable : Math.min(Math.floor(max), affordable);
   if (count <= 0) return 0;
@@ -525,6 +539,7 @@ export function buyUpgrade(state, id) {
   if (!validState(state)) return false;
   const u = UPGRADES.find((x) => x.id === id);
   if (!u || state.upgrades.includes(id)) return false;
+  if (u.tier && !isTierUnlocked(state, u.tier)) return false;
   if (state.tokens < u.cost) return false;
   state.tokens -= u.cost;
   state.upgrades.push(id);
@@ -540,7 +555,9 @@ export function buyAllUpgrades(state) {
   let again = true;
   while (again) {
     again = false;
-    const sorted = UPGRADES.filter((u) => !state.upgrades.includes(u.id)).sort((a, b) => a.cost - b.cost);
+    const sorted = UPGRADES.filter(
+      (u) => !state.upgrades.includes(u.id) && (!u.tier || isTierUnlocked(state, u.tier)),
+    ).sort((a, b) => a.cost - b.cost);
     for (const u of sorted) {
       if (state.tokens >= u.cost) {
         state.tokens -= u.cost;

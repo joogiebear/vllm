@@ -18,6 +18,7 @@ import {
   regionName,
   ensureStarter,
   cost,
+  isTierUnlocked,
   applyOffline,
   applyRush,
   migrate,
@@ -865,6 +866,7 @@ test('tiers 9-12: per-tier production upgrades multiply one tier only', () => {
 
 test('tiers 9-12: managers cost and hire', () => {
   const s = createState();
+  s.regionsEarned = 8; // all 4 tier gates met
   s.tokens = 4e12;
   assert.equal(buyManager(s, 'orbital'), true);
   assert.equal(s.tokens, 0);
@@ -1484,4 +1486,72 @@ test('X5_UPGRADES: 12 entries, one per tier in order, x5, minRegions 2, cost = 1
 test('REGION_BASE and REGION_GROWTH', () => {
   assert.equal(REGION_BASE, 4000);
   assert.equal(REGION_GROWTH, 1.6);
+});
+
+// Tier gating (docs/LATE-GAME-DESIGN.md, section 1)
+
+test('isTierUnlocked: tiers 1-8 always unlocked; gated tiers locked at 0 regions', () => {
+  const s = createState();
+  for (const g of GENERATORS) {
+    if (!TIER_GATES.some((t) => t.id === g.id)) {
+      assert.ok(isTierUnlocked(s, g.id), `${g.id} should be unlocked`);
+    }
+  }
+  for (const t of TIER_GATES) assert.ok(!isTierUnlocked(s, t.id), `${t.id} should be locked`);
+});
+
+for (const gate of TIER_GATES) {
+  test(`gate ${gate.id}: buy, manager and x3 upgrade refused below ${gate.regions} regions`, () => {
+    const s = createState();
+    s.regionsEarned = gate.regions - 1;
+    s.tokens = 1e30;
+    assert.ok(!isTierUnlocked(s, gate.id));
+    assert.equal(buy(s, gate.id), 0);
+    assert.equal(s.generators[gate.id], 0);
+    assert.equal(buyManager(s, gate.id), false);
+    assert.ok(!s.managers.includes(gate.id));
+    assert.equal(buyUpgrade(s, `${gate.id}3`), false);
+    assert.ok(!s.upgrades.includes(`${gate.id}3`));
+    buyAllUpgrades(s);
+    assert.ok(!s.upgrades.includes(`${gate.id}3`), 'Buy All must skip the gated upgrade');
+  });
+
+  test(`gate ${gate.id}: buy, manager and x3 upgrade allowed at ${gate.regions} regions`, () => {
+    const s = createState();
+    s.regionsEarned = gate.regions;
+    s.tokens = 1e30;
+    assert.ok(isTierUnlocked(s, gate.id));
+    assert.ok(buy(s, gate.id) > 0);
+    assert.equal(buyManager(s, gate.id), true);
+    assert.equal(buyUpgrade(s, `${gate.id}3`), true);
+  });
+
+  test(`gate ${gate.id}: already owned stays usable at 0 regions`, () => {
+    const s = createState();
+    s.regionsEarned = 0;
+    s.tokens = 1e30;
+    s.generators[gate.id] = 1;
+    assert.ok(isTierUnlocked(s, gate.id));
+    assert.ok(buy(s, gate.id) > 0);
+    assert.equal(buyManager(s, gate.id), true);
+    assert.equal(buyUpgrade(s, `${gate.id}3`), true);
+  });
+}
+
+test('tiers 1-8: buy, manager and x3 upgrade work with 0 regions', () => {
+  const s = createState();
+  s.tokens = 1e30;
+  assert.ok(buy(s, 'pi') > 0);
+  assert.equal(buyManager(s, 'pi'), true);
+  assert.equal(buyUpgrade(s, 'pi3'), true);
+});
+
+test('buyAllUpgrades: skips gated upgrades, still buys the ungated ones', () => {
+  const s = createState();
+  s.regionsEarned = 0;
+  s.tokens = 1e30;
+  buyAllUpgrades(s);
+  for (const g of TIER_GATES) assert.ok(!s.upgrades.includes(`${g.id}3`), `${g.id}3 must stay gated`);
+  assert.ok(s.upgrades.includes('quant'), 'ungated upgrades still bought');
+  assert.ok(s.upgrades.includes('rack3'), 'ungated tier upgrades still bought');
 });
