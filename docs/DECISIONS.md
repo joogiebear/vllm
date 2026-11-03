@@ -148,3 +148,14 @@ With the new divisor the first weight requires 10,000,000,000,000 of
 `totalLifetime`, which the bot reaches between 25 and 30 minutes; the other two
 targets are unaffected. The formula in `docs/IDLE-DESIGN.md` was updated to the
 new number; no test hard-codes `PRESTIGE_DIVISOR`.
+
+## 2026-11-03 — Prestige divisor 1e13 -> 1e11
+
+| data.js constant | before | after |
+| --- | --- | --- |
+| `PRESTIGE_DIVISOR` | 10,000,000,000,000 | 100,000,000,000 |
+
+The 1e13 divisor made the first reset pay only 1 weight (a 2% bonus), which was
+not worth losing a run. At 1e11 the first reset pays 10 weights (a 20% bonus).
+The formula in `docs/IDLE-DESIGN.md` and the formula tests in
+`test/idle.test.js` were updated to the new number.

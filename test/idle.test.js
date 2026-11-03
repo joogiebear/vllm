@@ -295,8 +295,8 @@ test('upgrade kinds: production multiplies, cacheRate adds, cooling slows heat, 
 
 test('prestige: resets the run, keeps weights, weight upgrades, totalLifetime and rush cooldown', () => {
   const s = createState();
-  s.totalLifetime = 9e13; // sqrt(9e13 / 1e13) = 3
-  s.lifetime = 9e13;
+  s.totalLifetime = 9e11; // sqrt(9e11 / 1e11) = 3
+  s.lifetime = 9e11;
   s.weights = 2;
   s.tokens = 12345;
   s.generators.pi = 50;
@@ -310,7 +310,7 @@ test('prestige: resets the run, keeps weights, weight upgrades, totalLifetime an
   assert.equal(s.weights, 5);
   assert.equal(s.tokens, 1000); // seed: start with 1000 tokens
   assert.equal(s.lifetime, 0);
-  assert.equal(s.totalLifetime, 9e13);
+  assert.equal(s.totalLifetime, 9e11);
   assert.equal(s.generators.pi, 0);
   assert.deepEqual(s.upgrades, []);
   assert.deepEqual(s.weightUpgrades, ['seed', 'night']);
@@ -321,7 +321,7 @@ test('prestige: resets the run, keeps weights, weight upgrades, totalLifetime an
   assert.equal(weightsAvailable(s), 0); // nothing free yet
 
   const s2 = createState(); // no seed: starts at 0
-  s2.totalLifetime = 1e13;
+  s2.totalLifetime = 1e11;
   assert.equal(prestige(s2), 1);
   assert.equal(s2.tokens, 0);
 
@@ -333,21 +333,21 @@ test('prestige: resets the run, keeps weights, weight upgrades, totalLifetime an
 
 // --- weights formula ------------------------------------------------------------------------
 
-test('weightsAvailable = floor(sqrt(totalLifetime / 1e13)) - earnedThisCycle, never below 0', () => {
+test('weightsAvailable = floor(sqrt(totalLifetime / 1e11)) - earnedThisCycle, never below 0', () => {
   const s = createState();
+  s.totalLifetime = 1e11 - 1;
   assert.equal(weightsAvailable(s), 0);
-  s.totalLifetime = 1e13 - 1;
-  assert.equal(weightsAvailable(s), 0);
-  s.totalLifetime = 1e13;
+  s.totalLifetime = 1e11;
   assert.equal(weightsAvailable(s), 1);
-  s.totalLifetime = 4e13;
+  s.totalLifetime = 4e11;
   assert.equal(weightsAvailable(s), 2);
   s.weightsEarnedThisCycle = 1;
   assert.equal(weightsAvailable(s), 1);
   s.weightsEarnedThisCycle = 10;
   assert.equal(weightsAvailable(s), 0); // clamped at 0
+
   const s2 = createState(); // based on totalLifetime, not the current run's lifetime
-  s2.lifetime = 1e13;
+  s2.lifetime = 1e11;
   s2.totalLifetime = 0;
   assert.equal(weightsAvailable(s2), 0);
 });
@@ -359,7 +359,7 @@ test('weight upgrade: seed starts the run with 1000 tokens', () => {
   s.weights = 5;
   assert.equal(buyWeightUpgrade(s, 'seed'), true);
   assert.equal(s.weights, 4);
-  s.totalLifetime = 1e13;
+  s.totalLifetime = 1e11;
   assert.equal(prestige(s), 1);
   assert.equal(s.tokens, 1000);
 });

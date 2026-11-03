@@ -48,7 +48,7 @@ export const WEIGHT_UPGRADES = [
 ];
 
 // weightsAvailable = floor(sqrt(totalLifetime / PRESTIGE_DIVISOR)) - weightsEarnedThisCycle
-export const PRESTIGE_DIVISOR = 10000000000000;
+export const PRESTIGE_DIVISOR = 100000000000;
 
 export const OFFLINE_CAP_HOURS = 8;
 export const OFFLINE_RATE = 0.5;

@@ -109,7 +109,7 @@ One-time purchases. Each is shown once `lifetime` reaches 25% of its cost.
 
 ## Prestige: New Model Generation
 
-- `weightsAvailable = floor(sqrt(totalLifetime / 10,000,000,000,000)) - weightsEarnedThisCycle`,
+- `weightsAvailable = floor(sqrt(totalLifetime / 100,000,000,000)) - weightsEarnedThisCycle`,
   where `totalLifetime` is the sum of `lifetime` across every run. Never below 0.
 - `prestige` is allowed when `weightsAvailable >= 1`. It adds weights and resets tokens, lifetime,
   generators, upgrades, heat and overclock. Weights, weight upgrades, totalLifetime and rush
