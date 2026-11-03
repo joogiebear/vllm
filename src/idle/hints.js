@@ -2,7 +2,8 @@
 // A new player is shown one hint at a time, in order (run, buy, manager),
 // each as a small callout bubble pointing at its target with a "Got it"
 // button. The bubble never blocks input (its host is pointer-events: none)
-// and never overlaps the bottom menu. Hints are persisted in state.hints
+// and never overlaps the header or the bottom menu. Hints are persisted in
+// state.hints
 // ({ seen: [] }); the migration marks all three seen for existing players
 // (lifetime > 0), so they are only ever shown to new players.
 //
@@ -138,9 +139,13 @@ function ensureBubble() {
 }
 
 // Position the bubble above (preferred) or below its target, clamped to the
-// viewport and kept clear of the bottom menu.
+// viewport and kept clear of the header and the bottom menu. A bubble may
+// only go above the target when it fits entirely below the header; with no
+// room for that it goes below the target.
 function placeBubble(el, rect) {
   const gap = 10;
+  const hud = document.getElementById('hud');
+  const headerBottom = hud ? hud.getBoundingClientRect().bottom : 0;
   const tabs = document.getElementById('tabs');
   const bottomMenu =
     tabs && tabs.getBoundingClientRect().height > 0
@@ -150,17 +155,19 @@ function placeBubble(el, rect) {
   const bw = el.offsetWidth;
   let left = rect.left + rect.width / 2 - bw / 2;
   left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-  const spaceAbove = rect.top;
+  // Space above is measured from under the header, so a bubble above the
+  // target can never cover the header (token count).
+  const spaceAbove = Math.max(0, rect.top - headerBottom);
   const spaceBelow = window.innerHeight - rect.bottom - bottomMenu;
-  const above = spaceAbove >= bh + gap || spaceAbove > spaceBelow;
+  const above = spaceAbove >= bh + gap;
   let top;
   if (above) {
-    top = Math.max(8, rect.top - bh - gap);
+    top = rect.top - bh - gap; // >= headerBottom + gap, fits under the header
     el.classList.add('hint-above');
   } else {
     top = Math.min(
       rect.bottom + gap,
-      Math.max(8, window.innerHeight - bh - bottomMenu - 8)
+      Math.max(headerBottom + 8, window.innerHeight - bh - bottomMenu - 8)
     );
     el.classList.remove('hint-above');
   }
