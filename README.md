@@ -63,3 +63,7 @@ GPL-3.0 — see LICENSE.
 ## How this was made
 
 Designed and reviewed by Claude. All game code was written by Qwen3.8, a local model running on vLLM, through the Hermes agent. See docs/TOKENS.md for token use.
+
+## Releasing
+
+Run `sh tools/stamp.sh` before pushing. It stamps one release id onto every module path, so a browser never mixes cached old files with new ones after an update.
