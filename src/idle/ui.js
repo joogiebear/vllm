@@ -8,7 +8,7 @@ import {
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
 } from './data.js?v=20261103041805';
-import { get as getSetting } from './settings.js?v=20261103041805';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261103041805';
 import { mountAchievements } from './achievements-ui.js?v=20261103041805';
 import { mountStats } from './stats-ui.js?v=20261103041805';
 
@@ -327,9 +327,9 @@ export function createUI(state, io) {
     return { u, row, buyBtn };
   });
 
-  // Prestige.
+  // Prestige. The second confirm is skipped when confirmPrestige is off.
   els.prestigeBtn.addEventListener('click', () => {
-    if (!view.prestigeArmed) {
+    if (getSetting('confirmPrestige') !== false && !view.prestigeArmed) {
       view.prestigeArmed = true;
       els.prestigeBtn.classList.add('armed');
       els.prestigeBtn.textContent = 'CONFIRM PRESTIGE';
@@ -395,7 +395,157 @@ export function createUI(state, io) {
     showBanner('Hard reset. Fresh run.', 'Reset');
   });
 
+  // --- More > Settings: preferences wired to settings.js (docs/COMPLETION.md)
+  const SETTINGS_CSS = `
+    /* Settings rows (More tab) */
+    .set-prefs { display: flex; flex-direction: column; gap: 12px; }
+    .set-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px;
+    }
+    .set-row .set-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .set-choice { display: flex; gap: 4px; flex-wrap: wrap; }
+    .set-choice button {
+      min-height: 44px; padding: 0 10px;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--dim);
+      font-size: 13px; cursor: pointer;
+    }
+    .set-choice button.active {
+      background: var(--affordable); border-color: var(--affordable);
+      color: #0b0f17; font-weight: 700;
+    }
+    .set-note { font-size: 12px; color: var(--dim); }
+    .about {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: 13px; color: var(--dim);
+    }
+    .about .about-ver { color: var(--text); font-weight: 700; }
+    .about a { color: var(--affordable); text-decoration: none; }
+  `;
+  let settingsStyleInjected = false;
+  function injectSettingsStyle() {
+    if (settingsStyleInjected) return;
+    settingsStyleInjected = true;
+    const el = document.createElement('style');
+    el.textContent = SETTINGS_CSS;
+    document.head.appendChild(el);
+  }
+
+  // Version stamp: the ?v= value in the page's own module URL.
+  function versionStamp() {
+    try {
+      const v = new URL(import.meta.url).searchParams.get('v');
+      return v || 'dev';
+    } catch (err) {
+      return 'dev';
+    }
+  }
+
+  function makeChoiceRow(label, key, options) {
+    const row = document.createElement('div');
+    row.className = 'set-row';
+    const lab = document.createElement('span');
+    lab.className = 'set-label';
+    lab.textContent = label;
+    const group = document.createElement('div');
+    group.className = 'set-choice';
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', label);
+    const sync = () => {
+      const current = String(getSetting(key));
+      for (const b of group.children) {
+        const on = b.dataset.value === current;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', String(on));
+      }
+    };
+    for (const opt of options) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.value = opt.value;
+      b.textContent = opt.label;
+      b.addEventListener('click', () => {
+        setSetting(key, opt.value);
+        sync();
+      });
+      group.appendChild(b);
+    }
+    row.append(lab, group);
+    sync();
+    return row;
+  }
+
+  function makeToggleRow(label, key, note) {
+    const row = document.createElement('div');
+    row.className = 'set-row';
+    const lab = document.createElement('span');
+    lab.className = 'set-label';
+    lab.textContent = label;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const sync = () => {
+      const on = getSetting(key) !== false;
+      btn.textContent = on ? 'On' : 'Off';
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    };
+    btn.addEventListener('click', () => {
+      setSetting(key, getSetting(key) === false);
+      sync();
+    });
+    sync();
+    row.append(lab, btn);
+    if (note) {
+      const n = document.createElement('div');
+      n.className = 'set-note';
+      n.textContent = note;
+      row.appendChild(n);
+    }
+    return row;
+  }
+
+  function buildSettings() {
+    injectSettingsStyle();
+
+    const prefs = document.createElement('div');
+    prefs.className = 'set-prefs';
+    prefs.appendChild(makeChoiceRow('Number format', 'numberFormat', [
+      { value: 'short', label: 'Short' },
+      { value: 'sci', label: 'Scientific' },
+    ]));
+    prefs.appendChild(makeToggleRow('Confirm before prestige', 'confirmPrestige'));
+    prefs.appendChild(makeChoiceRow('Reduce motion', 'reduceMotion', [
+      { value: 'auto', label: 'Auto' },
+      { value: 'on', label: 'On' },
+      { value: 'off', label: 'Off' },
+    ]));
+    prefs.appendChild(makeToggleRow('Sound', 'sound'));
+    prefs.appendChild(makeToggleRow('Haptics', 'haptics', 'Haptics need the app version on iPhone'));
+    els.moreSettings.prepend(prefs);
+
+    const about = document.createElement('div');
+    about.className = 'about';
+    const ver = document.createElement('div');
+    ver.className = 'about-ver';
+    ver.textContent = `Version ${versionStamp()}`;
+    const lic = document.createElement('div');
+    lic.textContent = 'Free and open source under GPL-3.0';
+    const link = document.createElement('a');
+    link.href = 'https://github.com/joogiebear/vllm';
+    link.textContent = 'github.com/joogiebear/vllm';
+    const credit = document.createElement('div');
+    credit.textContent = 'Designed with Claude, built by Qwen3.8 on Hermes';
+    about.append(ver, lic, link, credit);
+    els.moreSettings.appendChild(about);
+  }
+
   // Mount the More tab sub-screens once at start.
+  buildSettings();
   mountAchievements(document.getElementById('more-achievements'), () => state);
   mountStats(document.getElementById('more-stats'), () => state);
 
