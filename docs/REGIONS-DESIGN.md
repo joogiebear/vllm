@@ -9,13 +9,13 @@ the first layer resets, including Weights, and you earn **Regions**, a rarer cur
 makes every later run faster and unlocks quality-of-life perks.
 
 ## When it unlocks
-- The Regions view appears once you've earned 25 Weights in total; the first Region needs 50.
+- The Regions view appears once you've earned 25 Weights in total; the first Region needs 4000.
 - Target: the first Region lands at about 3 to 5 hours of active play.
   The test bot tunes `REGION_DIVISOR` until it does.
 
 ## Formula
 - `regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned`,
-  starting with `REGION_DIVISOR = 50` (first Region at 50 Weights, 2nd at 200, 3rd at 450).
+  starting with `REGION_DIVISOR = 4000` (first Region at 4000 Weights, 2nd at 16000, 3rd at 36000).
 - `weightsEverEarned` is a new counter of all Weights ever claimed. It survives Region resets.
 
 ## What a Region reset does
