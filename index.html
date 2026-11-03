@@ -63,8 +63,13 @@
     /* Step the font down once the text is 8+ chars so "1.23e15" /
        "999.9T" stay on one line at 360 px. */
     #tokens.long { font-size: 22px; }
-    #rate { font-size: 13px; color: var(--dim); white-space: nowrap; }
-    #region-name { font-size: 11px; color: var(--dim); margin-top: 2px; }
+    /* The region name sits on the rate line ("1.6K per sec · Oregon");
+       the line ellipsises when it is too long. */
+    #rate {
+      font-size: 13px; color: var(--dim); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    #region-name { font-size: 11px; color: var(--dim); }
     #hud-right {
       display: flex; flex-direction: column; align-items: flex-end;
       gap: 4px; min-width: 0; max-width: 45%;
@@ -381,8 +386,7 @@
       <div id="hud-row1">
         <div id="hud-left">
           <div id="tokens" class="value">0</div>
-          <div id="rate"><span id="tps">0</span> per sec</div>
-          <div id="region-name" hidden></div>
+          <div id="rate"><span id="tps">0</span> per sec <span id="region-name" hidden></span></div>
         </div>
         <div id="hud-right">
           <div id="weights-chip" class="chip" hidden>Weights +0%</div>

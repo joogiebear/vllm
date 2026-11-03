@@ -764,8 +764,8 @@ export function createUI(state, io) {
   mountStats(document.getElementById('more-stats'), () => state);
 
   // Timed events (docs/TIERS-EVENTS.md): banner above the generator cards,
-  // chip in the header (appended last: the column reads Weights, Rush,
-  // event chip).
+  // chip in the header (appended last; while it is visible it takes the
+  // Rush chip's place, so the column holds at most two chips).
   const eventsList = document.createElement('div');
   const eventsChip = document.createElement('div');
   document.getElementById('tab-game').prepend(eventsList);
@@ -1060,9 +1060,17 @@ export function createUI(state, io) {
         : `Weights +${bonus}%`;
     }
 
-    // Region name under the token count, once any Region is earned.
+    // Region name on the rate line ("1.6K per sec · Oregon"), once any
+    // Region is earned.
     els.regionName.hidden = earnedRegions < 1;
-    if (earnedRegions >= 1) els.regionName.textContent = regionName(state);
+    if (earnedRegions >= 1) els.regionName.textContent = `· ${regionName(state)}`;
+
+    // While a timed event runs (spike/turbo), its chip takes Rush's place
+    // in the header's 2-chip column; Rush comes back when the event ends.
+    els.rush.hidden = !!(
+      state.eventActive &&
+      (state.eventActive.kind === 'spike' || state.eventActive.kind === 'turbo')
+    );
 
     // Cosmetic tint per region: 12° hue-rotate per region on the card ring
     // colours only (the generator icon borders), capped at 120°.
