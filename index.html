@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <style>html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } input, textarea { -webkit-user-select: text; user-select: text; }</style>
+  <script>
+    // iOS Safari ignores user-scalable=no, so block pinch zoom here. touch-action handles double-tap.
+    for (const t of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  </script>
   <title>OVERCLOCK</title>
   <style>
     :root {
@@ -361,6 +367,6 @@
       <button type="button" data-tab="settings">Settings</button>
     </nav>
   </div>
-  <script type="module" src="src/idle/app.js?v=20261103035345"></script>
+  <script type="module" src="src/idle/app.js?v=20261103041805"></script>
 </body>
 </html>

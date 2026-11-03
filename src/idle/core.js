@@ -18,7 +18,7 @@ import {
   WEIGHT_BONUS_PER_WEIGHT,
   CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
-} from './data.js?v=20261103035345';
+} from './data.js?v=20261103041805';
 
 // --- state -------------------------------------------------------------------
 

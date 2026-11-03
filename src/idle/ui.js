@@ -2,12 +2,12 @@ import {
   buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, prestige,
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
-} from './core.js?v=20261103035345';
+} from './core.js?v=20261103041805';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-} from './data.js?v=20261103035345';
+} from './data.js?v=20261103041805';
 
 // Tier colours (data.js is owned by the balance pass, so colours live here).
 const TIER_COLORS = {
