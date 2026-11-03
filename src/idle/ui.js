@@ -373,9 +373,16 @@ export function createUI(state, io) {
       }
 
       const isLocked = owned === 0;
+      r.card.classList.toggle('locked', isLocked);
+      r.bar.hidden = isLocked;
+      r.milestone.hidden = isLocked;
+      r.status.hidden = isLocked;
       let c;
       let disabled;
-      if (view.buyMode === 'max') {
+      if (isLocked) {
+        c = cost(state, g.id, 1);
+        disabled = c > state.tokens;
+      } else if (view.buyMode === 'max') {
         const m = maxAffordable(state, g);
         c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
@@ -384,7 +391,7 @@ export function createUI(state, io) {
         disabled = c > state.tokens;
       }
       r.buyBtn.textContent = isLocked
-        ? `Unlock ${fmt(c)}`
+        ? `Unlock · ${fmt(c)}`
         : `Buy x${view.buyMode === 'max' ? 'Max' : view.buyMode} · ${fmt(c)}`;
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
