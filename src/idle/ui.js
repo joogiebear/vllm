@@ -77,7 +77,6 @@ export function createUI(state, io) {
   };
   let prestigeTimer = null;
   let resetTimer = null;
-  let bannerTimer = null;
 
   // --- element refs -------------------------------------------------------
   const $ = (id) => document.getElementById(id);
@@ -86,8 +85,6 @@ export function createUI(state, io) {
     tps: $('tps'),
     weights: $('weights-value'),
     banner: $('banner'),
-    bannerText: $('banner-text'),
-    bannerClose: $('banner-close'),
     serve: $('serve'),
     serveWrap: $('serve-wrap'),
     heatFill: $('heat-fill'),
@@ -270,19 +267,30 @@ export function createUI(state, io) {
     setMsg('Reset.');
   });
 
-  // --- banner (offline earnings, rush payout) --------------------------------
+  // --- banners (offline earnings, rush payout) ------------------------------
+  // Each message is its own row with its own close button and auto-dismiss,
+  // so several can be visible at once, one below the other.
   function showBanner(text) {
-    els.bannerText.textContent = text;
+    const msg = document.createElement('div');
+    msg.className = 'banner-msg';
+    const span = document.createElement('span');
+    span.textContent = text;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'dismiss');
+    closeBtn.textContent = 'x';
+    let timer = null;
+    const dismiss = () => {
+      if (timer !== null) clearTimeout(timer);
+      msg.remove();
+      if (els.banner.children.length === 0) els.banner.hidden = true;
+    };
+    closeBtn.addEventListener('click', dismiss);
+    timer = setTimeout(dismiss, 20000);
+    msg.append(span, closeBtn);
+    els.banner.appendChild(msg);
     els.banner.hidden = false;
-    clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(() => {
-      els.banner.hidden = true;
-    }, 20000);
   }
-  els.bannerClose.addEventListener('click', () => {
-    els.banner.hidden = true;
-    clearTimeout(bannerTimer);
-  });
 
   // --- update (called at most 10 times per second by app.js) ----------------
   function update(state, now) {

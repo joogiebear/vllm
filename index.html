@@ -68,16 +68,21 @@
     #hud { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
     #weights-value { color: var(--magenta); }
 
-    /* Notification banner (offline earnings, rush payout) */
+    /* Notification banners (offline earnings, rush payout) */
     #banner {
       display: flex;
+      flex-direction: column;
       gap: 8px;
-      align-items: center;
-      justify-content: space-between;
       border-color: var(--lime);
       color: var(--lime);
     }
     #banner[hidden] { display: none; }
+    .banner-msg {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
 
     /* Serve button and floating +N numbers */
     #serve-wrap { position: relative; }
@@ -224,10 +229,7 @@
       <div>weights <span id="weights-value">0</span></div>
     </header>
 
-    <div id="banner" class="panel" hidden>
-      <span id="banner-text"></span>
-      <button id="banner-close" type="button" aria-label="dismiss">x</button>
-    </div>
+    <div id="banner" class="panel" hidden></div>
 
     <div id="serve-wrap">
       <button id="serve" type="button">SERVE</button>
