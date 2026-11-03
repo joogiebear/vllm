@@ -200,6 +200,22 @@
 
     /* Upgrades: one column, top to bottom, at every width. */
     #up-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    #buy-all {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      width: 100%;
+      min-height: 44px;
+      background: var(--lime);
+      color: #06080d;
+      border: 1px solid var(--lime);
+      font-weight: 700;
+    }
+    #buy-all:disabled {
+      background: var(--panel);
+      color: var(--dim);
+      border-color: var(--border);
+    }
     #shop-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .card {
       border: 1px solid var(--border);

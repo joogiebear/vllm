@@ -126,6 +126,7 @@ Weight upgrades, bought with weights, one-time:
 | `seed` | Seed Funding | 1 | Start each run with 1,000 tokens |
 | `night` | Night Shift | 3 | Offline rate 50% becomes 75% |
 | `warm` | Warm Cache | 1 | cacheRate +0.25 |
+| `procure` | Procurement Bot | 1 | Adds a Buy All button to the Upgrades tab |
 | `long` | Long Weekend | 15 | Offline cap 8 hours becomes 24 |
 | `auto` | Autoscaler | 20 | Heat never reaches 100: overclock turns itself off at 95 and back on at 40 |
 | `distill` | Knowledge Distillation | 50 | Weight bonus 10% becomes 13% each |

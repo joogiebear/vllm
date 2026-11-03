@@ -3,7 +3,7 @@
 // Rows and cards are built once; update() only changes text, classes and
 // visibility, so the DOM is not rebuilt on every frame.
 import {
-  click, buy, buyUpgrade, buyWeightUpgrade, setOverclock, prestige,
+  click, buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, setOverclock, prestige,
   tokensPerSecond, cost, weightsAvailable, createState,
 } from './core.js';
 import {
@@ -58,6 +58,7 @@ const WU_WORDS = {
   seed: 'Start each run with 1,000 tokens',
   night: 'Offline rate 50% becomes 75%',
   warm: 'Cache rate +25%',
+  procure: 'Adds a Buy All button to the Upgrades tab',
   long: 'Offline cap 8 hours becomes 24',
   auto: 'Overclock auto-cycles: off at 95 heat, on at 40',
   distill: `Weight bonus ${Math.round(WEIGHT_BONUS_PER_WEIGHT * 100)}% becomes ${Math.round(DISTILL_WU.value * 100)}% each`,
@@ -323,6 +324,30 @@ export function createUI(state, io) {
     return { u, card, now, bar, barFill, buyBtn, bLabel, bCost, gain: 0 };
   });
 
+  // Buy All: shown at the top of the list only while the 'procure' weight
+  // upgrade is owned. N is how many it would buy now, computed on a copy of
+  // the token count so the real state is never mutated.
+  const buyAllBtn = document.createElement('button');
+  buyAllBtn.type = 'button';
+  buyAllBtn.id = 'buy-all';
+  buyAllBtn.hidden = true;
+  function buyAllCount() {
+    let count = 0;
+    let tokens = state.tokens;
+    for (const u of [...UPGRADES].sort((a, b) => a.cost - b.cost)) {
+      if (state.upgrades.includes(u.id)) continue;
+      if (tokens < u.cost) break;
+      tokens -= u.cost;
+      count++;
+    }
+    return count;
+  }
+  buyAllBtn.addEventListener('click', () => {
+    buyAllUpgrades(state);
+    updateUpgrades(state); // immediate, without waiting for the next 10 Hz pass
+  });
+  els.upGrid.parentNode.insertBefore(buyAllBtn, els.upGrid);
+
   // --- build weight upgrade rows (once) ------------------------------------
   // Sorted by cost, cheapest first, like the token upgrades.
   const wuRefs = [...WEIGHT_UPGRADES]
@@ -492,6 +517,56 @@ export function createUI(state, io) {
     els.banner.hidden = false;
   }
 
+  // --- upgrades (the 10 Hz pass, and immediately after a Buy All tap) ------
+  function updateUpgrades(state) {
+    // Every card is always shown (sorted by cost, cheapest first), whether or
+    // not it is affordable. An owned card stays in its place, dimmed, with a
+    // disabled "Owned" button and no progress bar. Both directions follow
+    // state on every pass, so a prestige, import or reset that clears (or
+    // changes) state.upgrades brings the cards back in sync.
+    for (const r of upRefs) {
+      const owned = state.upgrades.includes(r.u.id);
+      r.card.classList.toggle('owned', owned);
+      if (owned) {
+        r.now.hidden = true;
+        r.bar.hidden = true;
+        r.buyBtn.disabled = true;
+        r.buyBtn.classList.remove('afford');
+        r.bLabel.textContent = 'Owned';
+        r.bCost.hidden = true;
+        continue;
+      }
+      r.bLabel.textContent = 'Buy ·';
+      r.bCost.hidden = false;
+      r.bar.hidden = false;
+      // The before/after figure is computed here, at the 10 Hz pass.
+      if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
+        r.gain = upgradeGain(state, r.u);
+        r.now.hidden = false;
+        r.now.textContent = `+${fmt(r.gain)}/s`;
+      } else {
+        // Cooling and click upgrades have no tps figure: the effect line
+        // above says it all, so the second line is hidden.
+        r.now.hidden = true;
+      }
+      const affordable = state.tokens >= r.u.cost;
+      r.buyBtn.disabled = !affordable;
+      r.buyBtn.classList.toggle('afford', affordable);
+      r.bCost.classList.toggle('amber', !affordable);
+      r.bCost.textContent = fmt(r.u.cost);
+      r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
+    }
+    // Buy All: visible only while 'procure' is owned; N is how many it would
+    // buy now (computed without touching state), disabled at 0.
+    const ownsProcure = state.weightUpgrades.includes('procure');
+    buyAllBtn.hidden = !ownsProcure;
+    if (ownsProcure) {
+      const n = buyAllCount();
+      buyAllBtn.textContent = `Buy All (${n})`;
+      buyAllBtn.disabled = n === 0;
+    }
+  }
+
   // --- update (called at most 10 times per second by app.js) ----------------
   function update(state, now) {
     view.lastNow = now;
@@ -530,44 +605,8 @@ export function createUI(state, io) {
     // Generators (immediate updates on mode change / purchase call this too).
     updateGenRows(state, true);
 
-    // Upgrades: every card is always shown (sorted by cost, cheapest first),
-    // whether or not it is affordable or was once "revealed". An owned card
-    // stays in its place, dimmed, with a disabled "Owned" button and no
-    // progress bar. Both directions follow state on every pass, so a
-    // prestige, import or reset that clears (or changes) state.upgrades
-    // brings the cards back in sync.
-    for (const r of upRefs) {
-      const owned = state.upgrades.includes(r.u.id);
-      r.card.classList.toggle('owned', owned);
-      if (owned) {
-        r.now.hidden = true;
-        r.bar.hidden = true;
-        r.buyBtn.disabled = true;
-        r.buyBtn.classList.remove('afford');
-        r.bLabel.textContent = 'Owned';
-        r.bCost.hidden = true;
-        continue;
-      }
-      r.bLabel.textContent = 'Buy ·';
-      r.bCost.hidden = false;
-      r.bar.hidden = false;
-      // The before/after figure is computed here, at the 10 Hz pass.
-      if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
-        r.gain = upgradeGain(state, r.u);
-        r.now.hidden = false;
-        r.now.textContent = `+${fmt(r.gain)}/s`;
-      } else {
-        // Cooling and click upgrades have no tps figure: the effect line
-        // above says it all, so the second line is hidden.
-        r.now.hidden = true;
-      }
-      const affordable = state.tokens >= r.u.cost;
-      r.buyBtn.disabled = !affordable;
-      r.buyBtn.classList.toggle('afford', affordable);
-      r.bCost.classList.toggle('amber', !affordable);
-      r.bCost.textContent = fmt(r.u.cost);
-      r.barFill.style.width = `${Math.min(100, (state.tokens / r.u.cost) * 100)}%`;
-    }
+    // Upgrades (and the Buy All button), same pass.
+    updateUpgrades(state);
 
     // Prestige: hidden until the first weight is in reach or already earned;
     // a hint line takes its place in the meantime.

@@ -39,6 +39,7 @@ export const WEIGHT_UPGRADES = [
   { id: 'seed', name: 'Seed Funding', cost: 1, kind: 'startTokens', value: 1000 },
   { id: 'night', name: 'Night Shift', cost: 3, kind: 'offlineRate', value: 0.75 },
   { id: 'warm', name: 'Warm Cache', cost: 1, kind: 'cacheRate', value: 0.25 },
+  { id: 'procure', name: 'Procurement Bot', cost: 1, kind: 'buyAll', value: true },
   { id: 'long', name: 'Long Weekend', cost: 15, kind: 'offlineCap', value: 24 },
   { id: 'auto', name: 'Autoscaler', cost: 20, kind: 'auto', value: true },
   { id: 'distill', name: 'Knowledge Distillation', cost: 50, kind: 'weightBonus', value: 0.13 },

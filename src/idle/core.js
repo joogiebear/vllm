@@ -300,6 +300,25 @@ export function buyUpgrade(state, id) {
   return true;
 }
 
+// Buys every unowned upgrade, cheapest first, for as long as the next one is
+// affordable, then stops. Gated on the 'procure' weight upgrade; returns the
+// number bought. Bad input is ignored and never throws.
+export function buyAllUpgrades(state) {
+  if (!validState(state)) return 0;
+  if (!Array.isArray(state.upgrades) || !Array.isArray(state.weightUpgrades)) return 0;
+  if (!state.weightUpgrades.includes('procure')) return 0;
+  if (!isFiniteNumber(state.tokens)) return 0;
+  let bought = 0;
+  for (const u of [...UPGRADES].sort((a, b) => a.cost - b.cost)) {
+    if (state.upgrades.includes(u.id)) continue;
+    if (state.tokens < u.cost) break;
+    state.tokens -= u.cost;
+    state.upgrades.push(u.id);
+    bought++;
+  }
+  return bought;
+}
+
 export function buyWeightUpgrade(state, id) {
   if (!validState(state)) return false;
   const u = WEIGHT_UPGRADES.find((x) => x.id === id);

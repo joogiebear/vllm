@@ -7,6 +7,7 @@ import {
   click,
   buy,
   buyUpgrade,
+  buyAllUpgrades,
   setOverclock,
   prestige,
   buyWeightUpgrade,
@@ -562,4 +563,50 @@ test('state is JSON-serialisable and round-tripped states behave identically', (
   assert.equal(buy(copy, 'pi', 3), buy(s, 'pi', 3));
   assert.equal(prestige(copy), prestige(s));
   assert.deepEqual(copy, s);
+});
+
+// --- buyAllUpgrades ---------------------------------------------------------------------------
+
+test('buyAllUpgrades: gated without the procure upgrade', () => {
+  const s = createState();
+  s.tokens = 1e9;
+  assert.equal(buyAllUpgrades(s), 0);
+  assert.deepEqual(s.upgrades, []);
+  assert.equal(s.tokens, 1e9);
+});
+
+test('buyAllUpgrades: buys cheapest first and stops at the unaffordable one', () => {
+  const s = createState();
+  s.tokens = 5000;
+  s.weightUpgrades.push('procure');
+  assert.equal(buyAllUpgrades(s), 3); // quant 100, macro 500, batch 1000; prefix1 5000 not affordable
+  assert.deepEqual(s.upgrades, ['quant', 'macro', 'batch']);
+  assert.equal(s.tokens, 3400);
+});
+
+test('buyAllUpgrades: skips already-owned upgrades', () => {
+  const s = createState();
+  s.tokens = 1000;
+  s.weightUpgrades.push('procure');
+  s.upgrades.push('quant');
+  assert.equal(buyAllUpgrades(s), 1); // macro 500; batch 1000 not affordable after
+  assert.deepEqual(s.upgrades, ['quant', 'macro']);
+  assert.equal(s.tokens, 500);
+});
+
+test('buyAllUpgrades: bad input never throws, returns 0', () => {
+  assert.equal(buyAllUpgrades(null), 0);
+  assert.equal(buyAllUpgrades({}), 0);
+  assert.equal(buyAllUpgrades({ tokens: 'x', upgrades: [], weightUpgrades: ['procure'] }), 0);
+  assert.equal(buyAllUpgrades(undefined), 0);
+});
+
+test('buyAllUpgrades: procure survives a prestige (weight upgrade)', () => {
+  const s = createState();
+  s.totalLifetime = 1e11; // 1 weight available
+  s.weightUpgrades.push('procure');
+  s.upgrades.push('quant');
+  assert.equal(prestige(s), 1);
+  assert.ok(s.weightUpgrades.includes('procure'));
+  assert.deepEqual(s.upgrades, []);
 });
