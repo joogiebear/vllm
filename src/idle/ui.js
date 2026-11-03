@@ -3,9 +3,10 @@
 // Rows and cards are built once; update() only changes text, classes and
 // visibility, so the DOM is not rebuilt on every frame.
 import {
-  click, buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, setOverclock, prestige,
+  buy, buyUpgrade, buyWeightUpgrade, buyAllUpgrades, setOverclock, prestige,
   tokensPerSecond, cost, weightsAvailable, createState,
 } from './core.js';
+import { createRack } from './rack.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, DOUBLING_THRESHOLDS,
   PRESTIGE_DIVISOR,
@@ -118,8 +119,6 @@ export function createUI(state, io) {
     tps: $('tps'),
     weightsChip: $('weights-chip'),
     banner: $('banner'),
-    serve: $('serve'),
-    serveWrap: $('serve-wrap'),
     heatFill: $('heat-fill'),
     heatNum: $('heat-num'),
     ocState: $('oc-state'),
@@ -145,6 +144,13 @@ export function createUI(state, io) {
   function setMsg(text) {
     els.settingsMsg.textContent = text;
   }
+
+  // --- the rack (the new centrepiece) ---------------------------------------
+  // One large "Serve" button with one unit per owned tier. Built once;
+  // update() only touches classes and CSS custom properties, and a unit
+  // appears (with a slide-in) only when its tier is first owned.
+  const rack = createRack(state, fmt);
+  document.getElementById('rack-wrap').appendChild(rack.el);
 
   // --- build generator rows (once) -----------------------------------------
   // Each row is one line, at most 56px tall: "Name  x12" on the left
@@ -411,16 +417,6 @@ export function createUI(state, io) {
     return { wu, buyBtn };
   });
 
-  // --- serve button: click + floating +N -----------------------------------
-  els.serve.addEventListener('click', () => {
-    const earned = click(state);
-    const f = document.createElement('span');
-    f.className = 'float';
-    f.textContent = `+${fmt(earned)}`;
-    els.serveWrap.appendChild(f);
-    setTimeout(() => f.remove(), 900);
-  });
-
   // --- buy amount selector (applies to all generator rows) ------------------
   const selBtns = document.querySelectorAll('.buy-sel button');
   selBtns.forEach((b) => {
@@ -608,6 +604,9 @@ export function createUI(state, io) {
     const hasWeights = state.weights > 0 || (state.weightsEarnedThisCycle || 0) > 0;
     els.weightsChip.hidden = !hasWeights;
     if (hasWeights) els.weightsChip.textContent = `weights ${fmt(state.weights)}`;
+
+    // Rack: classes and CSS custom properties only (see rack.js).
+    rack.update(state);
 
     // Heat panel.
     els.heatFill.style.width = `${Math.min(100, Math.max(0, state.heat))}%`;

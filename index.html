@@ -117,20 +117,124 @@
       justify-content: space-between;
     }
 
-    /* Serve button and floating +N numbers */
-    #serve-wrap { position: relative; }
-    #serve {
+    /* The rack: one large "Serve" button, fixed height (about 200px on a
+       phone even with all 8 tiers), one unit per owned tier stacked from
+       the bottom. Tapping the rack serves; the +N floats up inside it. */
+    #rack-wrap { position: relative; }
+    #rack {
+      position: relative;
       width: 100%;
-      padding: 20px;
-      font-size: 20px;
-      letter-spacing: 4px;
-      border-color: var(--cyan);
-      color: var(--cyan);
+      height: 200px;
+      padding: 0;
+      background: var(--panel);
+      border: 1px solid var(--rack-glow, var(--cyan));
+      box-shadow: 0 0 14px -6px var(--rack-glow, var(--cyan));
+      overflow: hidden;
     }
-    .float {
+    #rack:active { transform: scale(0.995); }
+    #rack .rack-label {
+      position: absolute;
+      top: 6px;
+      left: 10px;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--dim);
+      pointer-events: none;
+    }
+    #rack .rack-units {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 1px;
+      height: 100%;
+      padding: 22px 10px 8px;
+    }
+    #rack .unit {
+      display: none;
+      height: 20px;
+      align-items: center;
+      gap: 8px;
+    }
+    #rack .unit.show { display: flex; }
+    #rack .unit .shape {
+      height: 100%;
+      flex-shrink: 0;
+      position: relative;
+      border: 1px solid var(--border);
+      background: #0d1320;
+    }
+    /* One visually distinct CSS shape per tier */
+    #rack .unit[data-tier="pi"] .shape { width: 40px; border-color: #3fae5a; background: #0c1a11; }
+    #rack .unit[data-tier="gamer"] .shape { width: 72px; }
+    #rack .unit .fan {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid var(--dim);
+    }
+    #rack .unit[data-tier="workstation"] .shape { width: 96px; }
+    #rack .unit[data-tier="rack"] .shape {
+      width: 120px;
+      background: repeating-linear-gradient(0deg, #0d1320 0 5px, #16233c 5px 7px);
+    }
+    #rack .unit[data-tier="cluster"] .shape { width: 140px; }
+    #rack .unit .gpu {
+      position: absolute;
+      top: 4px;
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--dim);
+    }
+    #rack .unit .gpu:nth-of-type(1) { left: 8px; }
+    #rack .unit .gpu:nth-of-type(2) { left: 30px; }
+    #rack .unit[data-tier="datacenter"] .shape {
+      width: 170px;
+      background: repeating-linear-gradient(90deg, #0d1320 0 18px, #16233c 18px 20px);
+    }
+    #rack .unit[data-tier="campus"] .shape {
+      width: 190px;
+      background: repeating-linear-gradient(90deg, #0d1320 0 34px, #16233c 34px 40px);
+    }
+    #rack .unit[data-tier="swarm"] .shape { width: 200px; }
+    #rack .unit .node {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid var(--dim);
+    }
+    #rack .unit .node:nth-of-type(1) { left: 16px; }
+    #rack .unit .node:nth-of-type(2) { left: 44px; }
+    #rack .unit .node:nth-of-type(3) { left: 72px; }
+    /* LEDs: lit count grows with owned (up to 12); the blink speeds up with
+       production, capped below strobing (period >= 400 ms). */
+    #rack .leds { display: flex; flex: 1; justify-content: flex-end; gap: 3px; }
+    #rack .led { width: 5px; height: 5px; border-radius: 50%; background: #1a2438; }
+    #rack .led.lit {
+      background: var(--lime);
+      animation: ledBlink var(--blink, 1600ms) steps(1, end) infinite;
+    }
+    @keyframes ledBlink {
+      0%   { opacity: 1; }
+      50%  { opacity: 0.2; }
+      100% { opacity: 1; }
+    }
+    /* A tier appears with a short slide-in the first time it is owned */
+    #rack .unit.slide-in { animation: rackSlideIn 0.4s ease-out; }
+    @keyframes rackSlideIn {
+      from { transform: translateX(-14px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+    /* Floating +N (serving), rising from the bottom inside the rack */
+    #rack .float {
       position: absolute;
       left: 50%;
-      top: 0;
+      bottom: 12px;
       transform: translateX(-50%);
       color: var(--lime);
       pointer-events: none;
@@ -139,9 +243,6 @@
     @keyframes floatUp {
       from { opacity: 1; margin-top: 0; }
       to   { opacity: 0; margin-top: -48px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .float { animation: none; }
     }
 
     /* Heat */
@@ -435,9 +536,7 @@
       <div id="tab-game" class="tab-panel">
         <div id="banner" class="panel" hidden></div>
 
-        <div id="serve-wrap">
-          <button id="serve" type="button">SERVE</button>
-        </div>
+        <div id="rack-wrap"></div>
 
         <section id="heat" class="panel">
           <h2>HEAT</h2>
