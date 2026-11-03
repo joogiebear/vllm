@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OVERCLOCK — tier icon sheet</title>
+<title>OVERCLOCK — icon sheet (tiers, managers, badges)</title>
 <style>
   body {
     margin: 0; padding: 24px; background: #0b0f17; color: #eef3f9;
@@ -19,23 +19,40 @@
   .sizes { display: flex; align-items: center; gap: 24px; }
   .cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .cell span { font-size: 11px; color: #93a3b8; }
+  h2.sec { font-size: 14px; margin: 24px 0 8px; color: #93a3b8; }
 </style>
 </head>
 <body>
-  <h1>Tier icon sheet</h1>
-  <p class="sub">12 tiers, 20 / 32 / 64 px, stroke 1.8, currentColor on #0b0f17.</p>
+  <h1>Icon sheet</h1>
+  <p class="sub">Tiers, managers and achievement badges, 20 / 32 / 64 px, stroke 1.8, on #0b0f17.</p>
   <div id="sheet"></div>
   <script type="module">
-    import { TIER_COLORS, icon } from '../src/idle/icons.js';
+    import { TIER_COLORS, icon, managerIcon, badge } from '../src/idle/icons.js';
     const sheet = document.getElementById('sheet');
-    for (const [id, color] of Object.entries(TIER_COLORS)) {
+
+    function row(nameText) {
       const row = document.createElement('div');
       row.className = 'row';
       const name = document.createElement('div');
       name.className = 'name';
-      name.textContent = id;
+      name.textContent = nameText;
       const sizes = document.createElement('div');
       sizes.className = 'sizes';
+      row.append(name, sizes);
+      sheet.append(row);
+      return sizes;
+    }
+
+    function section(title) {
+      const h = document.createElement('h2');
+      h.className = 'sec';
+      h.textContent = title;
+      sheet.append(h);
+    }
+
+    section('Tier icons');
+    for (const [id, color] of Object.entries(TIER_COLORS)) {
+      const sizes = row(id);
       for (const size of [20, 32, 64]) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -46,8 +63,47 @@
         cell.append(svg, label);
         sizes.append(cell);
       }
-      row.append(name, sizes);
-      sheet.append(row);
+    }
+
+    section('Manager icons');
+    for (const [id] of Object.entries(TIER_COLORS)) {
+      const sizes = row('manager ' + id);
+      for (const size of [20, 32, 64]) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.append(managerIcon(id, size));
+        const label = document.createElement('span');
+        label.textContent = size + 'px';
+        cell.append(label);
+        sizes.append(cell);
+      }
+    }
+
+    section('Achievement badges');
+    const KINDS = [
+      { kind: 'owned', gen: 'pi', label: 'owned (pi)' },
+      { kind: 'lifetime', label: 'lifetime' },
+      { kind: 'prestiges', label: 'prestiges' },
+      { kind: 'taps', label: 'taps' },
+      { kind: 'rushGames', label: 'rush games' },
+      { kind: 'events', label: 'events' },
+      { kind: 'regions', label: 'regions' },
+      { kind: 'allPerks', label: 'all perks' },
+      { kind: 'allManagers', label: 'all managers' },
+    ];
+    for (const k of KINDS) {
+      for (const unlocked of [false, true]) {
+        const sizes = row(k.label + (unlocked ? ' unlocked' : ' locked'));
+        for (const size of [20, 32, 64]) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.append(badge({ test: { kind: k.kind, gen: k.gen } }, unlocked, size));
+          const label = document.createElement('span');
+          label.textContent = size + 'px';
+          cell.append(label);
+          sizes.append(cell);
+        }
+      }
     }
   </script>
 </body>
