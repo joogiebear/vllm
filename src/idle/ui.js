@@ -44,6 +44,29 @@ function fmtTime(ms) {
   return `${sec}s`;
 }
 
+// Backup slot times (Settings "Backups"): "10:42" and "Today 10:42".
+function fmtClock(savedAt) {
+  const d = new Date(savedAt);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function fmtBackupTime(savedAt) {
+  const d = new Date(savedAt);
+  const now = new Date();
+  const hm = fmtClock(savedAt);
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return `Today ${hm}`;
+  const y = new Date(now.getTime() - 86400000);
+  const isYesterday =
+    d.getFullYear() === y.getFullYear() &&
+    d.getMonth() === y.getMonth() &&
+    d.getDate() === y.getDate();
+  if (isYesterday) return `Yesterday ${hm}`;
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hm}`;
+}
+
 // Two-line buy button: the two spans are created once and only their
 // text is updated afterwards, so the DOM stays stable.
 function makeLines(buyBtn) {
@@ -620,6 +643,28 @@ export function createUI(state, io) {
     }
     .about .about-ver { color: var(--text); font-weight: 700; }
     .about a { color: var(--affordable); text-decoration: none; }
+    /* Restore-backup confirm card (in-game, no window.confirm). */
+    .bk-backdrop {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .bk-card {
+      width: 100%; max-width: 340px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      display: flex; flex-direction: column; gap: 8px; text-align: center;
+    }
+    .bk-text { font-size: 15px; font-weight: 700; color: var(--text); }
+    .bk-btns { display: flex; gap: 8px; margin-top: 8px; }
+    .bk-btns button {
+      flex: 1; min-height: 44px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--dim);
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .bk-yes { border-color: var(--affordable); background: var(--affordable); color: #0b0f17; }
   `;
   let settingsStyleInjected = false;
   function injectSettingsStyle() {
@@ -739,6 +784,85 @@ export function createUI(state, io) {
       showBanner('Tips will show again.', 'Tips');
     });
     morePanels.settings.appendChild(tipsBtn);
+
+    // Backups (docs/STABILITY-DESIGN.md section 3): the three slots, b1
+    // (newest) first, with the time saved and lifetime tokens; an empty
+    // slot shows "Empty". Restore asks for confirmation in an in-game
+    // card, then replaces the state the same way import does.
+    let confirmEl = null;
+    function closeConfirm() {
+      if (confirmEl && confirmEl.parentNode) confirmEl.parentNode.removeChild(confirmEl);
+      confirmEl = null;
+    }
+    function confirmRestore(when, onYes) {
+      closeConfirm();
+      const el = document.createElement('div');
+      el.className = 'bk-backdrop';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-label', 'Restore backup');
+      const card = document.createElement('div');
+      card.className = 'bk-card';
+      const text = document.createElement('div');
+      text.className = 'bk-text';
+      text.textContent = `Restore the backup from ${when}? Your current progress will be replaced.`;
+      const btns = document.createElement('div');
+      btns.className = 'bk-btns';
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = 'Cancel';
+      cancel.addEventListener('click', closeConfirm);
+      const yes = document.createElement('button');
+      yes.type = 'button';
+      yes.className = 'bk-yes';
+      yes.textContent = 'Restore';
+      yes.addEventListener('click', () => {
+        closeConfirm();
+        onYes();
+      });
+      btns.append(cancel, yes);
+      card.append(text, btns);
+      el.appendChild(card);
+      document.body.appendChild(el);
+      confirmEl = el;
+      yes.focus();
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeConfirm();
+      });
+    }
+    function doRestore(slot) {
+      const restored = io.restoreBackup(slot);
+      if (restored === null) {
+        showBanner('Restore failed: that backup is empty or unreadable.', 'Restore error');
+        return;
+      }
+      io.replaceState(restored);
+      showBanner('Backup restored.', 'Restored');
+    }
+    const backups = document.createElement('div');
+    backups.className = 'set-prefs';
+    const bkTitle = document.createElement('div');
+    bkTitle.className = 'set-label';
+    bkTitle.textContent = 'Backups';
+    backups.appendChild(bkTitle);
+    for (const b of io.listBackups()) {
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      const lab = document.createElement('span');
+      lab.className = 'set-label';
+      if (b === null) {
+        lab.textContent = 'Empty';
+      } else {
+        lab.textContent = `${fmtBackupTime(b.savedAt)} · ${fmt(b.lifetime)} tokens`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Restore';
+        btn.addEventListener('click', () => confirmRestore(fmtClock(b.savedAt), () => doRestore(b.slot)));
+        row.append(lab, btn);
+      }
+      backups.appendChild(row);
+    }
+    morePanels.settings.appendChild(backups);
 
     const about = document.createElement('div');
     about.className = 'about';

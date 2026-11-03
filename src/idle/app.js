@@ -1,7 +1,7 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
 import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261103182106';
 import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261103182106';
-import { load, save, exportSave, importSave, hardReset, backupNow, BACKUP_GAP_MS } from './save.js?v=20261103182106';
+import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261103182106';
 import { get } from './settings.js?v=20261103182106';
 import { createUI } from './ui.js?v=20261103182106';
 import { fmt } from './fmt.js?v=20261103182106';
@@ -45,6 +45,8 @@ const io = {
   exportSave: (s, now) => exportSave(s, now),
   importSave: (text) => importSave(text),
   hardReset: () => hardReset(),
+  listBackups: () => listBackups(),
+  restoreBackup: (slot) => restoreBackup(slot),
   replaceState,
 };
 
