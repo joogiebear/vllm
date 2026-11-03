@@ -471,6 +471,37 @@ export function cost(state, id, max = 1) {
   return total;
 }
 
+// The most units of a generator affordable with state.tokens, in closed
+// form (no per-unit loop):
+//   count = floor(log(1 + tokens * (r - 1) / next) / log(r))
+//   total = next * (r^count - 1) / (r - 1)
+// A floating-point guard decrements count once when the total overshoots
+// the tokens. Returns { count: 0, total: 0 } for bad input.
+export function maxBuyable(state, id) {
+  if (!validState(state) || !isFiniteNumber(state.tokens) || state.tokens <= 0) {
+    return { count: 0, total: 0 };
+  }
+  const g = GENERATORS.find((x) => x.id === id);
+  if (!g) return { count: 0, total: 0 };
+  const r = COST_GROWTH;
+  const owned = state.generators[id] || 0;
+  const next = g.baseCost * Math.pow(r, owned);
+  if (!Number.isFinite(next)) return { count: 0, total: 0 };
+  const count = Math.floor(
+    Math.log(1 + (state.tokens * (r - 1)) / next) / Math.log(r),
+  );
+  if (count <= 0) return { count: 0, total: 0 };
+  let total = next * (Math.pow(r, count) - 1) / (r - 1);
+  if (total > state.tokens) {
+    // floating-point error: one unit too many
+    return {
+      count: count - 1,
+      total: next * (Math.pow(r, count - 1) - 1) / (r - 1),
+    };
+  }
+  return { count, total };
+}
+
 export function buy(state, id, max = Infinity) {
   if (max === 'max') max = Infinity;
   if (!validState(state) || typeof max !== 'number' || Number.isNaN(max) || max < 1) return 0;
