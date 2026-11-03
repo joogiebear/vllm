@@ -6,19 +6,25 @@
 //   (a player who checks in now and then).
 // Both prestige when weights available reach max(5, 0.5 * current weights) and
 // buy every weight upgrade they can afford.
+// The active bot keeps playing through Regions (docs/REGIONS-DESIGN.md): it
+// buys Region perks cheapest first, expands when a Region is available, and
+// stops after its second expansion or after 12 simulated hours.
 // Run: node tools/idle-balance.js
 import {
   createState, tick, runRow, buyManager, buy, buyUpgrade,
   buyWeightUpgrade, prestige, cost, weightsAvailable,
+  regionsAvailable, expandRegion, buyRegionPerk,
 } from '../src/idle/core.js';
 import {
   GENERATORS, UPGRADES, WEIGHT_UPGRADES, MANAGERS, DOUBLING_THRESHOLDS,
+  REGION_PERKS,
 } from '../src/idle/data.js';
 
 const DT = 1; // seconds per step
 const START_TOKENS = 20; // the old game's 20 clicks; clicks are now a no-op
 const IDLE_CHECK_SECONDS = 60; // the idle bot checks in every 60 s
-const MAX_MINUTES = 720; // long enough for four resets
+const MAX_MINUTES = 720; // long enough for four resets (idle bot)
+const MAX_HOURS = 12; // the active bot plays this long, or until its 2nd Region
 const FOUR_LOWEST = ['pi', 'gamer', 'workstation', 'rack'];
 
 // Steady-state speed factor: milestones halve the cycle time (x2 each).
@@ -85,6 +91,21 @@ function buyWeightUpgrades(state) {
   }
 }
 
+// Buy Region perks with the bot's Region balance, cheapest first
+// (docs/REGIONS-DESIGN.md). Perks are kept forever; spending Regions never
+// lowers the x2-per-Region multiplier.
+function buyRegionPerks(state) {
+  let bought = true;
+  while (bought) {
+    bought = false;
+    const unowned = REGION_PERKS.filter((p) => !state.regionPerks.includes(p.id))
+      .sort((a, b) => a.cost - b.cost);
+    for (const p of unowned) {
+      if (state.regions >= p.cost) { buyRegionPerk(state, p.id); bought = true; }
+    }
+  }
+}
+
 function simulate(isIdle) {
   const state = createState();
   state.tokens = START_TOKENS;
@@ -92,8 +113,10 @@ function simulate(isIdle) {
   let tFourManagers = null;
   let tPrestigeAvail = null;
   const resets = [];
+  const expansions = [];
   let runStart = 0;
-  const steps = MAX_MINUTES * 60;
+  const horizon = isIdle ? MAX_MINUTES * 60 : MAX_HOURS * 3600;
+  const steps = Math.floor(horizon / DT);
   for (let s = 1; s <= steps; s++) {
     const t = s * DT;
     botStep(state, isIdle, s);
@@ -101,22 +124,37 @@ function simulate(isIdle) {
     if (tFirstManager === null && state.managers.length >= 1) tFirstManager = t;
     if (tFourManagers === null && FOUR_LOWEST.every((id) => state.managers.includes(id))) tFourManagers = t;
     if (tPrestigeAvail === null && weightsAvailable(state) >= 1) tPrestigeAvail = t;
-    if (resets.length < 4 && weightsAvailable(state) >= Math.max(5, 0.5 * state.weights)) {
+    if (weightsAvailable(state) >= Math.max(5, 0.5 * state.weights)) {
       prestige(state);
       buyWeightUpgrades(state);
-      resets.push({ t, duration: t - runStart });
+      if (resets.length < 4) resets.push({ t, duration: t - runStart });
       runStart = t;
     }
-    if (tFirstManager !== null && tFourManagers !== null && tPrestigeAvail !== null && resets.length >= 4) break;
+    // The active bot keeps playing through Regions (docs/REGIONS-DESIGN.md):
+    // buy perks cheapest first, then expand when a Region is available.
+    if (!isIdle) {
+      buyRegionPerks(state);
+      if (regionsAvailable(state) >= 1) {
+        expandRegion(state);
+        buyWeightUpgrades(state);
+        expansions.push({ t, prestiges: state.stats.prestiges });
+        runStart = t;
+      }
+    }
+    if (isIdle && tFirstManager !== null && tFourManagers !== null && tPrestigeAvail !== null && resets.length >= 4) break;
+    if (!isIdle && expansions.length >= 2) break;
   }
-  return { state, tFirstManager, tFourManagers, tPrestigeAvail, resets };
+  return { state, tFirstManager, tFourManagers, tPrestigeAvail, resets, expansions };
 }
 
 function fmtTime(seconds) {
   if (seconds === null) return 'never';
-  const m = Math.floor(seconds / 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = Math.round(seconds % 60);
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 const active = simulate(false);
@@ -129,6 +167,12 @@ function report(name, r) {
   console.log(`  first prestige available:  ${fmtTime(r.tPrestigeAvail)}`);
   for (let i = 0; i < r.resets.length; i++) {
     console.log(`  reset ${i + 1}: at ${fmtTime(r.resets[i].t)}, run took ${fmtTime(r.resets[i].duration)}`);
+  }
+  for (let i = 0; i < r.expansions.length; i++) {
+    const e = r.expansions[i];
+    const prevT = i === 0 ? 0 : r.expansions[i - 1].t;
+    const prevP = i === 0 ? 0 : r.expansions[i - 1].prestiges;
+    console.log(`  Region ${i + 1}: at ${fmtTime(e.t)}, ${fmtTime(e.t - prevT)} after the previous, ${e.prestiges - prevP} prestiges in between`);
   }
 }
 report('active', active);
@@ -146,6 +190,8 @@ const targets = [
   { name: 'active: first prestige in 20-40 min', ok: active.tPrestigeAvail !== null && active.tPrestigeAvail >= 1200 && active.tPrestigeAvail <= 2400 },
   { name: 'active: each later run faster', ok: gettingFaster },
   { name: 'idle: first prestige <= ~2x active', ok: idleRatio <= 2.0 },
+  { name: 'active: first Region in 3-5 hours', ok: active.expansions.length >= 1 && active.expansions[0].t >= 3 * 3600 && active.expansions[0].t <= 5 * 3600 },
+  { name: 'active: second Region noticeably faster than the first', ok: active.expansions.length === 2 && (active.expansions[1].t - active.expansions[0].t) < active.expansions[0].t },
 ];
 console.log('\nTargets:');
 let allPass = true;
@@ -153,10 +199,16 @@ for (const tg of targets) {
   if (!tg.ok) allPass = false;
   console.log(`  ${tg.name}: ${tg.ok ? 'PASS' : 'FAIL'}`);
 }
+const regionRatio =
+  active.expansions.length === 2
+    ? (active.expansions[1].t - active.expansions[0].t) / active.expansions[0].t
+    : Infinity;
 console.log(`  (idle/active first-prestige ratio: ${idleRatio === Infinity ? 'n/a' : idleRatio.toFixed(2) + 'x'})`);
+console.log(`  (second/first Region duration ratio: ${regionRatio === Infinity ? 'n/a' : regionRatio.toFixed(2) + 'x'})`);
 console.log(
   `\nfinal active: totalLifetime=${active.state.totalLifetime.toExponential(3)} ` +
   `weights=${active.state.weights} managers=${active.state.managers.length} ` +
-  `upgrades=${active.state.upgrades.length} weightUpgrades=${active.state.weightUpgrades.length}`
+  `upgrades=${active.state.upgrades.length} weightUpgrades=${active.state.weightUpgrades.length} ` +
+  `regionsEarned=${active.state.regionsEarned} regionPerks=${active.state.regionPerks.length}`
 );
 process.exitCode = allPass ? 0 : 1;

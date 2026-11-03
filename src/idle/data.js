@@ -107,7 +107,7 @@ export const REGION_PERKS = [
 
 // regionsAvailable = floor(sqrt(weightsEverEarned / REGION_DIVISOR)) - regionsEarned
 // First Region at 50 Weights, 2nd at 200, 3rd at 450 (docs/REGIONS-DESIGN.md).
-export const REGION_DIVISOR = 50;
+export const REGION_DIVISOR = 4000;
 // The Regions view appears once this many Weights have been earned in total.
 export const REGION_UNLOCK_WEIGHTS = 25;
 // The server room moves per Region earned; after the list ends it is
