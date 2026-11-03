@@ -419,6 +419,18 @@
       overflow: hidden;
     }
     .row .bar-fill { height: 100%; width: 0%; background: var(--dim); opacity: 0.6; }
+    /* Prestige hint (shown until the first Weight is in reach): a progress
+       bar toward the unlock threshold, the percentage in words, and the
+       current weight bonus. */
+    #prestige-hint { display: flex; flex-direction: column; gap: 8px; }
+    #prestige-hint .hint-bar {
+      height: 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #101522;
+    }
+    #prestige-hint-fill { height: 100%; width: 0%; background: var(--magenta); }
     .row .details {
       flex-basis: 100%;
       display: flex;
@@ -699,7 +711,11 @@
           </div>
           <div id="prestige-grid"></div>
         </section>
-        <div id="prestige-hint" class="panel" hidden></div>
+        <div id="prestige-hint" class="panel" hidden>
+          <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
+          <div id="prestige-hint-text"></div>
+          <div id="prestige-hint-bonus" class="dim"></div>
+        </div>
       </div>
 
       <div id="tab-shop" class="tab-panel" hidden>

@@ -711,8 +711,18 @@ export function createUI(state, io) {
     els.prestigeHint.hidden = revealed;
     if (!revealed) {
       const target = PRESTIGE_DIVISOR * Math.pow(state.weightsEarnedThisCycle + 1, 2);
-      els.prestigeHint.textContent =
-        `New Model Generation unlocks at ${fmt(target)} lifetime tokens`;
+      const pct = Math.min(100, ((state.totalLifetime || 0) / target) * 100);
+      els.prestigeHintFill.style.width = `${pct}%`;
+      els.prestigeHintText.textContent =
+        `${Math.floor(pct)}% of the way to your first Weight — unlocks at ${fmt(target)} lifetime tokens`;
+      // Current bonus: weights times the per-weight rate (the weightBonus
+      // upgrade, e.g. Knowledge Distillation, replaces the base rate).
+      const wu = WEIGHT_UPGRADES.find(
+        (u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id)
+      );
+      const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
+      els.prestigeHintBonus.textContent =
+        `Your Weights add +${Math.round(perWeight * (state.weights || 0) * 100)}% production`;
     }
     els.wAvail.textContent = fmt(w);
     els.prestigeBtn.disabled = w < 1;
