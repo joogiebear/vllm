@@ -1,3 +1,5 @@
+import { PORTRAITS, PORTRAIT_V } from './data.js?v=20261103211501';
+
 // Tier colours and generator icons.
 // Style rules (docs/ART-DESIGN.md): 24x24 viewBox, stroke only at width 1.8,
 // round caps and joins, fill none, currentColor, at most ~6 path segments,
@@ -134,8 +136,38 @@ export function icon(id, size = 24) {
 
 // A manager icon (docs/ART-DESIGN.md "Manager icons"): the shared person
 // silhouette in the row's tier colour, with the tier icon as a small badge
-// (10 px) on a dark disc at the lower right.
+// (10 px) on a dark disc at the lower right. A manager with a portrait
+// (docs/ART-PORTRAITS.md) gets a `span.portrait` instead: a `size` px
+// circle, 2 px ring in the tier colour, #151c2b background, holding the
+// WebP portrait (relative path: the game is served under /vllm/).
 export function managerIcon(genId, size = 32) {
+  if (PORTRAITS.includes(genId)) {
+    const color = TIER_COLORS[genId] || '#93a3b8';
+    const span = document.createElement('span');
+    span.className = 'portrait';
+    Object.assign(span.style, {
+      width: size + 'px',
+      height: size + 'px',
+      boxSizing: 'border-box',
+      borderRadius: '50%',
+      overflow: 'hidden',
+      background: '#151c2b',
+      border: `2px solid ${color}`,
+      flexShrink: '0',
+    });
+    const img = document.createElement('img');
+    img.src = `icons/managers/${genId}.webp?v=${PORTRAIT_V}`;
+    img.alt = '';
+    img.decoding = 'async';
+    Object.assign(img.style, {
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+    });
+    span.appendChild(img);
+    return span;
+  }
   const ns = 'http://www.w3.org/2000/svg';
   const color = TIER_COLORS[genId] || '#93a3b8';
   const svg = document.createElementNS(ns, 'svg');
