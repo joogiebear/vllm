@@ -459,16 +459,17 @@ export function click(state) {
 // Heat and overclock left the game; kept as a no-op for the UI.
 export function setOverclock(state, on) {}
 
-export function cost(state, id, max = 1) {
-  if (!validState(state) || !isFiniteNumber(max) || max < 1) return Infinity;
+// The cost of the next n units of a generator: a geometric series in
+// closed form (no per-unit loop): next * (r^n - 1) / (r - 1), where
+// next = baseCost * r^owned and r = COST_GROWTH.
+export function cost(state, id, n = 1) {
+  if (!validState(state) || !isFiniteNumber(n) || n < 1) return Infinity;
   const g = GENERATORS.find((x) => x.id === id);
   if (!g) return Infinity;
+  const r = COST_GROWTH;
   const owned = state.generators[id] || 0;
-  let total = 0;
-  for (let i = 0; i < max; i++) {
-    total += g.baseCost * Math.pow(COST_GROWTH, owned + i);
-  }
-  return total;
+  const next = g.baseCost * Math.pow(r, owned);
+  return next * (Math.pow(r, n) - 1) / (r - 1);
 }
 
 // The most units of a generator affordable with state.tokens, in closed
