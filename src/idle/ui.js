@@ -286,9 +286,10 @@ export function createUI(state, io) {
   }
 
   // --- build upgrade cards (once) ------------------------------------------
-  // Card layout: name, the effect in words, what it means now (production:
-  // "+1.2K/s" from the before/after comparison; cooling/click: the words),
-  // a slim progress bar, and a "Buy · 1,000" button.
+  // Card layout: name, the effect in words, what it means now (production
+  // and cache: "+1.2K/s" from the before/after comparison; cooling/click:
+  // hidden, the effect line says it all), a slim progress bar, and a
+  // "Buy · 1,000" button.
   const upRefs = [...UPGRADES]
     .sort((a, b) => a.cost - b.cost)
     .map((u) => {
@@ -549,11 +550,15 @@ export function createUI(state, io) {
       if (hidden) continue;
       // The before/after figure is computed here, at the 10 Hz pass, for
       // visible cards only.
-      if (r.u.kind === 'production') r.gain = upgradeGain(state, r.u);
-      // What it means now: production shows the tps delta; cooling and
-      // click upgrades just repeat their effect in words.
-      r.now.textContent =
-        r.u.kind === 'production' ? `+${fmt(r.gain)}/s` : upgradeWords(r.u);
+      if (r.u.kind === 'production' || r.u.kind === 'cacheRate') {
+        r.gain = upgradeGain(state, r.u);
+        r.now.hidden = false;
+        r.now.textContent = `+${fmt(r.gain)}/s`;
+      } else {
+        // Cooling and click upgrades have no tps figure: the effect line
+        // above says it all, so the second line is hidden.
+        r.now.hidden = true;
+      }
       const affordable = state.tokens >= r.u.cost;
       r.buyBtn.disabled = !affordable;
       r.buyBtn.classList.toggle('afford', affordable);
