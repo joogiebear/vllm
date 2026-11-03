@@ -110,13 +110,16 @@ function generatorOutput(state, g) {
 }
 
 // Production with heatFactor forced to 1 (overclock and throttle ignored).
+// The weight bonus is based on weightsEarnedThisCycle (total ever earned), not
+// on state.weights, which is the spendable balance and shrinks when spent on
+// weight upgrades.
 function baseRate(state) {
   let sum = 0;
   for (const g of GENERATORS) sum += generatorOutput(state, g);
   return (
     sum *
     (1 + cacheRate(state)) *
-    (1 + weightBonusPer(state) * (state.weights || 0)) *
+    (1 + weightBonusPer(state) * (state.weightsEarnedThisCycle || 0)) *
     productionMultiplier(state)
   );
 }

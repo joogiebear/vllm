@@ -69,7 +69,10 @@ is always shown.
 
 ## Production
 
-`tokensPerSecond = sum(generator output) * (1 + cacheRate) * (1 + 0.1 * weights) * upgradeMultipliers * heatFactor`
+`tokensPerSecond = sum(generator output) * (1 + cacheRate) * (1 + 0.1 * weightsEarnedThisCycle) * upgradeMultipliers * heatFactor`
+
+`weights` is the spendable balance used to buy weight upgrades, while `weightsEarnedThisCycle`
+is the total ever earned and is what the permanent production bonus is based on.
 
 `cacheRate` starts at 0 and is raised by upgrades.
 

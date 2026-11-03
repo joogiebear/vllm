@@ -122,13 +122,13 @@ test('generator output doubles at 25, 50, 100, 200 and 400 owned', () => {
 
 // --- production formula ----------------------------------------------------------
 
-test('tokensPerSecond = sum * (1 + cacheRate) * (1 + 0.1 * weights) * upgradeMultipliers * heatFactor', () => {
+test('tokensPerSecond = sum * (1 + cacheRate) * (1 + 0.1 * weightsEarnedThisCycle) * upgradeMultipliers * heatFactor', () => {
   const s = createState();
   s.generators.pi = 10; // 10 tps
   s.generators.gamer = 1; // 8 tps
   s.upgrades.push('quant'); // x1.5
   s.upgrades.push('prefix1'); // cacheRate +0.25
-  s.weights = 10; // 1 + 0.1 * 10 = 2.0
+  s.weightsEarnedThisCycle = 10; // 1 + 0.1 * 10 = 2.0
   const base = 18 * 1.25 * 2.0 * 1.5;
   assert.equal(tokensPerSecond(s), base);
   s.overclock = true;
@@ -419,12 +419,23 @@ test('weight upgrade: auto cycles overclock 95/40 and never reaches 100', () => 
 test('weight upgrade: distill raises the per-weight bonus to 13%', () => {
   const s = createState();
   s.generators.pi = 10;
-  s.weights = 10;
+  s.weightsEarnedThisCycle = 10;
   assert.equal(tokensPerSecond(s), 10 * 2.0); // 10% per weight
   s.weights = 60; // buy distill (cost 50), keep 10 weights
   assert.equal(buyWeightUpgrade(s, 'distill'), true);
   assert.equal(s.weights, 10);
   assert.equal(tokensPerSecond(s), 10 * 2.3);
+});
+
+test('buying a weight upgrade does not lower tokensPerSecond', () => {
+  const s = createState();
+  s.generators.pi = 10; // 10 tps
+  s.weightsEarnedThisCycle = 10; // 1 + 0.1 * 10 = 2.0
+  const before = tokensPerSecond(s);
+  s.weights = 10; // spendable balance
+  assert.equal(buyWeightUpgrade(s, 'seed'), true);
+  assert.equal(s.weights, 9);
+  assert.equal(tokensPerSecond(s), before);
 });
 
 test('weight upgrades: refused when unaffordable or already owned', () => {
