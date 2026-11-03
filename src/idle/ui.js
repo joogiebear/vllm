@@ -354,8 +354,11 @@ export function createUI(state, io) {
     const g = GENERATORS.find((x) => x.id === m.id);
     const row = document.createElement('div');
     row.className = 'up-row';
-    // managerIcon at 32 px on the left (docs/ART-DESIGN.md "Manager icons").
-    const manIcon = managerIcon(m.id, 32);
+    // managerIcon at 56 px on the left (docs/ART-PORTRAITS.md): the
+    // portrait span has fixed width and height, so the row keeps a
+    // steady height (no jump when the image loads) and the text stays
+    // vertically centred against it.
+    const manIcon = managerIcon(m.id, 56);
     manIcon.style.flexShrink = '0';
     const left = document.createElement('div');
     left.className = 'up-left';
