@@ -27,6 +27,12 @@ function fmtExact(n) {
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
+// Cost display: under 1,000, round up to a whole number before fmt (so
+// "17.3 tokens" shows as "18 tokens"); 1,000+ goes through fmt's K/M/B.
+function fmtCost(n) {
+  return fmt(n < 1000 ? Math.ceil(n) : n);
+}
+
 function fmtTime(ms) {
   const s = Math.max(0, ms / 1000);
   const h = Math.floor(s / 3600);
@@ -854,7 +860,7 @@ export function createUI(state, io) {
       if (isLocked) {
         c = cost(state, g.id, 1);
         disabled = c > state.tokens;
-        setLines(r, `Unlock · ${fmt(c)} tokens`, null);
+        setLines(r, `Unlock · ${fmtCost(c)} tokens`, null);
       } else if (view.buyMode === 'max') {
         const m = maxAffordable(state, g);
         c = m.count > 0 ? m.total : cost(state, g.id, 1);
@@ -864,13 +870,13 @@ export function createUI(state, io) {
           m.count > 0
             ? `Buy ${m.count} level${m.count === 1 ? '' : 's'}`
             : 'Buy 1 level',
-          `${fmt(c)} tokens`,
+          `${fmtCost(c)} tokens`,
         );
       } else {
         const n = Number(view.buyMode);
         c = cost(state, g.id, n);
         disabled = c > state.tokens;
-        setLines(r, `Buy ${n} level${n === 1 ? '' : 's'}`, `${fmt(c)} tokens`);
+        setLines(r, `Buy ${n} level${n === 1 ? '' : 's'}`, `${fmtCost(c)} tokens`);
       }
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
@@ -910,7 +916,7 @@ export function createUI(state, io) {
         r.buyBtn.classList.remove('afford');
       } else {
         const afford = r.m.cost <= state.tokens;
-        setLines(r, 'Hire', `${fmt(r.m.cost)} tokens`);
+        setLines(r, 'Hire', `${fmtCost(r.m.cost)} tokens`);
         r.buyBtn.disabled = !afford;
         r.buyBtn.classList.toggle('afford', afford);
       }
@@ -929,7 +935,7 @@ export function createUI(state, io) {
       } else {
         const c = r.u.cost;
         const afford = c <= state.tokens;
-        r.buyBtn.textContent = fmt(c);
+        r.buyBtn.textContent = fmtCost(c);
         r.buyBtn.disabled = !afford;
         r.buyBtn.classList.toggle('afford', afford);
       }
