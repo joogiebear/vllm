@@ -41,7 +41,7 @@ so the set can ship before all 12 exist.
    listed: the smoke test fails on any 404.
 2. `icons.js`: `managerIcon(genId, size)` returns, when `genId` is in
    `PORTRAITS`, a `span.portrait` of `size` px: round, `overflow: hidden`,
-   background `#151c2b`, a 2 px ring in the tier colour, holding an `img`
+   background `#151c2b`, no ring, holding an `img`
    with `src = icons/managers/<id>.webp?v=<PORTRAIT_V>`, `alt=""`,
    `decoding="async"`, filling the circle. Otherwise the current SVG,
    unchanged. Relative path only (the game is served under `/vllm/`).
