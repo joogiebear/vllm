@@ -386,6 +386,25 @@ async function runChecks(cdp, sessionId, url) {
     'fresh game: first tip appears',
     () => poll(4000, 'document.querySelector(".hint-bubble.show")')
   );
+  // The Pi's run button (the round icon on the first card) holds the WebP
+  // machine art img that finished loading (docs/ART-TIERS.md, task 5).
+  await check(
+    'fresh game: Pi run button holds a loaded img (naturalWidth > 0)',
+    () =>
+      evalIn(
+        `(async () => {
+          const btn = document.querySelector('#gen-cards .gen-card .gen-icon');
+          if (!btn) return false;
+          const img = btn.querySelector('img');
+          if (!img || img.src.indexOf('icons/tiers/') === -1) return false;
+          const t0 = Date.now();
+          while (img.naturalWidth === 0 && Date.now() - t0 < 5000) {
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return img.naturalWidth > 0;
+        })()`
+      )
+  );
   // Tap the Pi's run button (the round icon on the first card) and watch
   // the payout bar's scaleX move off zero within 1 s.
   await evalIn(
