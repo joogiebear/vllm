@@ -594,6 +594,59 @@
     .moment-label { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
     .moment-text { margin: 0; font-size: 13px; color: var(--dim); }
     .moment-go { width: 100%; margin-top: 8px; }
+    /* More: a grouped list; Achievements, Stats, Settings, About and
+       Support open as sub-screens with a back arrow (batch F). */
+    .more-grp {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; margin-bottom: 12px;
+    }
+    .more-li {
+      width: 100%; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px;
+      background: transparent; border: 0; border-top: 1px solid var(--border);
+      color: var(--text); font: inherit; text-align: left; cursor: pointer;
+    }
+    .more-li:first-child { border-top: 0; }
+    .more-li[hidden] { display: none; }
+    .more-ig { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .more-ig svg { width: 18px; height: 18px; }
+    .more-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+    .more-tx b { font-size: 15px; font-weight: 600; }
+    .more-tx span { font-size: 12px; color: var(--dim); margin-top: 1px; }
+    .more-val { font-size: 13px; font-weight: 700; color: var(--affordable); white-space: nowrap; }
+    .more-chev { color: #5f6f86; font-size: 20px; }
+    .more-note { font-size: 12px; color: #5f6f86; padding: 0 4px; margin: 0; }
+    .more-sub[hidden], #more-menu[hidden] { display: none; }
+    .sub-title {
+      display: flex; align-items: center; gap: 4px; min-height: 48px; margin: 0 0 10px; padding: 0 12px 0 4px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    }
+    .sub-title b { font-size: 20px; font-weight: 800; color: var(--text); }
+    .sub-back {
+      width: 40px; height: 40px; border-radius: 10px; border: 0; background: transparent;
+      color: var(--affordable); font-size: 26px; line-height: 1; cursor: pointer;
+    }
+    /* Settings: three groups of rows. */
+    .set-sec {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: #5f6f86; padding: 10px 4px 6px;
+    }
+    .set-group {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; display: flex; flex-direction: column; margin-bottom: 4px;
+    }
+    .set-group.set-pad { padding: 14px; }
+    .set-group > .set-row { background: none; border: 0; border-radius: 0; border-top: 1px solid var(--border); }
+    .set-group > .set-row:first-child { border-top: 0; }
+    .set-group textarea { margin: 0 12px 10px; width: calc(100% - 24px); }
+    #import-box { display: flex; flex-direction: column; gap: 8px; padding: 0 0 12px; }
+    #import-box[hidden] { display: none; }
+    #import-box button { margin: 0 12px; min-height: 44px; border-radius: 10px; border: 1px solid var(--affordable); background: var(--affordable); color: #1a1204; font-weight: 700; }
+    .set-danger {
+      width: 100%; min-height: 52px; border: 0; background: rgba(252, 129, 129, 0.10);
+      color: #fc8181; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .set-danger-note { padding: 4px 6px 0; }
+    .reset-go.danger { background: rgba(252, 129, 129, 0.15); border-color: rgba(252, 129, 129, 0.6); color: #fc8181; }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
@@ -699,29 +752,62 @@
       </section>
 
       <section id="tab-more" aria-label="More" hidden>
-        <div id="more-seg" role="tablist" aria-label="More section">
-          <button type="button" data-seg="achievements">Achievements</button>
-          <button type="button" data-seg="stats">Stats</button>
-          <button type="button" data-seg="settings">Settings</button>
+        <div id="more-menu">
+          <div class="more-grp">
+            <button type="button" class="more-li" data-open="achievements"><span class="more-ig" style="color:#ffb547;background:#ffb54722" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v1a5 5 0 0 0 4 4.9A6 6 0 0 0 11 16v2H8v3h8v-3h-3v-2a6 6 0 0 0 4-3.1A5 5 0 0 0 21 8V7a2 2 0 0 0-2-2z"/></svg></span><span class="more-tx"><b>Achievements</b><span id="more-ach-sub"></span></span><span class="more-val" id="more-ach-new"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+            <button type="button" class="more-li" data-open="stats"><span class="more-ig" style="color:#7cc4ff;background:#7cc4ff22" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20h16v-2H4zm2-4h3V8H6zm5 0h3V4h-3zm5 0h3v-7h-3z"/></svg></span><span class="more-tx"><b>Stats</b><span>This run and all time</span></span><span class="more-val"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+            <button type="button" class="more-li" id="howto-btn"><span class="more-ig" style="color:#68d391;background:#68d39122" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 18h2v-2h-2zm1-16a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a4 4 0 0 0-4 4h2a2 2 0 1 1 4 0c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5a4 4 0 0 0-4-4z"/></svg></span><span class="more-tx"><b>How to play</b><span>Six short cards</span></span><span class="more-val"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+          </div>
+          <div class="more-grp">
+            <button type="button" class="more-li" data-open="settings"><span class="more-ig" style="color:#93a3b8;background:#93a3b822" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></span><span class="more-tx"><b>Settings</b><span>Sound, motion, numbers, save</span></span><span class="more-val"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+            <button type="button" class="more-li" data-open="support" id="support-row" hidden><span class="more-ig" style="color:#fc8181;background:#fc818122" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.4-9.3-8.6C.9 9.2 2.6 5 6.5 5c2 0 3.4 1.1 4.2 2.4h2.6C14.1 6.1 15.5 5 17.5 5c3.9 0 5.6 4.2 3.8 7.4C19 16.6 12 21 12 21z"/></svg></span><span class="more-tx"><b>Support OVERCLOCK</b><span>Optional tip jar. Cosmetics only, never progress.</span></span><span class="more-val"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+          </div>
+          <div class="more-grp">
+            <button type="button" class="more-li" data-open="about"><span class="more-ig" style="color:#93a3b8;background:#93a3b822" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg></span><span class="more-tx"><b>About</b><span id="more-about-sub">Free and open source</span></span><span class="more-val"></span><span class="more-chev" aria-hidden="true">&rsaquo;</span></button>
+          </div>
+          <p class="more-note">No ads and no paid progress.</p>
         </div>
-        <div id="more-achievements"></div>
-        <div id="more-stats"></div>
-        <div id="more-settings">
-          <div class="settings-row">
-            <button type="button" id="howto-btn">How to play</button>
+        <div class="more-sub" id="sub-achievements" hidden>
+          <div class="sub-title"><button type="button" class="sub-back" aria-label="Back to More">&lsaquo;</button><b>Achievements</b></div>
+          <div id="more-achievements"></div>
+        </div>
+        <div class="more-sub" id="sub-stats" hidden>
+          <div class="sub-title"><button type="button" class="sub-back" aria-label="Back to More">&lsaquo;</button><b>Stats</b></div>
+          <div id="more-stats"></div>
+        </div>
+        <div class="more-sub" id="sub-settings" hidden>
+          <div class="sub-title"><button type="button" class="sub-back" aria-label="Back to More">&lsaquo;</button><b>Settings</b></div>
+          <div id="more-settings">
+            <div class="set-sec">Feel</div>
+            <div class="set-group" id="set-feel"></div>
+            <div class="set-sec">Play</div>
+            <div class="set-group" id="set-play"></div>
+            <div class="set-sec">Save</div>
+            <div class="set-group" id="set-save">
+              <div class="set-row"><span class="set-label">Copy save code</span><button type="button" id="export-btn">Copy</button></div>
+              <textarea id="export-area" rows="3" readonly hidden></textarea>
+              <div class="set-row"><span class="set-label">Paste a save code</span><button type="button" id="import-open">Paste</button></div>
+              <div id="import-box" hidden>
+                <textarea id="import-area" rows="3" placeholder="Paste a save code"></textarea>
+                <button type="button" id="import-btn">Load this save</button>
+              </div>
+            </div>
+            <div class="set-group">
+              <button type="button" id="reset-btn" class="set-danger">Delete all progress</button>
+            </div>
+            <div class="set-note set-danger-note">Asks twice. Cannot be undone.</div>
+            <p id="settings-msg" role="status"></p>
           </div>
-          <div class="settings-row">
-            <button type="button" id="export-btn">Copy save code</button>
-            <textarea id="export-area" rows="3" readonly></textarea>
+        </div>
+        <div class="more-sub" id="sub-about" hidden>
+          <div class="sub-title"><button type="button" class="sub-back" aria-label="Back to More">&lsaquo;</button><b>About</b></div>
+          <div id="more-about"></div>
+        </div>
+        <div class="more-sub" id="sub-support" hidden>
+          <div class="sub-title"><button type="button" class="sub-back" aria-label="Back to More">&lsaquo;</button><b>Support OVERCLOCK</b></div>
+          <div class="set-group set-pad">
+            <p class="layer-p">OVERCLOCK is free and has no ads. If you would like to support it, the App Store version has an optional tip jar. Tips unlock cosmetic thank-yous only: a Supporter badge, gold portrait frames and colour themes. They never change progress.</p>
           </div>
-          <div class="settings-row">
-            <button type="button" id="import-btn">Paste save code</button>
-            <textarea id="import-area" rows="3" placeholder="Paste a save code"></textarea>
-          </div>
-          <div class="settings-row">
-            <button type="button" id="reset-btn">Delete all progress</button>
-          </div>
-          <p id="settings-msg" role="status"></p>
         </div>
       </section>
     </main>

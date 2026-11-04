@@ -486,7 +486,7 @@ async function runChecks(cdp, sessionId, url) {
           if (!dot || dot.hidden) return false;
           const pad = document.getElementById('hud').style.paddingTop || getComputedStyle(document.getElementById('hud')).paddingTop;
           if (pad === undefined) return false;
-          const rows = [...document.querySelectorAll('#more-settings .set-prefs .set-row')];
+          const rows = [...document.querySelectorAll('#more-settings .set-row')];
           return rows.every((r) => r.textContent.trim().length > 0);
         })()`
       )
@@ -722,7 +722,7 @@ async function runChecks(cdp, sessionId, url) {
         `(async () => {
           const reset = document.getElementById('reset-btn');
           if (!reset || reset.textContent !== 'Delete all progress') return false;
-          if (document.getElementById('export-btn').textContent !== 'Copy save code') return false;
+          if (document.getElementById('export-btn').textContent !== 'Copy') return false;
           document.getElementById('howto-btn').click();
           const ov = document.querySelector('.help-overlay');
           let cards = 0;
@@ -780,6 +780,39 @@ async function runChecks(cdp, sessionId, url) {
           await new Promise((r) => setTimeout(r, 150));
           const gated = document.querySelector('#man-grid .up-row.summary.gated');
           return !!gated && !gated.hidden && /Unlock with Region/.test(gated.textContent);
+        })()`
+      )
+  );
+
+  // Batch F (docs/UX-OVERHAUL-PLAN.md): More opens on a grouped list;
+  // Settings is a sub-screen with Feel / Play / Save groups, no visible
+  // text boxes, and Delete asks twice through the sheet.
+  await check(
+    'late save: More is a grouped list; Settings has groups, hidden save codes and a two-step delete',
+    () =>
+      evalIn(
+        `(async () => {
+          document.querySelector('#tabs [data-tab="more"]').click();
+          await new Promise((r) => setTimeout(r, 150));
+          const menu = document.getElementById('more-menu');
+          if (!menu || menu.hidden) return false;
+          if (!/ of [0-9]+ · /.test(document.getElementById('more-ach-sub').textContent)) return false;
+          document.querySelector('#more-menu [data-open="settings"]').click();
+          await new Promise((r) => setTimeout(r, 150));
+          if (!menu.hidden || document.getElementById('sub-settings').hidden) return false;
+          const secs = [...document.querySelectorAll('#more-settings .set-sec')].map((h) => h.textContent);
+          if (secs.join() !== 'Feel,Play,Save') return false;
+          const boxes = [...document.querySelectorAll('#more-settings textarea')].filter((t) => t.getClientRects().length > 0);
+          if (boxes.length) return false;
+          document.getElementById('reset-btn').click();
+          const ov = document.querySelector('.reset-ov');
+          if (ov.hidden || !ov.textContent.includes('Delete all progress?')) return false;
+          ov.querySelector('.reset-go').click();
+          if (ov.hidden || !ov.textContent.includes('Are you sure?')) return false;
+          ov.querySelector('.reset-no').click();
+          document.querySelector('#sub-settings .sub-back').click();
+          await new Promise((r) => setTimeout(r, 100));
+          return !menu.hidden && document.getElementById('tokens').textContent !== '0';
         })()`
       )
   );

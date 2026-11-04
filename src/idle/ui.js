@@ -11,7 +11,7 @@ import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-  REGION_PERKS,
+  REGION_PERKS, ACHIEVEMENTS,
   TIER_GATES, GLOBAL_MILESTONES,
   upgradeEffect, weightUpgradeEffect,
 } from './data.js?v=20261104205122';
@@ -495,34 +495,59 @@ export function createUI(state, io) {
   manNote.textContent = 'Managers reset when you Prestige. Standing Orders (a Weight upgrade) keeps Cron Job hired.';
   els.manGrid.append(manNote);
 
-  // More tab: Achievements | Stats | Settings, remembered across visits.
-  const MORE_SEG_KEY = 'overclock.idle.moreSegment';
-  const moreSegBtns = Array.from(document.querySelectorAll('#more-seg button'));
+  // More tab (batch F): a grouped list. Achievements, Stats, Settings,
+  // About and Support open as sub-screens with a back arrow; opening the
+  // tab always lands on the list.
+  const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function'
+    && window.Capacitor.isNativePlatform());
+  const moreMenu = document.getElementById('more-menu');
   const morePanels = {
     achievements: document.getElementById('more-achievements'),
     stats: document.getElementById('more-stats'),
     settings: document.getElementById('more-settings'),
   };
-  function setMoreSegment(seg, persist) {
-    moreSegBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
-    for (const k of Object.keys(morePanels)) morePanels[k].hidden = k !== seg;
-    if (persist) {
-      try {
-        localStorage.setItem(MORE_SEG_KEY, seg);
-      } catch (err) {
-        // private mode: the segment just does not persist
-      }
+  const moreSubs = {
+    achievements: document.getElementById('sub-achievements'),
+    stats: document.getElementById('sub-stats'),
+    settings: document.getElementById('sub-settings'),
+    about: document.getElementById('sub-about'),
+    support: document.getElementById('sub-support'),
+  };
+  // The Support row is the only place money is mentioned, and only in the
+  // App Store build (docs/SUPPORT-DESIGN.md).
+  document.getElementById('support-row').hidden = !NATIVE;
+  // "N new" on Achievements: earned since the list was last opened.
+  const ACH_SEEN_KEY = 'overclock.idle.achSeen';
+  let achSeen = null;
+  try {
+    const v = Number(localStorage.getItem(ACH_SEEN_KEY));
+    if (localStorage.getItem(ACH_SEEN_KEY) !== null && Number.isFinite(v)) achSeen = v;
+  } catch (err) {
+    // private mode: counted from now
+  }
+  if (achSeen === null) achSeen = (state.achievements || []).length;
+  function markAchievementsSeen() {
+    achSeen = (state.achievements || []).length;
+    try {
+      localStorage.setItem(ACH_SEEN_KEY, String(achSeen));
+    } catch (err) {
+      // private mode: the count just does not persist
     }
   }
-  moreSegBtns.forEach((b) => b.addEventListener('click', () => setMoreSegment(b.dataset.seg, true)));
-  let savedMoreSeg = null;
-  try {
-    const s = localStorage.getItem(MORE_SEG_KEY);
-    if (s === 'achievements' || s === 'stats' || s === 'settings') savedMoreSeg = s;
-  } catch (err) {
-    // private mode: default segment
+  function setMoreSegment(seg) {
+    moreMenu.hidden = seg !== 'menu';
+    for (const [k, el] of Object.entries(moreSubs)) el.hidden = k !== seg;
+    if (seg === 'achievements') markAchievementsSeen();
+    const scroller = document.getElementById('tab-scroll');
+    if (scroller) scroller.scrollTop = 0;
   }
-  setMoreSegment(savedMoreSeg || 'achievements', false);
+  document.querySelectorAll('#more-menu .more-li[data-open]').forEach((b) => {
+    b.addEventListener('click', () => setMoreSegment(b.dataset.open));
+  });
+  document.querySelectorAll('#tab-more .sub-back').forEach((b) => {
+    b.addEventListener('click', () => setMoreSegment('menu'));
+  });
+  setMoreSegment('menu');
 
   // Weight upgrades (prestige tab).
   const wuRefs = WEIGHT_UPGRADES.map((u) => {
@@ -595,7 +620,7 @@ export function createUI(state, io) {
     if (act) act();
   });
   function confirmReset(o, action) {
-    if (getSetting('confirmPrestige') === false) {
+    if (!o.always && getSetting('confirmPrestige') === false) {
       action();
       return;
     }
@@ -613,6 +638,7 @@ export function createUI(state, io) {
     }
     sheetNote.textContent = o.note;
     sheetGo.textContent = o.go;
+    sheetGo.classList.toggle('danger', !!o.danger);
     sheetAction = action;
     sheetOv.hidden = false;
     sheetGo.focus();
@@ -817,7 +843,7 @@ export function createUI(state, io) {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
       });
-      if (tab === 'more') els.moreDot.hidden = true;
+      if (tab === 'more') setMoreSegment('menu');
       // Opening Managers dismisses the manager hint (docs/ART-DESIGN.md §1).
       if (tab === 'managers') naturalDismiss('manager', state);
     });
@@ -907,9 +933,28 @@ export function createUI(state, io) {
     });
   });
 
-  // Settings.
+  // Settings > Save (batch F): save codes sit behind rows, not in
+  // always-visible text boxes.
   document.getElementById('export-btn').addEventListener('click', () => {
-    els.exportArea.value = io.exportSave(state, Date.now());
+    const code = io.exportSave(state, Date.now());
+    els.exportArea.value = code;
+    els.exportArea.hidden = false;
+    els.exportArea.select();
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => showBanner('Save code copied.', 'Copied'), () => {});
+        copied = true;
+      }
+    } catch (err) {
+      copied = false;
+    }
+    if (!copied) showBanner('Save code shown below. Copy it somewhere safe.', 'Save code');
+  });
+  document.getElementById('import-open').addEventListener('click', () => {
+    const box = document.getElementById('import-box');
+    box.hidden = !box.hidden;
+    if (!box.hidden) els.importArea.focus();
   });
   document.getElementById('import-btn').addEventListener('click', () => {
     const imported = io.importSave(els.importArea.value.trim());
@@ -921,18 +966,31 @@ export function createUI(state, io) {
     showBanner('Save imported.', 'Imported');
   });
   els.resetBtn.addEventListener('click', () => {
-    if (!view.resetArmed) {
-      view.resetArmed = true;
-      els.resetBtn.classList.add('armed');
-      els.resetBtn.textContent = 'Delete everything? Tap again';
-      return;
-    }
-    view.resetArmed = false;
-    els.resetBtn.classList.remove('armed');
-    els.resetBtn.textContent = 'Delete all progress';
-    io.hardReset();
-    io.replaceState(ensureStarter(createState()));
-    showBanner('All progress deleted. Fresh start.', 'Reset');
+    confirmReset({
+      always: true,
+      danger: true,
+      title: 'Delete all progress?',
+      gain: 'A fresh start from one Raspberry Pi',
+      lose: 'Everything: tokens, machines, Weights, Regions, perks and achievements',
+      keep: 'Your settings',
+      note: 'This cannot be undone. Copy a save code first if you might want it back.',
+      go: 'Continue',
+    }, () => {
+      confirmReset({
+        always: true,
+        danger: true,
+        title: 'Are you sure?',
+        gain: 'Nothing',
+        lose: 'All progress on this device, for good',
+        keep: 'Your settings',
+        note: 'Last step. There is no undo.',
+        go: 'Delete everything',
+      }, () => {
+        io.hardReset();
+        io.replaceState(ensureStarter(createState()));
+        showBanner('All progress deleted. Fresh start.', 'Reset');
+      });
+    });
   });
 
   // --- More > Settings: preferences wired to settings.js (docs/COMPLETION.md)
@@ -1083,36 +1141,42 @@ export function createUI(state, io) {
   function buildSettings() {
     injectSettingsStyle();
 
-    const prefs = document.createElement('div');
-    prefs.className = 'set-prefs';
-    prefs.appendChild(makeChoiceRow('Number format', 'numberFormat', [
-      { value: 'short', label: 'Short' },
-      { value: 'sci', label: 'Scientific' },
-    ]));
-    prefs.appendChild(makeToggleRow('Confirm before resets', 'confirmPrestige'));
-    autoProcureRow = makeToggleRow('Auto-Procure', 'autoProcure', 'Buy All runs by itself every 10 s');
-    autoProcureRow.hidden = true;
-    prefs.appendChild(autoProcureRow);
-    prefs.appendChild(makeChoiceRow('Reduce motion', 'reduceMotion', [
+    const feel = document.getElementById('set-feel');
+    const play = document.getElementById('set-play');
+    const saveGroup = document.getElementById('set-save');
+    feel.appendChild(makeToggleRow('Sound', 'sound'));
+    // Haptics only exist in the App Store build.
+    if (NATIVE) feel.appendChild(makeToggleRow('Haptics', 'haptics'));
+    feel.appendChild(makeChoiceRow('Reduce motion', 'reduceMotion', [
       { value: 'auto', label: 'Auto' },
       { value: 'on', label: 'On' },
       { value: 'off', label: 'Off' },
     ]));
-    prefs.appendChild(makeToggleRow('Sound', 'sound'));
-    prefs.appendChild(makeToggleRow('Haptics', 'haptics', 'Haptics need the app version on iPhone'));
-    morePanels.settings.prepend(prefs);
+    feel.appendChild(makeChoiceRow('Numbers', 'numberFormat', [
+      { value: 'short', label: 'Short' },
+      { value: 'sci', label: 'Sci' },
+    ]));
+    play.appendChild(makeToggleRow('Confirm before resets', 'confirmPrestige'));
+    autoProcureRow = makeToggleRow('Auto-Procure', 'autoProcure', 'Buy All runs by itself every 10 s');
+    autoProcureRow.hidden = true;
+    play.appendChild(autoProcureRow);
 
     // "Show tips again" (docs/ART-DESIGN.md §1): clears hints.seen so the
     // first-run hints show again.
+    const tipsRow = document.createElement('div');
+    tipsRow.className = 'set-row';
+    const tipsLab = document.createElement('span');
+    tipsLab.className = 'set-label';
+    tipsLab.textContent = 'Show tips again';
     const tipsBtn = document.createElement('button');
     tipsBtn.type = 'button';
-    tipsBtn.className = 'set-tips-btn';
-    tipsBtn.textContent = 'Show tips again';
+    tipsBtn.textContent = 'Show';
     tipsBtn.addEventListener('click', () => {
       showHintsAgain(state);
       showBanner('Tips will show again.', 'Tips');
     });
-    morePanels.settings.appendChild(tipsBtn);
+    tipsRow.append(tipsLab, tipsBtn);
+    play.appendChild(tipsRow);
 
     // Backups (docs/STABILITY-DESIGN.md section 3): the three slots, b1
     // (newest) first, with the time saved and lifetime tokens; an empty
@@ -1168,31 +1232,26 @@ export function createUI(state, io) {
       io.replaceState(restored);
       showBanner('Backup restored.', 'Restored');
     }
-    const backups = document.createElement('div');
-    backups.className = 'set-prefs';
-    const bkTitle = document.createElement('div');
-    bkTitle.className = 'set-label';
-    bkTitle.textContent = 'Backups';
-    backups.appendChild(bkTitle);
+    // Backups: the first rows of the Save group.
+    const bkFirst = saveGroup.firstChild;
     for (const b of io.listBackups()) {
       const row = document.createElement('div');
       row.className = 'set-row';
       const lab = document.createElement('span');
       lab.className = 'set-label';
       if (b === null) {
-        lab.textContent = 'Empty';
+        lab.textContent = 'Backup: empty';
         row.append(lab);
       } else {
-        lab.textContent = `${fmtBackupTime(b.savedAt)} · ${fmt(b.lifetime)} tokens`;
+        lab.textContent = `Backup: ${fmtBackupTime(b.savedAt)} · ${fmt(b.lifetime)} tokens`;
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = 'Restore';
         btn.addEventListener('click', () => confirmRestore(fmtClock(b.savedAt), () => doRestore(b.slot)));
         row.append(lab, btn);
       }
-      backups.appendChild(row);
+      saveGroup.insertBefore(row, bkFirst);
     }
-    morePanels.settings.appendChild(backups);
 
     const about = document.createElement('div');
     about.className = 'about';
@@ -1207,7 +1266,8 @@ export function createUI(state, io) {
     const credit = document.createElement('div');
     credit.textContent = 'Designed with Claude, built by Qwen3.8 on Hermes';
     about.append(ver, lic, link, credit);
-    morePanels.settings.appendChild(about);
+    document.getElementById('more-about').appendChild(about);
+    document.getElementById('more-about-sub').textContent = `Version ${versionStamp()} · free and open source`;
   }
 
   // Mount the More tab sub-screens once at start.
@@ -1773,6 +1833,12 @@ export function createUI(state, io) {
     els.upDot.hidden = !upAffordable;
     els.manDot.hidden = !manAffordable;
     els.prestigeDot.hidden = weightsAvailable(state) < 1;
+    // More: a dot and "N new" while achievements wait unseen.
+    const earned = (state.achievements || []).length;
+    const fresh = Math.max(0, earned - achSeen);
+    els.moreDot.hidden = fresh === 0;
+    document.getElementById('more-ach-sub').textContent = `${earned} of ${ACHIEVEMENTS.length} · +${earned}% production`;
+    document.getElementById('more-ach-new').textContent = fresh > 0 ? `${fresh} new` : '';
   }
 
   // A segmented control must never show a single segment: with fewer
@@ -1784,7 +1850,6 @@ export function createUI(state, io) {
     container.hidden = visible < 2;
   }
   function updateSegmentedControls() {
-    syncSegVisibility(document.getElementById('more-seg'), moreSegBtns);
   }
 
 
