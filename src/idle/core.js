@@ -34,9 +34,9 @@ import {
   EVENT_SPIKE_MULTIPLIER,
   EVENT_TURBO_SPEED,
   EVENT_WINDFALL_SECONDS,
-} from './data.js?v=20261104164438';
-import { ACHIEVEMENTS } from './data.js?v=20261104164438';
-import { checkAchievements } from './achievements.js?v=20261104164438';
+} from './data.js?v=20261104165003';
+import { ACHIEVEMENTS } from './data.js?v=20261104165003';
+import { checkAchievements } from './achievements.js?v=20261104165003';
 
 // --- state -------------------------------------------------------------------
 
