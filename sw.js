@@ -38,6 +38,14 @@ const TIER_ART = [
 ];
 const TIER_ART_V = 1;
 
+// The Region background keys and version, mirrored from the non-null
+// entries of BACKGROUNDS and BG_V in src/idle/data.js
+// (docs/ART-BACKGROUNDS.md). Kept in sync by test/sw-backgrounds.test.js.
+const BACKGROUNDS = [
+  'homelab',
+];
+const BG_V = 1;
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(precache());
@@ -187,6 +195,11 @@ async function precache() {
   // The machine icons, so they show offline after the first load.
   for (const id of TIER_ART) {
     const href = new URL(`icons/tiers/${id}.webp?v=${TIER_ART_V}`, scope).href;
+    await put(href);
+  }
+  // The Region backgrounds, so they show offline after the first load.
+  for (const key of BACKGROUNDS) {
+    const href = new URL(`icons/bg/${key}.webp?v=${BG_V}`, scope).href;
     await put(href);
   }
 }
