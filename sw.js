@@ -14,7 +14,7 @@
 //   on the next launch.
 // - Never caches non-GET requests or other origins.
 
-const CACHE = 'overclock-20261104002631';
+const CACHE = 'overclock-20261104003036';
 
 // The named shell files, resolved against the scope.
 const SHELL = ['index.html', 'manifest.webmanifest', 'rush.html'];
