@@ -1,6 +1,6 @@
 // Number formatting (docs/COMPLETION.md). Extracted from ui.js so DOM-free
 // modules (welcome.js) can use it without pulling in the whole UI.
-import { get as getSetting } from './settings.js?v=20261104210051';
+import { get as getSetting } from './settings.js?v=20261104214903';
 
 // Short-scale suffixes, smallest first. Past the last one the number
 // switches to scientific notation, so a row never grows past its width.

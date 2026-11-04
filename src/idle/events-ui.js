@@ -3,12 +3,12 @@
 // The banner card (Game tab, above the generator cards) and the header chip
 // are built once; a 250 ms interval updates only text and classes, never
 // rebuilding the DOM.
-import { get as getSetting } from './settings.js?v=20261104210051';
+import { get as getSetting } from './settings.js?v=20261104214903';
 import {
   EVENT_KINDS,
   EVENT_CLAIM_WINDOW,
   EVENT_SPIKE_MULTIPLIER,
-} from './data.js?v=20261104210051';
+} from './data.js?v=20261104214903';
 
 const CSS = `
     /* Event banner (Game tab, above the generator cards) */

@@ -2,12 +2,12 @@
 // No DOM, no mutation of the passed state, no side effects — the UI layer
 // renders the result.
 
-import { GENERATORS, UPGRADES, MANAGERS, PRESTIGE_DIVISOR } from './data.js?v=20261104210051';
+import { GENERATORS, UPGRADES, MANAGERS, PRESTIGE_DIVISOR } from './data.js?v=20261104214903';
 import {
   tokensPerSecond, cost, isTierUnlocked, hasManager, weightsAvailable,
   regionsAvailable, regionName,
-} from './core.js?v=20261104210051';
-import { fmt } from './fmt.js?v=20261104210051';
+} from './core.js?v=20261104214903';
+import { fmt } from './fmt.js?v=20261104214903';
 
 // A clone of state with one candidate purchase applied.
 function withPurchase(state, kind, id) {
