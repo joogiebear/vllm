@@ -762,6 +762,28 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
 
+  // Batch E (docs/UX-OVERHAUL-PLAN.md): Upgrades are grouped with a Buy all
+  // footer, far-off upgrades collapse into one line, and Managers collapse
+  // the Region-gated ones into one locked line.
+  await check(
+    'late save: Upgrades grouped with a Buy all footer; Managers collapse gated rows',
+    () =>
+      evalIn(
+        `(async () => {
+          document.querySelector('#tabs [data-tab="upgrades"]').click();
+          await new Promise((r) => setTimeout(r, 150));
+          const secs = [...document.querySelectorAll('#up-grid .up-sec')].map((h) => h.textContent);
+          if (!secs.includes('Boost everything') || !secs.includes('One machine')) return false;
+          const all = document.getElementById('buy-all');
+          if (!all || all.hidden || !/^Buy all [0-9]+ ready · /.test(all.textContent)) return false;
+          document.querySelector('#tabs [data-tab="managers"]').click();
+          await new Promise((r) => setTimeout(r, 150));
+          const gated = document.querySelector('#man-grid .up-row.summary.gated');
+          return !!gated && !gated.hidden && /Unlock with Region/.test(gated.textContent);
+        })()`
+      )
+  );
+
   // Managers tab: the Pi manager row (Cron Job) shows a portrait img that
   // finished loading (docs/ART-PORTRAITS.md, task 5).
   await check(

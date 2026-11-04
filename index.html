@@ -182,7 +182,7 @@
     .gen-top { display: flex; align-items: center; gap: 10px; }
     .gen-card.locked .gen-top { opacity: 0.5; }
     .gen-icon {
-      position: relative; width: 56px; height: 56px; border-radius: 50%;
+      position: relative; width: 60px; height: 60px; border-radius: 50%;
       border: 3px solid var(--tier-color, var(--dim));
       background: var(--bg); color: var(--text);
       font-size: 14px; font-weight: 700; cursor: pointer; flex-shrink: 0;
@@ -211,7 +211,7 @@
     }
     .gen-milestone { font-size: 11px; color: var(--dim); white-space: nowrap; }
     .gen-bar {
-      position: relative; height: 28px; border-radius: 6px;
+      position: relative; height: 24px; border-radius: 6px;
       background: var(--bg); border: 1px solid var(--border); overflow: hidden;
       cursor: pointer;
     }
@@ -226,13 +226,18 @@
       font-size: 13px; font-weight: 700; color: var(--text);
     }
     .gen-bottom { display: flex; align-items: center; gap: 8px; }
+    /* One button grammar (docs/UX-OVERHAUL-PLAN.md, batch E): the verb on
+       the left, the price on the right; amber when affordable, an outline
+       when not, dashed with the rule when locked. */
     .gen-buy {
-      flex: 1; min-height: 48px; padding: 0 14px; border-radius: 8px;
+      flex: 1; min-height: 44px; padding: 0 12px; border-radius: 9px;
       border: 1px solid var(--border); background: var(--bg);
       color: var(--dim); font-size: 14px; cursor: pointer;
-      display: flex; flex-direction: column; justify-content: center; gap: 2px;
+      display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px;
       white-space: nowrap;
     }
+    .gen-buy .btn-l2 { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .gen-buy.lock { justify-content: center; border-style: dashed; color: #5f6f86; }
     .gen-buy.afford {
       background: var(--affordable); border-color: var(--affordable);
       color: #0b0f17; font-weight: 700;
@@ -275,6 +280,28 @@
     }
     .up-row .buy:disabled { opacity: 0.5; cursor: default; }
     .up-row .buy .gain { display: block; font-size: 11px; }
+    .up-row[hidden], .up-group[hidden] { display: none; }
+    .up-row .buy { min-width: 84px; align-items: center; }
+    .up-row .buy.lock { opacity: 1; border-style: dashed; color: #5f6f86; }
+    .up-row .up-left { flex: 1 1 auto; }
+    .up-ic { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; object-fit: contain; }
+    /* Grouped Upgrades and collapsed Managers (batch E). */
+    .up-group { display: flex; flex-direction: column; gap: 8px; }
+    .up-sec {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: #5f6f86; padding: 6px 2px 0;
+    }
+    .up-row.summary { min-height: 52px; }
+    .up-row.summary .name { color: var(--dim); }
+    .up-row.summary.gated { border-style: dashed; }
+    .man-note { font-size: 12px; color: #5f6f86; padding: 2px 4px 8px; line-height: 1.4; }
+    #buy-all {
+      position: sticky; bottom: 8px; z-index: 4; width: 100%; min-height: 48px; margin: 10px 0 0;
+      border-radius: 12px; border: 1px solid var(--affordable); background: var(--affordable);
+      color: #1a1204; font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    #buy-all[hidden] { display: none; }
 
     /* Prestige tab (the Weights | Regions segmented control is styled
        with the other segmented controls, above). */
@@ -469,6 +496,17 @@
     #buy-row .buy-sel button { height: 30px; }
     .gen-status { margin-left: auto; font-size: 12px; color: var(--dim); white-space: nowrap; }
     .gen-status.idle { color: var(--affordable); font-weight: 700; letter-spacing: 0.02em; }
+    .gen-status.auto { color: #68d391; font-weight: 600; }
+    .gen-id { position: relative; }
+    /* The row's milestone now lives in the Buy button ("Buy 13 -> 25 · x2 speed"). */
+    .gen-milestone { display: none; }
+    /* "+N" floats up from the bar when a cycle pays. */
+    .payout-float {
+      position: absolute; right: 8px; bottom: 3px; transform: translate(0, 0);
+      font-size: 13px; font-weight: 800; color: var(--affordable); pointer-events: none;
+      animation: payout-float 0.9s ease-out forwards; text-shadow: 0 1px 2px #000;
+    }
+    @keyframes payout-float { to { transform: translate(0, -22px); opacity: 0; } }
     /* The never-tapped Pi pulses until its first boot. */
     .gen-icon.pulse { position: relative; }
     .gen-icon.pulse::before {
@@ -488,6 +526,7 @@
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
     }
     .up-note[hidden] { display: none; }
+    .up-note.up-locked { border-style: dashed; }
     /* Progress ladder (docs/UX-OVERHAUL-PLAN.md, batch D): one scroll,
        three layers, every one visible from the first minute. */
     .layer {

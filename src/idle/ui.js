@@ -345,9 +345,27 @@ export function createUI(state, io) {
     ...UPGRADES.map((u) => ({ u, x5: false })),
     ...X5_UPGRADES.map((u) => ({ u, x5: true })),
   ].sort((a, b) => a.u.cost - b.u.cost);
+  // Three groups (batch E): what each upgrade boosts.
+  const upGroups = {};
+  for (const [key, title] of [['all', 'Boost everything'], ['one', 'One machine'], ['cache', 'Prompt cache']]) {
+    const grp = document.createElement('div');
+    grp.className = 'up-group';
+    const h = document.createElement('div');
+    h.className = 'up-sec';
+    h.textContent = title;
+    grp.append(h);
+    els.upGrid.append(grp);
+    upGroups[key] = grp;
+  }
+  const groupOf = (u) => (u.kind === 'productionTier' ? 'one' : u.kind === 'cacheRate' ? 'cache' : 'all');
   const upRefs = rowDefs.map(({ u, x5 }) => {
     const row = document.createElement('div');
     row.className = 'up-row';
+    if (u.kind === 'productionTier' && u.tier) {
+      const ic = tierArt(u.tier, 40);
+      ic.classList.add('up-ic');
+      row.append(ic);
+    }
     const left = document.createElement('div');
     left.className = 'up-left';
     const name = document.createElement('span');
@@ -360,6 +378,7 @@ export function createUI(state, io) {
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
     buyBtn.className = 'buy';
+    const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
       const ok = x5 ? buyX5Upgrade(state, u.id) : buyUpgrade(state, u.id);
       if (ok) {
@@ -369,10 +388,22 @@ export function createUI(state, io) {
       updateUpgrades(state);
     });
     row.append(left, buyBtn);
-    if (x5) row.style.display = 'none';
-    els.upGrid.appendChild(row);
-    return { u, row, buyBtn, x5 };
+    if (x5) row.hidden = true;
+    upGroups[groupOf(u)].appendChild(row);
+    return { u, row, buyBtn, l1, l2, x5 };
   });
+  // Far-off upgrades collapse into one line (batch E).
+  const upMore = document.createElement('div');
+  upMore.className = 'up-row summary';
+  const upMoreLeft = document.createElement('div');
+  upMoreLeft.className = 'up-left';
+  const upMoreName = document.createElement('span');
+  upMoreName.className = 'name';
+  const upMoreText = document.createElement('span');
+  upMoreText.className = 'effect';
+  upMoreLeft.append(upMoreName, upMoreText);
+  upMore.append(upMoreLeft);
+  els.upGrid.append(upMore);
   // Global milestone line at the top of the Upgrades list (docs/
   // LATE-GAME-DESIGN.md, section 3): "All tiers at 250: x3 production.
   // Lowest now: Lunar Datacenter 212". Created once; only its text is
@@ -388,12 +419,13 @@ export function createUI(state, io) {
     fontSize: '12px',
     color: 'var(--dim)',
   });
-  els.upGrid.prepend(mileLine);
+  document.getElementById('tab-prestige').prepend(mileLine);
 
   const buyAllBtn = document.createElement('button');
   buyAllBtn.type = 'button';
   buyAllBtn.id = 'buy-all';
   buyAllBtn.textContent = 'Buy all';
+  buyAllBtn.hidden = true;
   buyAllBtn.addEventListener('click', () => {
     const n = buyAllUpgrades(state);
     if (n > 0) {
@@ -402,7 +434,7 @@ export function createUI(state, io) {
     }
     updateUpgrades(state);
   });
-  els.upGrid.prepend(buyAllBtn);
+  document.getElementById('tab-upgrades').append(buyAllBtn);
 
   // Managers (Upgrades tab, Managers segment): one row per manager, tier order.
   const manRefs = MANAGERS.map((m) => {
@@ -422,7 +454,7 @@ export function createUI(state, io) {
     name.textContent = m.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
-    effect.textContent = `Runs ${g.name} automatically`;
+    effect.textContent = `Runs ${g.name} by itself`;
     left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
@@ -441,6 +473,27 @@ export function createUI(state, io) {
     els.manGrid.appendChild(row);
     return { m, g, row, buyBtn, l1, l2 };
   });
+  // Later and Region-gated managers collapse into one line each (batch E).
+  function summaryRow(gated) {
+    const row = document.createElement('div');
+    row.className = `up-row summary${gated ? ' gated' : ''}`;
+    const left = document.createElement('div');
+    left.className = 'up-left';
+    const name = document.createElement('span');
+    name.className = 'name';
+    const text = document.createElement('span');
+    text.className = 'effect';
+    left.append(name, text);
+    row.append(left);
+    els.manGrid.append(row);
+    return { row, name, text };
+  }
+  const manLater = summaryRow(false);
+  const manGated = summaryRow(true);
+  const manNote = document.createElement('div');
+  manNote.className = 'man-note';
+  manNote.textContent = 'Managers reset when you Prestige. Standing Orders (a Weight upgrade) keeps Cron Job hired.';
+  els.manGrid.append(manNote);
 
   // More tab: Achievements | Stats | Settings, remembered across visits.
   const MORE_SEG_KEY = 'overclock.idle.moreSegment';
@@ -1204,6 +1257,18 @@ export function createUI(state, io) {
     el.classList.add('flash');
   }
 
+  // "+N" floats up from the bar when a cycle pays (batch E). Skipped for
+  // fast rows (many payouts a second) and with reduced motion.
+  const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function floatPayout(r, g) {
+    if (reduceMotion || cycleTime(state, g) < 0.5) return;
+    const f = document.createElement('span');
+    f.className = 'payout-float';
+    f.textContent = `+${fmt(cyclePayout(state, g))}`;
+    r.bar.parentElement.append(f);
+    setTimeout(() => f.remove(), 950);
+  }
+
   function updateGenCards() {
     let nextUnowned = null;
     // Only the next locked tier is shown (docs/LATE-GAME-DESIGN.md,
@@ -1237,6 +1302,7 @@ export function createUI(state, io) {
         (progress === null ? !managed : typeof progress === 'number' && progress < prev)
       ) {
         play('payout');
+        floatPayout(r, g);
       }
       prevCycles[g.id] = progress;
       const ct = cycleTime(state, g);
@@ -1286,25 +1352,28 @@ export function createUI(state, io) {
       } else if (isLocked) {
         const c = cost(state, g.id, 1);
         disabled = c > state.tokens;
-        setLines(r, `Unlock · ${fmtCost(c)} tokens`, null);
+        setLines(r, 'Unlock', fmtCost(c));
       } else if (view.buyMode === 'max') {
         const m = maxBuyable(state, g.id);
         const c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
-        setLines(r, `Buy ${fmt(m.count > 0 ? m.count : 1)}`, `${fmtCost(c)} tokens`);
+        setLines(r, `Buy ${fmt(m.count > 0 ? m.count : 1)}`, fmtCost(c));
       } else if (view.buyMode === 'next') {
         const n = nextAffordable(state, g.id);
         const c = cost(state, g.id, n);
         disabled = c > state.tokens;
-        setLines(r, `Buy ${fmt(n)} → ${fmt(owned + n)}`, `${fmtCost(c)} tokens`);
+        const nm = nextMilestone(state, g.id);
+        const reward = nm !== null && owned + n === nm.owned ? ` · x${nm.value} ${nm.kind}` : '';
+        setLines(r, `Buy ${fmt(n)} → ${fmt(owned + n)}${reward}`, fmtCost(c));
       } else {
         const n = Number(view.buyMode);
         const c = cost(state, g.id, n);
         disabled = c > state.tokens;
-        setLines(r, `Buy ${n}`, `${fmtCost(c)} tokens`);
+        setLines(r, `Buy ${n}`, fmtCost(c));
       }
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
+      r.buyBtn.classList.toggle('lock', gateLocked);
 
       // Status word (batch C): TAP TO BOOT on a brand-new Pi, TAP TO RUN on
       // an idle row, a countdown while running, Auto with a manager. The
@@ -1312,8 +1381,9 @@ export function createUI(state, io) {
       const firstBoot = g.id === 'pi' && (state.stats.taps || 0) === 0 && !managed;
       let statusText = '';
       let idle = false;
+      const mgr = managed ? MANAGERS.find((x) => x.id === g.id) : null;
       if (isLocked) statusText = '';
-      else if (managed) statusText = 'Auto';
+      else if (managed) statusText = mgr ? `Auto · ${mgr.name}` : 'Auto';
       else if (running && !continuous) statusText = fmtCountdown(ct - progress);
       else {
         statusText = firstBoot ? 'TAP TO BOOT' : 'TAP TO RUN';
@@ -1322,6 +1392,7 @@ export function createUI(state, io) {
       r.status.textContent = statusText;
       r.status.hidden = statusText === '';
       r.status.classList.toggle('idle', idle);
+      r.status.classList.toggle('auto', managed && !isLocked);
       r.icon.classList.toggle('pulse', firstBoot && !running);
     }
   }
@@ -1398,6 +1469,41 @@ export function createUI(state, io) {
   }
 
   function updateManagers() {
+    // Full rows for hired, hireable and the next two machines to come;
+    // the rest collapse into one line, the Region-gated ones into another.
+    let upcoming = 0;
+    const later = [];
+    const gated = [];
+    for (const r of manRefs) {
+      const ownedTier = (state.generators[r.m.id] || 0) > 0;
+      let show = true;
+      if (!hasManager(state, r.m.id) && !ownedTier) {
+        if (!isTierUnlocked(state, r.m.id)) {
+          gated.push(r);
+          show = false;
+        } else if (upcoming < 2) {
+          upcoming++;
+        } else {
+          later.push(r);
+          show = false;
+        }
+      }
+      r.row.hidden = !show;
+    }
+    manLater.row.hidden = later.length === 0;
+    if (later.length > 0) {
+      manLater.name.textContent = later.map((r) => r.m.name).join(', ');
+      const lo = later[0].m.cost;
+      const hi = later[later.length - 1].m.cost;
+      manLater.text.textContent = `Hire once you own their machine · ${fmtCost(lo)}${hi !== lo ? ` to ${fmtCost(hi)}` : ''}`;
+    }
+    manGated.row.hidden = gated.length === 0;
+    if (gated.length > 0) {
+      manGated.name.textContent = gated.map((r) => r.m.name).join(', ');
+      const ns = gated.map((r) => TIER_GATES.find((t) => t.id === r.m.id).regions);
+      const list = ns.length > 1 ? `${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}` : String(ns[0]);
+      manGated.text.textContent = `Unlock with Region${ns.length === 1 ? '' : 's'} ${list}`;
+    }
     for (const r of manRefs) {
       const hired = hasManager(state, r.m.id);
       const owned = state.generators[r.m.id] || 0;
@@ -1412,19 +1518,13 @@ export function createUI(state, io) {
       } else {
         r.buyBtn.classList.remove('done');
         if (owned === 0) {
-          let text;
-          if (isTierUnlocked(state, r.m.id)) {
-            text = `Own ${/^[AEIOU]/.test(r.g.name) ? 'an' : 'a'} ${r.g.name} first`;
-          } else {
-            const n = TIER_GATES.find((t) => t.id === r.m.id).regions;
-            text = `Unlocks at ${regionName({ ...state, regionsEarned: n })} (${n} Region${n === 1 ? '' : 's'})`;
-          }
-          setLines(r, text, null);
+          // Two words (batch E): "Needs 1" over the machine's name.
+          setLines(r, 'Needs 1', r.g.name);
           r.buyBtn.disabled = true;
           r.buyBtn.classList.remove('afford');
         } else {
           const afford = r.m.cost <= state.tokens;
-          setLines(r, 'Hire', `${fmtCost(r.m.cost)} tokens`);
+          setLines(r, 'Hire', fmtCost(r.m.cost));
           r.buyBtn.disabled = !afford;
           r.buyBtn.classList.toggle('afford', afford);
         }
@@ -1449,22 +1549,38 @@ export function createUI(state, io) {
   // available are one dim line instead of hidden, and a card says when
   // everything on the list is owned.
   const upLocked = document.createElement('div');
-  upLocked.className = 'up-note';
+  upLocked.className = 'up-note up-locked';
   const upDone = document.createElement('div');
   upDone.className = 'up-note';
   upDone.textContent = 'Everything bought for this run. More unlock after your next prestige.';
   els.upGrid.append(upLocked, upDone);
 
   function updateUpgrades() {
+    // Which rows show: owned ones, affordable ones and the next two you
+    // cannot afford yet; the rest collapse into one line.
+    const open = upRefs
+      .filter((r) => (!r.x5 || x5Available(r.u)) && !(r.x5 ? state.x5Upgrades : state.upgrades).includes(r.u.id))
+      .sort((a, b) => a.u.cost - b.u.cost);
+    const shown = new Set();
+    let ahead = 0;
+    for (const r of open) {
+      if (r.u.cost <= state.tokens) shown.add(r);
+      else if (ahead < 2) {
+        shown.add(r);
+        ahead++;
+      }
+    }
+    const far = open.filter((r) => !shown.has(r));
     for (const r of upRefs) {
-      if (r.x5) r.row.style.display = x5Available(r.u) ? '' : 'none';
-      const owned = r.x5 ? state.x5Upgrades.includes(r.u.id) : state.upgrades.includes(r.u.id);
+      const avail = !r.x5 || x5Available(r.u);
+      const owned = (r.x5 ? state.x5Upgrades : state.upgrades).includes(r.u.id);
+      r.row.hidden = !avail || (!owned && !shown.has(r));
       r.row.classList.toggle('owned', owned);
       r.row.classList.toggle('dim', !owned);
       if (owned) {
         // Owned rows stay solid with a green "Owned" pill (docs/
         // ART-BACKGROUNDS.md); only not-owned rows dim their text.
-        r.buyBtn.textContent = '✓ Owned';
+        setLines(r, '✓ Owned', null);
         r.buyBtn.disabled = true;
         r.buyBtn.classList.remove('afford');
         r.buyBtn.classList.add('done');
@@ -1472,13 +1588,36 @@ export function createUI(state, io) {
         r.buyBtn.classList.remove('done');
         const c = r.u.cost;
         const afford = c <= state.tokens;
-        r.buyBtn.textContent = fmtCost(c);
+        setLines(r, 'Buy', fmtCost(c));
         r.buyBtn.disabled = !afford;
         r.buyBtn.classList.toggle('afford', afford);
       }
     }
+    for (const g of Object.values(upGroups)) {
+      g.hidden = ![...g.querySelectorAll('.up-row')].some((x) => !x.hidden);
+    }
+    upMore.hidden = far.length === 0;
+    if (far.length > 0) {
+      upMoreName.textContent = `${far.length} more upgrade${far.length === 1 ? '' : 's'}`;
+      const first = far[0].u;
+      const last = far[far.length - 1].u;
+      upMoreText.textContent = far.length === 1
+        ? `${first.name} at ${fmtCost(first.cost)}`
+        : `${first.name} at ${fmtCost(first.cost)}, up to ${last.name} at ${fmtCost(last.cost)}`;
+    }
+    // Buy all: how many are ready and what they cost together, cheapest
+    // first (the order buyAllUpgrades buys in).
+    let ready = 0;
+    let total = 0;
+    for (const r of open) {
+      if (total + r.u.cost > state.tokens) break;
+      total += r.u.cost;
+      ready++;
+    }
     const affordable = upRefs.some(upgradeCandidate);
     buyAllBtn.disabled = !affordable;
+    buyAllBtn.hidden = ready === 0;
+    buyAllBtn.textContent = `Buy all ${ready} ready · ${fmtCost(total)}`;
     const lockedX5 = upRefs.filter((r) => r.x5 && !x5Available(r.u));
     const byRegion = lockedX5.filter((r) => (state.regionsEarned || 0) < r.u.minRegions);
     if (byRegion.length > 0) {
@@ -1496,6 +1635,8 @@ export function createUI(state, io) {
   // next threshold not yet met by every unlocked tier, plus the unlocked
   // tier with the fewest owned.
   function updateGlobalMilestone() {
+    mileLine.hidden = !GENERATORS.some((g) => (state.generators[g.id] || 0) >= 100);
+    if (mileLine.hidden) return;
     const m = globalMilestone(state);
     const tier = m.lowestTier ? GENERATORS.find((g) => g.id === m.lowestTier) : null;
     const lowest = tier ? `${tier.name} ${fmtExact(m.lowestCount)}` : '';
