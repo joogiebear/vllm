@@ -5,8 +5,8 @@
 // dim. Rows are
 // built once; the refresh pass only updates text and classes and reorders
 // the existing nodes, at most once a second.
-import { ACHIEVEMENTS, GENERATORS, MANAGERS } from './data.js?v=20261104145857';
-import { badge } from './icons.js?v=20261104145857';
+import { ACHIEVEMENTS, GENERATORS, MANAGERS } from './data.js?v=20261104162436';
+import { badge } from './icons.js?v=20261104162436';
 
 const STYLE_ID = 'overclock-achievements-style';
 
