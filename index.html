@@ -291,15 +291,21 @@
     #tab-prestige p { font-size: 13px; color: var(--dim); margin: 4px 0 0; }
     #prestige-hint,
     #region-head,
+    #region-locked,
     #global-milestone {
       background: rgba(17, 24, 39, 0.80); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px; margin-bottom: 12px;
     }
+    #regions-seg-lock { font-size: 11px; font-weight: 400; }
+    #regions-hint-line { font-size: 12px; color: var(--dim); margin-top: 12px; }
     .hint-bar {
       height: 8px; border-radius: 4px;
       background: rgba(255, 255, 255, 0.12); overflow: hidden;
     }
     #region-hint-note { font-size: 12px; color: var(--dim); margin-top: 2px; }
+    #region-locked-fill { height: 100%; width: 0; background: var(--affordable); }
+    #region-locked-text { font-size: 13px; color: var(--dim); margin-top: 6px; }
+    #region-locked-note { font-size: 12px; color: var(--dim); margin-top: 2px; }
     #prestige-hint-fill { height: 100%; width: 0; background: var(--affordable); }
     #prestige-hint-text { font-size: 13px; color: var(--dim); margin-top: 6px; }
     #prestige-hint-bonus { font-size: 12px; color: var(--dim); margin-top: 2px; }
@@ -452,7 +458,7 @@
       <section id="tab-prestige" aria-label="Prestige" hidden>
         <div id="prestige-seg" role="tablist" aria-label="Prestige section">
           <button type="button" data-seg="weights">Weights</button>
-          <button type="button" data-seg="regions" hidden>Regions<span class="seg-dot" hidden></span></button>
+          <button type="button" data-seg="regions">Regions<span id="regions-seg-lock"> · Locked</span><span class="seg-dot" hidden></span></button>
         </div>
         <div id="prestige-weights">
           <div id="prestige-hint">
@@ -474,9 +480,15 @@
             <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
             <div id="prestige-grid"></div>
           </section>
+          <div id="regions-hint-line"></div>
         </div>
         <div id="prestige-regions" hidden>
-          <div id="region-head">
+          <div id="region-locked">
+            <div class="hint-bar"><div id="region-locked-fill"></div></div>
+            <div id="region-locked-text">…</div>
+            <div id="region-locked-note">Each Region doubles all production and moves your server room somewhere new.</div>
+          </div>
+          <div id="region-head" hidden>
             <div id="region-hint">
               <div class="hint-bar"><div id="region-hint-fill"></div></div>
               <div id="region-hint-text">…</div>
@@ -484,14 +496,14 @@
             </div>
             <div id="region-mult"></div>
           </div>
-          <section id="region-expand">
+          <section id="region-expand" hidden>
             <button type="button" id="expand-btn" disabled>EXPAND</button>
             <div id="expand-note" hidden>
               <div>Resets: the run, Weights, Weight upgrades, lifetime totals</div>
               <div>Kept: Regions, Region perks, achievements, stats, settings, Rush cooldown</div>
             </div>
           </section>
-          <div id="region-perks"></div>
+          <div id="region-perks" hidden></div>
         </div>
       </section>
 

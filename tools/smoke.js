@@ -394,6 +394,35 @@ async function runChecks(cdp, sessionId, url) {
         `[...document.querySelectorAll("#gen-cards .gen-card")].every((c) => c.hidden || !c.textContent.includes("Unlocks at"))`
       )
   );
+  // The Regions segment is always visible, even on a fresh (locked)
+  // game: the button shows a "Locked" tag (rule: nothing important is
+  // hidden), and opening it renders the locked panel with the 2,000
+  // unlock threshold while Expand and the perks stay hidden.
+  await check(
+    'fresh game: Regions segment button is visible with a Locked tag',
+    () =>
+      evalIn(
+        `(() => { const b = document.querySelector('#prestige-seg [data-seg="regions"]'); return !!(b && !b.hidden && b.textContent.includes('Locked')); })()`
+      )
+  );
+  await check(
+    'fresh game: opening the Regions segment shows the locked panel (2,000 threshold, no Expand)',
+    () =>
+      evalIn(
+        `(async () => {
+          const b = document.querySelector('#prestige-seg [data-seg="regions"]');
+          if (!b) return false;
+          b.click();
+          await new Promise((r) => setTimeout(r, 50));
+          const panel = document.getElementById('region-locked');
+          if (!panel || panel.hidden) return false;
+          if (!panel.textContent.includes('2,000')) return false;
+          const expand = document.getElementById('region-expand');
+          const perks = document.getElementById('region-perks');
+          return (!expand || expand.hidden) && (!perks || perks.hidden);
+        })()`
+      )
+  );
   // The first-run tip ("Tap the Pi to run it...") shows before the tap,
   // because tapping the run button dismisses it.
   await check(

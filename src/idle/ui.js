@@ -4,6 +4,7 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
+  regionsLockedText, regionsUnlockProgress, regionsHintLine,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
 } from './core.js?v=20261104145532';
 import {
@@ -133,6 +134,13 @@ export function createUI(state, io) {
     expandBtn: document.getElementById('expand-btn'),
     expandNote: document.getElementById('expand-note'),
     regionPerksGrid: document.getElementById('region-perks'),
+    regionHead: document.getElementById('region-head'),
+    regionExpand: document.getElementById('region-expand'),
+    regionLocked: document.getElementById('region-locked'),
+    regionLockedFill: document.getElementById('region-locked-fill'),
+    regionLockedText: document.getElementById('region-locked-text'),
+    regionsSegLock: document.getElementById('regions-seg-lock'),
+    regionsHintLine: document.getElementById('regions-hint-line'),
     regionsSegBtn: document.querySelector('#prestige-seg [data-seg="regions"]'),
     regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
     regionName: document.getElementById('region-name'),
@@ -542,8 +550,8 @@ export function createUI(state, io) {
   });
 
   // Prestige tab (Weights | Regions segments), remembered across visits.
-  // The Regions segment stays hidden until the unlock threshold, then a dot
-  // marks it (docs/REGIONS-DESIGN.md).
+  // The Regions segment is always visible (a "Locked" tag while locked);
+  // a dot marks it once, until it has been viewed (docs/REGIONS-DESIGN.md).
   const PSEG_KEY = 'overclock.idle.prestigeSegment';
   const psegBtns = Array.from(document.querySelectorAll('#prestige-seg button'));
   function setPrestigeSeg(seg, persist) {
@@ -1207,10 +1215,24 @@ export function createUI(state, io) {
 
   function updatePrestigeSeg() {
     const unlocked = regionsUnlocked(state);
-    els.regionsSegBtn.hidden = !unlocked;
+    // The Regions segment is always visible: while locked it carries a
+    // "Locked" tag and the view renders a locked panel with the unlock
+    // threshold and progress (nothing important is hidden: show it and
+    // say how to unlock it).
+    els.regionsSegLock.hidden = unlocked;
     // The dot marks the Regions segment once, until it has been viewed.
     els.regionDot.hidden = !unlocked || view.regionDotSeen;
-    if (!unlocked && view.prestigeSeg === 'regions') setPrestigeSeg('weights', false);
+    els.regionLocked.hidden = unlocked;
+    els.regionHead.hidden = !unlocked;
+    els.regionExpand.hidden = !unlocked;
+    els.regionPerksGrid.hidden = !unlocked;
+    if (!unlocked) {
+      els.regionLockedText.textContent = regionsLockedText(state);
+      els.regionLockedFill.style.width = `${Math.round(regionsUnlockProgress(state) * 100)}%`;
+    }
+    // Always-visible pointer on the Weights view, so the feature is
+    // discoverable from where players already are.
+    els.regionsHintLine.textContent = regionsHintLine(state);
     updateRegions();
   }
 

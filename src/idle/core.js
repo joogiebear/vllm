@@ -521,6 +521,41 @@ export function regionsUnlocked(state) {
     || Math.max(state.weightsEverEarned || 0, state.weights || 0) >= REGION_UNLOCK_WEIGHTS;
 }
 
+// The Weights that count toward the first Region: the higher of the
+// lifetime total and the current holding (matches regionsUnlocked).
+function weightsTowardUnlock(state) {
+  return Math.max(state.weightsEverEarned || 0, state.weights || 0);
+}
+
+// Whole-number display with thousands separators (2000 -> "2,000").
+function fmtNum(n) {
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+// The locked-state text of the Regions view: the unlock threshold and
+// the player's progress toward it (nothing important is hidden: show it
+// and say how to unlock it).
+export function regionsLockedText(state) {
+  return `Regions unlock at ${fmtNum(REGION_UNLOCK_WEIGHTS)} Weights earned (you have ${fmtNum(weightsTowardUnlock(state))})`;
+}
+
+// Progress (0..1) toward the first Region unlock.
+export function regionsUnlockProgress(state) {
+  return Math.min(1, weightsTowardUnlock(state) / REGION_UNLOCK_WEIGHTS);
+}
+
+// The always-visible one-line Regions hint on the Weights view: the
+// locked text, or the next-Region progress.
+export function regionsHintLine(state) {
+  if (!regionsUnlocked(state)) {
+    return `Regions: locked — unlocks at ${fmtNum(REGION_UNLOCK_WEIGHTS)} Weights earned (you have ${fmtNum(weightsTowardUnlock(state))}). Open the Regions tab above.`;
+  }
+  if (regionsAvailable(state) >= 1) {
+    return 'Regions: ready to expand to your next Region. Open the Regions tab above.';
+  }
+  return `Regions: next Region at ${fmtNum(regionTarget(state))} Weights earned by prestiging (${fmtNum(state.weightsSinceExpand || 0)} so far). Open the Regions tab above.`;
+}
+
 // SERVE / click left the game; kept as a no-op so the UI does not break
 // before the UI pass.
 export function click(state) {

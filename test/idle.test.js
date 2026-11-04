@@ -26,6 +26,9 @@ import {
   applyRush,
   migrate,
   regionsUnlocked,
+  regionsLockedText,
+  regionsUnlockProgress,
+  regionsHintLine,
   click,
   setOverclock,
   claimEvent,
@@ -1322,6 +1325,60 @@ test('regionsUnlocked: a save with regionsEarned 1 and 0 weightsEverEarned is un
 
 test('regionsUnlocked: a fresh game is not unlocked', () => {
   assert.equal(regionsUnlocked(createState()), false);
+});
+
+test('regionsLockedText: a fresh game shows the 2,000 threshold and 0 earned', () => {
+  assert.equal(
+    regionsLockedText(createState()),
+    'Regions unlock at 2,000 Weights earned (you have 0)'
+  );
+});
+
+test('regionsLockedText: uses the higher of weightsEverEarned and current weights', () => {
+  const s = createState();
+  s.weightsEverEarned = 1500;
+  s.weights = 900;
+  assert.equal(
+    regionsLockedText(s),
+    'Regions unlock at 2,000 Weights earned (you have 1,500)'
+  );
+});
+
+test('regionsUnlockProgress: 0 on a fresh game, 0.5 at 1,000, capped at 1', () => {
+  assert.equal(regionsUnlockProgress(createState()), 0);
+  const half = createState();
+  half.weights = 1000;
+  assert.equal(regionsUnlockProgress(half), 0.5);
+  const over = createState();
+  over.weightsEverEarned = 5000;
+  assert.equal(regionsUnlockProgress(over), 1);
+});
+
+test('regionsHintLine: a fresh game shows the locked text and the Regions tab pointer', () => {
+  assert.equal(
+    regionsHintLine(createState()),
+    'Regions: locked — unlocks at 2,000 Weights earned (you have 0). Open the Regions tab above.'
+  );
+});
+
+test('regionsHintLine: an unlocked save shows next-Region progress', () => {
+  const s = createState();
+  s.weightsEverEarned = 2000;
+  s.weightsSinceExpand = 500;
+  assert.equal(
+    regionsHintLine(s),
+    'Regions: next Region at 4,000 Weights earned by prestiging (500 so far). Open the Regions tab above.'
+  );
+});
+
+test('regionsHintLine: ready to expand when the next Region is available', () => {
+  const s = createState();
+  s.weightsEverEarned = 2000;
+  s.weightsSinceExpand = 4000;
+  assert.equal(
+    regionsHintLine(s),
+    'Regions: ready to expand to your next Region. Open the Regions tab above.'
+  );
 });
 
 test('buyRegionPerk: spends Regions, never lowers the multiplier, no double-buy', () => {
