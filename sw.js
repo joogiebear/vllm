@@ -29,6 +29,15 @@ const PORTRAITS = [
 ];
 const PORTRAIT_V = 1;
 
+// The machine icon ids and version, mirrored from TIER_ART and TIER_ART_V
+// in src/idle/data.js (docs/ART-TIERS.md). Kept in sync by
+// test/sw-tiers.test.js.
+const TIER_ART = [
+  'pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter',
+  'campus', 'swarm', 'orbital', 'lunar', 'matrioshka', 'singularity',
+];
+const TIER_ART_V = 1;
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(precache());
@@ -173,6 +182,11 @@ async function precache() {
   // The manager portraits, so they show offline after the first load.
   for (const id of PORTRAITS) {
     const href = new URL(`icons/managers/${id}.webp?v=${PORTRAIT_V}`, scope).href;
+    await put(href);
+  }
+  // The machine icons, so they show offline after the first load.
+  for (const id of TIER_ART) {
+    const href = new URL(`icons/tiers/${id}.webp?v=${TIER_ART_V}`, scope).href;
     await put(href);
   }
 }
