@@ -2,7 +2,7 @@
 // background is the current Region's scene (icons/bg/<key>.webp), falling
 // back to the last earlier Region that has a file, else Home Lab.
 // Called once at start and after every Region expansion.
-import { BACKGROUNDS, BG_V } from './data.js?v=20261104202611';
+import { BACKGROUNDS, BG_V } from './data.js?v=20261104203928';
 
 export function applyBackground(state) {
   const earned = state.regionsEarned || 0;

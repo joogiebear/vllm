@@ -4,7 +4,7 @@
 // 3 seconds. Several toasts queue and never overlap. The host is
 // pointer-events: none, so a toast never blocks a tap.
 // prefers-reduced-motion: no slide, the pill just appears and vanishes.
-import { isWelcomeOpen } from './welcome.js?v=20261104202611';
+import { isWelcomeOpen } from './welcome.js?v=20261104203928';
 const STYLE_ID = 'overclock-toast-style';
 const SHOW_MS = 3000;
 const OUT_MS = 250;
