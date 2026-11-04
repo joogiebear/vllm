@@ -1,6 +1,6 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
-import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261104145857';
-import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261104145857';
+import { tick, applyOffline, autoProcureDue, buyAllUpgrades } from './core.js?v=20261104145857';
+import { AUTOSAVE_SECONDS, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261104145857';
 import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261104145857';
 import { get } from './settings.js?v=20261104145857';
 import { createUI } from './ui.js?v=20261104145857';
@@ -52,42 +52,6 @@ const io = {
 };
 
 const ui = createUI(state, io);
-
-// Rush result from the arcade (main.js stores it on game over): read once
-// on load, then remove, then pay out. applyRush ignores a call while the
-// cooldown is still running.
-function readRushResult() {
-  let raw = null;
-  try {
-    raw = localStorage.getItem(RUSH_RESULT_KEY);
-  } catch (err) {
-    raw = null;
-  }
-  if (raw === null) return;
-  try {
-    localStorage.removeItem(RUSH_RESULT_KEY);
-  } catch (err) {
-    // ignore
-  }
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (err) {
-    return;
-  }
-  if (
-    data === null ||
-    typeof data !== 'object' ||
-    typeof data.score !== 'number' ||
-    !Number.isFinite(data.score) ||
-    data.score < 0
-  ) {
-    return;
-  }
-  const now = Date.now();
-  const earned = applyRush(state, data.score, now);
-  if (earned > 0) ui.showBanner(`Rush payout: +${fmt(earned)} tokens`);
-}
 
 // Offline earnings from the last save timestamp.
 function offlineCapped(state, seconds) {
@@ -165,7 +129,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveNow();
 });
 
-readRushResult();
 applyOfflineEarnings();
 applyBackground(state);
 ui.update(state, Date.now());

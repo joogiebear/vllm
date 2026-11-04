@@ -4,10 +4,10 @@
 set -e
 cd "$(dirname "$0")/.."
 V=$(date -u +%Y%m%d%H%M%S)
-for f in src/idle/*.js src/*.js; do
+for f in src/idle/*.js; do
   sed -i -E "s#(from '\./[A-Za-z0-9_./-]+\.js)(\?v=[0-9]+)?'#\1?v=$V'#g" "$f"
 done
-for f in index.html rush.html; do
+for f in index.html; do
   sed -i -E "s#(src=\"src/[A-Za-z0-9_./-]+\.js)(\?v=[0-9]+)?\"#\1?v=$V\"#g" "$f"
 done
 sed -i -E "s#overclock-[0-9]+#overclock-$V#" sw.js

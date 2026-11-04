@@ -5,7 +5,7 @@ import {
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   regionsLockedText, regionsUnlockProgress, regionsHintLine,
-  maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
+  maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, nextBuyCount, regionTarget, globalMilestone,
 } from './core.js?v=20261104145857';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
@@ -90,8 +90,7 @@ function setLines(r, line1, line2) {
 
 export function createUI(state, io) {
   const view = {
-    buyMode: '1',
-    upSegment: 'upgrades',
+    buyMode: 'next',
     prestigeSeg: 'weights',
     prestigeArmed: false,
     expandArmed: false,
@@ -108,7 +107,6 @@ export function createUI(state, io) {
     tokens: document.getElementById('tokens'),
     tps: document.getElementById('tps'),
     weightsChip: document.getElementById('weights-chip'),
-    rush: document.getElementById('rush'),
     banner: document.getElementById('banner'),
     genCards: document.getElementById('gen-cards'),
     upGrid: document.getElementById('up-grid'),
@@ -124,6 +122,7 @@ export function createUI(state, io) {
     resetBtn: document.getElementById('reset-btn'),
     settingsMsg: document.getElementById('settings-msg'),
     upDot: document.querySelector('#tabs [data-tab="upgrades"] .tab-dot'),
+    manDot: document.querySelector('#tabs [data-tab="managers"] .tab-dot'),
     prestigeDot: document.querySelector('#tabs [data-tab="prestige"] .tab-dot'),
     prestigeWeights: document.getElementById('prestige-weights'),
     prestigeRegions: document.getElementById('prestige-regions'),
@@ -152,10 +151,25 @@ export function createUI(state, io) {
   const buyModeBtns = Array.from(
     document.querySelectorAll('#buy-sel button'),
   );
+  // Next (docs/UX-PLAN.md, section 3.3) is the default: it buys exactly
+  // up to the row's next milestone. The choice is remembered.
+  const BUY_MODE_KEY = 'overclock.idle.buyMode';
+  try {
+    const saved = localStorage.getItem(BUY_MODE_KEY);
+    if (buyModeBtns.some((b) => b.dataset.mode === saved)) view.buyMode = saved;
+  } catch (err) {
+    // private mode: the default mode
+  }
+  buyModeBtns.forEach((x) => x.classList.toggle('active', x.dataset.mode === view.buyMode));
   buyModeBtns.forEach((b) => {
     b.addEventListener('click', () => {
       view.buyMode = b.dataset.mode;
       buyModeBtns.forEach((x) => x.classList.toggle('active', x === b));
+      try {
+        localStorage.setItem(BUY_MODE_KEY, view.buyMode);
+      } catch (err) {
+        // private mode: the mode just does not persist
+      }
       updateGenCards(state);
     });
   });
@@ -260,7 +274,10 @@ export function createUI(state, io) {
     buyBtn.className = 'gen-buy';
     const { l1, l2 } = makeLines(buyBtn);
     buyBtn.addEventListener('click', () => {
-      const mode = view.buyMode === 'max' ? 'max' : Number(view.buyMode);
+      let mode;
+      if (view.buyMode === 'max') mode = 'max';
+      else if (view.buyMode === 'next') mode = nextBuyCount(state, g.id);
+      else mode = Number(view.buyMode);
       const bought = buy(state, g.id, mode);
       if (bought > 0) {
         naturalDismiss('buy', state);
@@ -383,32 +400,6 @@ export function createUI(state, io) {
     els.manGrid.appendChild(row);
     return { m, g, row, buyBtn, l1, l2 };
   });
-
-  // Segmented control: Managers | Upgrades, remembered across visits.
-  const SEG_KEY = 'overclock.idle.upSegment';
-  const segBtns = Array.from(document.querySelectorAll('#up-seg button'));
-  function setSegment(seg, persist) {
-    view.upSegment = seg;
-    segBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
-    els.manGrid.hidden = seg !== 'managers';
-    els.upGrid.hidden = seg !== 'upgrades';
-    if (persist) {
-      try {
-        localStorage.setItem(SEG_KEY, seg);
-      } catch (err) {
-        // private mode: the segment just does not persist
-      }
-    }
-  }
-  segBtns.forEach((b) => b.addEventListener('click', () => setSegment(b.dataset.seg, true)));
-  let savedSeg = null;
-  try {
-    const s = localStorage.getItem(SEG_KEY);
-    if (s === 'managers' || s === 'upgrades') savedSeg = s;
-  } catch (err) {
-    // private mode: default segment
-  }
-  setSegment(savedSeg || 'upgrades', false);
 
   // More tab: Achievements | Stats | Settings, remembered across visits.
   const MORE_SEG_KEY = 'overclock.idle.moreSegment';
@@ -585,9 +576,9 @@ export function createUI(state, io) {
   const tabs = Array.from(document.querySelectorAll('#tabs button'));
   const sections = {
     game: document.getElementById('tab-game'),
+    managers: document.getElementById('tab-managers'),
     upgrades: document.getElementById('tab-upgrades'),
     prestige: document.getElementById('tab-prestige'),
-    shop: document.getElementById('tab-shop'),
     more: document.getElementById('tab-more'),
   };
   tabs.forEach((t) => {
@@ -602,8 +593,67 @@ export function createUI(state, io) {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
       });
-      // Opening Upgrades dismisses the manager hint (docs/ART-DESIGN.md §1).
-      if (tab === 'upgrades') naturalDismiss('manager', state);
+      // Opening Managers dismisses the manager hint (docs/ART-DESIGN.md §1).
+      if (tab === 'managers') naturalDismiss('manager', state);
+    });
+  });
+
+  // Help cards (docs/UX-PLAN.md, principle 2): every panel head has a "?"
+  // that opens one short card. One overlay, built once.
+  const HELP = {
+    servers: ['Servers', 'Each machine runs a cycle and pays tokens when the bar fills.
+Tap a machine to run it yourself, or hire its manager so it runs by itself.
+Buy more of a machine to earn more per cycle. At 25, 50, 100, 200 and 400 owned it runs twice as fast; at 300, 500, 750 and 1,000 it pays more.
+The Next button buys exactly enough to reach the next boost.'],
+    managers: ['Managers', 'One manager per machine. A hired manager runs that machine forever, even while the game is closed.
+You need to own the machine first.
+Managers reset when you prestige.'],
+    upgrades: ['Upgrades', 'One-time boosts paid with tokens. Some boost one machine, some boost everything.
+They reset when you prestige, so you buy them again each run.
+Buy all buys every one you can afford, cheapest first.'],
+    prestige: ['Prestige', 'When your lifetime tokens are high enough you can prestige: the run starts over and you earn Weights.
+Each Weight adds +10% to all production, in every later run.
+Weight upgrades are paid in Weights and survive prestige.'],
+    regions: ['Regions', 'Regions are the bigger reset above Prestige.
+They unlock once you have earned 2,000 Weights in total.
+Expanding resets Weights too, but doubles all production for good, moves your server room somewhere new and unlocks bigger machines.'],
+    more: ['More', 'Achievements each add +1% production.
+Stats show your totals for this run and all time.
+Settings has sound, haptics, backups and "Show tips again".'],
+  };
+  const helpOverlay = document.createElement('div');
+  helpOverlay.className = 'help-overlay';
+  helpOverlay.hidden = true;
+  const helpCard = document.createElement('div');
+  helpCard.className = 'help-card';
+  helpCard.setAttribute('role', 'dialog');
+  helpCard.setAttribute('aria-modal', 'true');
+  const helpTitle = document.createElement('h3');
+  const helpText = document.createElement('p');
+  const helpClose = document.createElement('button');
+  helpClose.type = 'button';
+  helpClose.textContent = 'Got it';
+  helpCard.append(helpTitle, helpText, helpClose);
+  helpOverlay.append(helpCard);
+  document.body.append(helpOverlay);
+  function closeHelp() {
+    helpOverlay.hidden = true;
+  }
+  helpClose.addEventListener('click', closeHelp);
+  helpOverlay.addEventListener('click', (e) => {
+    if (e.target === helpOverlay) closeHelp();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !helpOverlay.hidden) closeHelp();
+  });
+  document.querySelectorAll('.help-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      const h = HELP[b.dataset.help];
+      if (!h) return;
+      helpTitle.textContent = h[0];
+      helpText.textContent = h[1];
+      helpOverlay.hidden = false;
+      helpClose.focus();
     });
   });
 
@@ -915,8 +965,7 @@ export function createUI(state, io) {
   mountStats(document.getElementById('more-stats'), () => state);
 
   // Timed events (docs/TIERS-EVENTS.md): banner above the generator cards,
-  // chip in the header (appended last; while it is visible it takes the
-  // Rush chip's place, so the column holds at most two chips).
+  // chip in the header (appended last, under the Weights chip).
   const eventsList = document.createElement('div');
   const eventsChip = document.createElement('div');
   document.getElementById('tab-game').prepend(eventsList);
@@ -1002,7 +1051,9 @@ export function createUI(state, io) {
       // (docs/LATE-GAME-DESIGN.md, section 3): "x2 speed at 25",
       // "x2 payout at 300", ...
       const m = nextMilestone(state, g.id);
-      r.milestone.textContent = m === null ? '' : `x${m.value} ${m.kind} at ${m.owned}`;
+      r.milestone.textContent = m === null
+        ? 'All milestones reached'
+        : `${fmt(owned)} / ${fmt(m.owned)} · next: x${m.value} ${m.kind}`;
 
       let fill;
       if (continuous) fill = 1;
@@ -1042,18 +1093,18 @@ export function createUI(state, io) {
         const m = maxBuyable(state, g.id);
         const c = m.count > 0 ? m.total : cost(state, g.id, 1);
         disabled = m.count === 0;
-        setLines(
-          r,
-          m.count > 0
-            ? `Buy ${fmt(m.count)} level${m.count === 1 ? '' : 's'}`
-            : 'Buy 1 level',
-          `${fmtCost(c)} tokens`,
-        );
+        setLines(r, `Buy ${fmt(m.count > 0 ? m.count : 1)}`, `${fmtCost(c)} tokens`);
+      } else if (view.buyMode === 'next') {
+        const n = nextBuyCount(state, g.id);
+        const c = cost(state, g.id, n);
+        disabled = c > state.tokens;
+        const nm = nextMilestone(state, g.id);
+        setLines(r, nm === null ? 'Buy 1' : `Buy ${fmt(n)} → ${fmt(nm.owned)}`, `${fmtCost(c)} tokens`);
       } else {
         const n = Number(view.buyMode);
         const c = cost(state, g.id, n);
         disabled = c > state.tokens;
-        setLines(r, `Buy ${n} level${n === 1 ? '' : 's'}`, `${fmtCost(c)} tokens`);
+        setLines(r, `Buy ${n}`, `${fmtCost(c)} tokens`);
       }
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
@@ -1243,7 +1294,8 @@ export function createUI(state, io) {
         && (state.generators[r.m.id] || 0) > 0
         && r.m.cost <= state.tokens,
     );
-    els.upDot.hidden = !(upAffordable || manAffordable);
+    els.upDot.hidden = !upAffordable;
+    els.manDot.hidden = !manAffordable;
     els.prestigeDot.hidden = weightsAvailable(state) < 1;
   }
 
@@ -1256,18 +1308,11 @@ export function createUI(state, io) {
     container.hidden = visible < 2;
   }
   function updateSegmentedControls() {
-    syncSegVisibility(document.getElementById('up-seg'), segBtns);
     syncSegVisibility(document.getElementById('prestige-seg'), psegBtns);
     syncSegVisibility(document.getElementById('more-seg'), moreSegBtns);
   }
 
-  function updateRushChip() {
-    const ready =
-      state.rushCooldownUntil === null || state.rushCooldownUntil <= view.lastNow;
-    els.rush.textContent = ready
-      ? 'Rush ready'
-      : `Rush in ${fmtTime(state.rushCooldownUntil - view.lastNow)}`;
-  }
+
 
   function update() {
     view.lastNow = Date.now();
@@ -1295,13 +1340,6 @@ export function createUI(state, io) {
     els.regionName.hidden = earnedRegions < 1;
     if (earnedRegions >= 1) els.regionName.textContent = `· ${regionName(state)}`;
 
-    // While a timed event runs (spike/turbo), its chip takes Rush's place
-    // in the header's 2-chip column; Rush comes back when the event ends.
-    els.rush.hidden = !!(
-      state.eventActive &&
-      (state.eventActive.kind === 'spike' || state.eventActive.kind === 'turbo')
-    );
-
     // Cosmetic tint per region: 12° hue-rotate per region on the card ring
     // colours only (the generator icon borders), capped at 120°.
     const tint = Math.min(12 * earnedRegions, 120);
@@ -1322,7 +1360,6 @@ export function createUI(state, io) {
     updateTabDots();
     updateSegmentedControls();
     updateWeightUpgrades();
-    updateRushChip();
   }
 
   // First-run hints (docs/ART-DESIGN.md §1): mount the callout.

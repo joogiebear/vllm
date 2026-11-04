@@ -3,7 +3,7 @@
 //
 // - Versioned files (any URL with ?v=) and icons/: cache first. They never
 //   change once stamped, so this is always safe.
-// - The shell (index.html, manifest.webmanifest, rush.html, and the scope
+// - The shell (index.html, manifest.webmanifest, and the scope
 //   root, which serves index.html): network first with a 3 s timeout,
 //   falling back to the cache. An update shows up on the next online load;
 //   the game still opens with no signal.
@@ -17,7 +17,7 @@
 const CACHE = 'overclock-20261104145857';
 
 // The named shell files, resolved against the scope.
-const SHELL = ['index.html', 'manifest.webmanifest', 'rush.html'];
+const SHELL = ['index.html', 'manifest.webmanifest'];
 
 // The manager portrait ids and version, mirrored from PORTRAITS and
 // PORTRAIT_V in src/idle/data.js (docs/ART-PORTRAITS.md). sw.js is a
@@ -79,7 +79,6 @@ self.addEventListener('fetch', (event) => {
   const shell =
     name === 'index.html' ||
     name === 'manifest.webmanifest' ||
-    name === 'rush.html' ||
     url.pathname.endsWith('/'); // the scope root serves index.html
   const versioned =
     /\?v=/.test(url.search) || url.pathname.includes('/icons/');

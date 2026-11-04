@@ -602,7 +602,7 @@ async function runChecks(cdp, sessionId, url) {
     () =>
       evalIn(
         `(async () => {
-          const tabs = ['game', 'upgrades', 'prestige', 'shop', 'more'];
+          const tabs = ['game', 'managers', 'upgrades', 'prestige', 'more'];
           for (const t of tabs) {
             const btn = document.querySelector('#tabs [data-tab="' + t + '"]');
             if (!btn) return false;
@@ -620,23 +620,68 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
 
-  // Upgrades tab, Managers segment: the Pi manager row (Cron Job) shows a
-  // portrait img that finished loading (docs/ART-PORTRAITS.md, task 5).
+  // Batch 1 (docs/UX-PLAN.md): five tabs with these labels, no Shop and no
+  // Rush; Next is the default buy mode and its button reads "Buy n → m";
+  // every "?" opens a help card that closes again.
   await check(
-    'late save: Pi manager portrait loaded (Upgrades > Managers)',
+    'layout: tabs are Servers, Managers, Upgrades, Prestige, More; no Shop or Rush',
+    () =>
+      evalIn(
+        `(() => {
+          const labels = [...document.querySelectorAll('#tabs button')].map((b) => b.childNodes[0].textContent.trim());
+          return JSON.stringify(labels) === JSON.stringify(['Servers', 'Managers', 'Upgrades', 'Prestige', 'More'])
+            && !document.getElementById('tab-shop') && !document.getElementById('rush');
+        })()`
+      )
+  );
+  await check(
+    'layout: Next buy mode is selected and the Pi button reads "Buy n → m"',
     () =>
       evalIn(
         `(async () => {
-          const tab = document.querySelector('#tabs [data-tab="upgrades"]');
+          const g = document.querySelector('#tabs [data-tab="game"]');
+          g.click();
+          const next = document.querySelector('#buy-sel button[data-mode="next"]');
+          if (!next) return false;
+          next.click();
+          await new Promise((r) => setTimeout(r, 50));
+          const btn = document.querySelector('#gen-cards .gen-card .gen-buy');
+          return !!btn && /Buy [0-9,.KMBT]+ → [0-9,.KMBT]+/.test(btn.textContent);
+        })()`
+      )
+  );
+  await check(
+    'layout: every "?" opens a help card and Got it closes it',
+    () =>
+      evalIn(
+        `(async () => {
+          const btns = [...document.querySelectorAll('.help-btn')];
+          if (btns.length < 6) return false;
+          const ov = document.querySelector('.help-overlay');
+          for (const b of btns) {
+            b.click();
+            if (!ov || ov.hidden || !ov.querySelector('p').textContent) return false;
+            ov.querySelector('button').click();
+            if (!ov.hidden) return false;
+          }
+          return true;
+        })()`
+      )
+  );
+
+  // Managers tab: the Pi manager row (Cron Job) shows a portrait img that
+  // finished loading (docs/ART-PORTRAITS.md, task 5).
+  await check(
+    'late save: Pi manager portrait loaded (Managers tab)',
+    () =>
+      evalIn(
+        `(async () => {
+          const tab = document.querySelector('#tabs [data-tab="managers"]');
           if (!tab) return false;
           tab.click();
           await new Promise((r) => setTimeout(r, 50));
-          const sec = document.getElementById('tab-upgrades');
+          const sec = document.getElementById('tab-managers');
           if (!sec || sec.hidden) return false;
-          const seg = document.querySelector('#up-seg button[data-seg="managers"]');
-          if (!seg) return false;
-          seg.click();
-          await new Promise((r) => setTimeout(r, 50));
           const grid = document.getElementById('man-grid');
           if (!grid || grid.hidden) return false;
           let row = null;

@@ -208,9 +208,6 @@ export const TIER_GATES = [
 export const OFFLINE_CAP_HOURS = 8;
 export const OFFLINE_RATE = 0.5;
 
-export const RUSH_COOLDOWN_SECONDS = 600; // 10 minutes
-export const RUSH_MAX_SECONDS = 600; // payout = tokensPerSecond * min(600, score / 50)
-export const RUSH_SCORE_DIVISOR = 50;
 
 // Timed events (docs/TIERS-EVENTS.md). Short bonuses that reward checking in;
 // they never spawn offline, and one exists at a time.
@@ -266,8 +263,6 @@ export const ACHIEVEMENTS = [
   { id: 'managers-all', name: 'Full Management', desc: 'Hire all 12 managers in one run', test: { kind: 'allManagers' } },
   { id: 'taps-100', name: '100 Taps', desc: 'Start 100 rows by hand', test: { kind: 'taps', n: 100 } },
   { id: 'taps-1000', name: '1,000 Taps', desc: 'Start 1,000 rows by hand', test: { kind: 'taps', n: 1000 } },
-  { id: 'rush-1', name: 'First Rush', desc: 'Play 1 rush game', test: { kind: 'rushGames', n: 1 } },
-  { id: 'rush-10', name: '10 Rushes', desc: 'Play 10 rush games', test: { kind: 'rushGames', n: 10 } },
   { id: 'events-1', name: 'First Event', desc: 'Claim 1 timed event', test: { kind: 'events', n: 1 } },
   { id: 'events-25', name: 'Event Regular', desc: 'Claim 25 timed events', test: { kind: 'events', n: 25 } },
   { id: 'regions-1', name: 'First Region', desc: 'Earn 1 Region', test: { kind: 'regions', n: 1 } },
@@ -295,7 +290,6 @@ export const SAVE_VERSION = 3;
 export const STARTER_GENERATOR = 'pi';
 export const SAVE_KEY = 'overclock.idle.v1';
 export const SAVE_CORRUPT_KEY = 'overclock.idle.corrupt';
-export const RUSH_RESULT_KEY = 'overclock.rush';
 export const AUTOSAVE_SECONDS = 15;
 
 // Plain-English effect lines for upgrades and Weight upgrades. The data

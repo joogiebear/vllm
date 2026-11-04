@@ -69,10 +69,6 @@ function mergeState(saved) {
     const v = saved[k];
     return typeof v === 'number' && Number.isFinite(v) ? v : s[k];
   };
-  const timeOrNull = (k) => {
-    const v = saved[k];
-    return typeof v === 'number' && Number.isFinite(v) ? v : null;
-  };
   s.tokens = num('tokens');
   s.lifetime = num('lifetime');
   s.totalLifetime = num('totalLifetime');
@@ -87,7 +83,6 @@ function mergeState(saved) {
       s.cycles[id] = typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
     }
   }
-  s.rushCooldownUntil = timeOrNull('rushCooldownUntil');
   if (saved.stats && typeof saved.stats === 'object' && !Array.isArray(saved.stats)) {
     for (const k of Object.keys(s.stats)) {
       const v = saved.stats[k];

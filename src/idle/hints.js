@@ -18,7 +18,7 @@ import { isToastVisible } from './toast.js?v=20261104145857';
 export const HINT_TEXTS = {
   run: 'Tap the Pi to run it. When the bar fills, you get tokens.',
   buy: 'Buy more Pis to earn more each run. Every 25 owned makes them faster.',
-  manager: 'Hire a manager in Upgrades. It runs the row for you, even while you\'re away.',
+  manager: 'Hire a manager on the Managers tab. It runs the row for you, even while you\'re away.',
 };
 
 // Pure: the next hint to show, or null. Order is run, buy, manager; a hint
@@ -195,7 +195,7 @@ function hideBubble() {
 // The target element for a hint id. The Pi is the first generator card.
 function targetFor(id) {
   if (id === 'manager') {
-    return document.querySelector('#tabs [data-tab="upgrades"]');
+    return document.querySelector('#tabs [data-tab="managers"]');
   }
   const card = document.querySelector('#gen-cards .gen-card');
   if (!card) return null;
@@ -235,7 +235,7 @@ export function dismissCurrent(state) {
 
 // Mark a hint seen and hide it, but only if it is the one currently shown.
 // Called by the natural-dismiss hooks (first run / first buy / first
-// manager / opening Upgrades).
+// manager / opening Managers).
 export function naturalDismiss(id, state) {
   if (currentHintId !== id) return;
   markSeen(id, state);

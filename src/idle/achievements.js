@@ -16,8 +16,6 @@ function met(test, state) {
       return (stats.prestiges || 0) >= test.n;
     case 'taps':
       return (stats.taps || 0) >= test.n;
-    case 'rushGames':
-      return (stats.rushGames || 0) >= test.n;
     case 'events':
       return (stats.eventsClaimed || 0) >= test.n;
     case 'regions':

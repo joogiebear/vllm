@@ -93,7 +93,7 @@ export const ICONS = {
   // Pointer finger (taps).
   finger: 'M9.5 12V5.5a1.5 1.5 0 0 1 3 0V12'
     + 'M9.5 12H8a2 2 0 0 0-2 2v3a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-3a2 2 0 0 0-2-2h-1.5',
-  // Lightning bolt (rush games).
+  // Lightning bolt.
   bolt: 'M13 2.5 5.5 13.5h5L9 21.5 17.5 10.5h-5L13 2.5z',
   // Clock with an exclamation mark (events).
   clock: 'M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17z'
@@ -223,7 +223,6 @@ const BADGE_GLYPHS = {
   lifetime: 'coins',
   prestiges: 'diamond',
   taps: 'finger',
-  rushGames: 'bolt',
   events: 'clock',
   regions: 'globe',
   allPerks: 'star',

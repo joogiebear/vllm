@@ -87,7 +87,6 @@
       white-space: nowrap; text-decoration: none; text-align: center;
     }
     #weights-chip { color: var(--affordable); }
-    #rush { cursor: pointer; }
     /* The event chip (events-ui.js) is 44 px in its own stylesheet;
        shrink it into the 22 px chip column. */
     #hud-right .event-chip {
@@ -104,23 +103,23 @@
        2px var(--affordable) underline; unselected segments are dim text
        with no fill — never a solid orange block, so a tab switcher
        never reads as an action button. */
-    .buy-sel, #up-seg, #prestige-seg, #more-seg {
+    .buy-sel, #prestige-seg, #more-seg {
       display: flex; align-items: center; gap: 2px;
       padding: 2px; margin-bottom: 10px;
       background: var(--bg); border: 1px solid var(--border);
       border-radius: 10px;
     }
     .buy-sel { height: 44px; padding: 0 12px; margin-bottom: 0; flex-shrink: 0; }
-    .buy-sel button, #up-seg button, #prestige-seg button, #more-seg button {
+    .buy-sel button, #prestige-seg button, #more-seg button {
       flex: 1 1 0; min-width: 0; height: 40px;
       border: 0; border-radius: 8px;
       background: transparent;
       color: var(--dim); font-size: 13px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #up-seg button, #prestige-seg button, #more-seg button { font-size: 14px; }
+    #prestige-seg button, #more-seg button { font-size: 14px; }
     #prestige-seg button { position: relative; }
-    .buy-sel button.active, #up-seg button.active,
+    .buy-sel button.active,
     #prestige-seg button.active, #more-seg button.active {
       background: rgba(255, 255, 255, 0.10);
       color: #fff; font-weight: 700;
@@ -378,7 +377,6 @@
     #region-perks { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
     /* Shop tab */
-    .shop-note { font-size: 14px; color: var(--dim); }
 
     /* More tab (the Achievements | Stats | Settings segmented control is
        styled with the other segmented controls, above). */
@@ -402,6 +400,39 @@
       0% { box-shadow: 0 0 0 0 rgba(255, 181, 71, 0.6); }
       100% { box-shadow: 0 0 0 8px rgba(255, 181, 71, 0); }
     }
+    /* Panel heads (docs/UX-PLAN.md, principle 2): title, one purpose line,
+       and a "?" that opens a short help card. Always on a card. */
+    .panel-head {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;
+    }
+    .panel-head > div { flex: 1 1 auto; min-width: 0; }
+    .panel-head h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
+    .panel-head p { margin: 2px 0 0; font-size: 13px; color: var(--dim); }
+    .help-btn {
+      flex: 0 0 44px; width: 44px; height: 44px; border-radius: 22px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 17px; font-weight: 800; cursor: pointer;
+    }
+    .help-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(3, 5, 9, 0.72);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .help-overlay[hidden] { display: none; }
+    .help-card {
+      max-width: 340px; width: 100%;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .help-card h3 { margin: 0; font-size: 18px; color: var(--text); }
+    .help-card p { margin: 0; font-size: 14px; line-height: 1.5; color: #cfd8e6; white-space: pre-line; }
+    .help-card button {
+      min-height: 44px; border-radius: 12px; border: 0; cursor: pointer;
+      background: var(--affordable); color: #1a1204; font-size: 15px; font-weight: 700;
+    }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
@@ -416,29 +447,40 @@
         </div>
         <div id="hud-right">
           <div id="weights-chip" class="chip" hidden>Weights +0%</div>
-          <a href="#" id="rush" class="chip rush">Rush ready</a>
         </div>
       </div>
       <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
-        <button type="button" data-mode="1" class="active">x1</button>
+        <button type="button" data-mode="1">x1</button>
         <button type="button" data-mode="10">x10</button>
         <button type="button" data-mode="100">x100</button>
+        <button type="button" data-mode="next" class="active">Next</button>
         <button type="button" data-mode="max">Max</button>
       </div>
     </header>
 
     <main id="tab-scroll">
-      <section id="tab-game" aria-label="Game">
+      <section id="tab-game" aria-label="Servers">
         <div id="banner" hidden></div>
+        <div class="panel-head">
+          <div><h2>Servers</h2><p>Your machines earn tokens. Buy more to earn more.</p></div>
+          <button type="button" class="help-btn" data-help="servers" aria-label="How Servers work">?</button>
+        </div>
         <div id="gen-cards"></div>
       </section>
 
-      <section id="tab-upgrades" aria-label="Upgrades" hidden>
-        <div id="up-seg" role="tablist" aria-label="Upgrades section">
-          <button type="button" data-seg="managers">Managers</button>
-          <button type="button" data-seg="upgrades">Upgrades</button>
+      <section id="tab-managers" aria-label="Managers" hidden>
+        <div class="panel-head">
+          <div><h2>Managers</h2><p>Hire one per tier. It runs that tier for you, even while you&#39;re away.</p></div>
+          <button type="button" class="help-btn" data-help="managers" aria-label="How Managers work">?</button>
         </div>
         <div id="man-grid"></div>
+      </section>
+
+      <section id="tab-upgrades" aria-label="Upgrades" hidden>
+        <div class="panel-head">
+          <div><h2>Upgrades</h2><p>One-time boosts bought with tokens. They reset when you prestige.</p></div>
+          <button type="button" class="help-btn" data-help="upgrades" aria-label="How Upgrades work">?</button>
+        </div>
         <div id="up-grid"></div>
       </section>
 
@@ -448,6 +490,10 @@
           <button type="button" data-seg="regions">Regions<span id="regions-seg-lock"> · Locked</span><span class="seg-dot" hidden></span></button>
         </div>
         <div id="prestige-weights">
+          <div class="panel-head">
+          <div><h2>Prestige</h2><p>Reset this run to earn Weights. Each Weight gives +10% production forever.</p></div>
+          <button type="button" class="help-btn" data-help="prestige" aria-label="How Prestige work">?</button>
+        </div>
           <div id="prestige-hint">
             <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
             <div id="prestige-hint-text">…</div>
@@ -456,12 +502,12 @@
           <section id="prestige">
             <div class="p-head">
               <div>
-                <h2>Prestige</h2>
-                <p>Reset the run, keep your Weights.</p>
+                <h2>Prestige now</h2>
+                <p>Resets tokens, machines, upgrades and managers. Keeps Weights, Weight upgrades, Regions and achievements.</p>
               </div>
               <div class="p-avail">
                 <span>+<span id="w-avail">0</span></span>
-                <span>weights available</span>
+                <span>Weights available</span>
               </div>
             </div>
             <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
@@ -470,6 +516,10 @@
           <div id="regions-hint-line"></div>
         </div>
         <div id="prestige-regions" hidden>
+          <div class="panel-head">
+          <div><h2>Regions</h2><p>Open a new datacenter region. Everything resets, and all production doubles for good.</p></div>
+          <button type="button" class="help-btn" data-help="regions" aria-label="How Regions work">?</button>
+        </div>
           <div id="region-locked">
             <div class="hint-bar"><div id="region-locked-fill"></div></div>
             <div id="region-locked-text">…</div>
@@ -487,18 +537,18 @@
             <button type="button" id="expand-btn" disabled>EXPAND</button>
             <div id="expand-note" hidden>
               <div>Resets: the run, Weights, Weight upgrades, lifetime totals</div>
-              <div>Kept: Regions, Region perks, achievements, stats, settings, Rush cooldown</div>
+              <div>Kept: Regions, Region perks, achievements, stats, settings</div>
             </div>
           </section>
           <div id="region-perks" hidden></div>
         </div>
       </section>
 
-      <section id="tab-shop" aria-label="Shop" hidden>
-        <p class="shop-note">The arcade is the shop: play Rush, come back with a score.</p>
-      </section>
-
       <section id="tab-more" aria-label="More" hidden>
+        <div class="panel-head">
+          <div><h2>More</h2><p>Achievements, stats and settings.</p></div>
+          <button type="button" class="help-btn" data-help="more" aria-label="How More work">?</button>
+        </div>
         <div id="more-seg" role="tablist" aria-label="More section">
           <button type="button" data-seg="achievements">Achievements</button>
           <button type="button" data-seg="stats">Stats</button>
@@ -524,10 +574,10 @@
     </main>
 
     <nav id="tabs" aria-label="Sections">
-      <button type="button" data-tab="game" aria-current="page">Game</button>
+      <button type="button" data-tab="game" aria-current="page">Servers</button>
+      <button type="button" data-tab="managers">Managers<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="shop">Shop</button>
       <button type="button" data-tab="more">More</button>
     </nav>
   </div>

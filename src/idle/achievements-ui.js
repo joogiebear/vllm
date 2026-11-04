@@ -5,7 +5,7 @@
 // dim. Rows are
 // built once; the refresh pass only updates text and classes and reorders
 // the existing nodes, at most once a second.
-import { ACHIEVEMENTS, GENERATORS } from './data.js?v=20261104145857';
+import { ACHIEVEMENTS, GENERATORS, MANAGERS } from './data.js?v=20261104145857';
 import { badge } from './icons.js?v=20261104145857';
 
 const STYLE_ID = 'overclock-achievements-style';
@@ -72,10 +72,8 @@ function conditionText(test) {
       return `Prestige ${test.n} ${test.n === 1 ? 'time' : 'times'}`;
     case 'taps':
       return `Start ${test.n.toLocaleString('en-US')} rows by hand`;
-    case 'rushGames':
-      return `Play ${test.n} rush ${test.n === 1 ? 'game' : 'games'}`;
     case 'allManagers':
-      return 'Hire all 8 managers in one run';
+      return `Hire all ${MANAGERS.length} managers in one run`;
     default:
       return '';
   }

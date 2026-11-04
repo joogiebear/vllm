@@ -28,9 +28,9 @@ const ALL_TIERS = GENERATORS.map((g) => g.id);
 const BASE_8 = ALL_TIERS.slice(0, 8); // tiers 1-8 are always unlocked
 
 test('ACHIEVEMENTS: the 5 late-game entries exist with the right kinds', () => {
-  assert.equal(ACHIEVEMENTS.length, 71);
+  assert.equal(ACHIEVEMENTS.length, 69);
   const byId = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
-  assert.equal(byId.size, 71, 'unique ids');
+  assert.equal(byId.size, 69, 'unique ids');
   assert.deepEqual(byId.get('any-500').test, { kind: 'anyOwned', n: 500 });
   assert.deepEqual(byId.get('any-1000').test, { kind: 'anyOwned', n: 1000 });
   for (const m of GLOBAL_MILESTONES) {

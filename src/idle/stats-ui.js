@@ -85,9 +85,6 @@ export function mountStats(container, getState) {
   values.generatorsBought = row(all, 'Generators bought');
   values.upgradesBought = row(all, 'Upgrades bought');
 
-  const rush = group('Rush');
-  values.rushGames = row(rush, 'Games');
-  values.bestRushScore = row(rush, 'Best score');
 
   function update() {
     const state = getState();
@@ -104,8 +101,6 @@ export function mountStats(container, getState) {
     values.taps.textContent = fmt(st.taps || 0);
     values.generatorsBought.textContent = fmt(st.generatorsBought || 0);
     values.upgradesBought.textContent = fmt(st.upgradesBought || 0);
-    values.rushGames.textContent = fmt(st.rushGames || 0);
-    values.bestRushScore.textContent = fmt(st.bestRushScore || 0);
   }
 
   update();

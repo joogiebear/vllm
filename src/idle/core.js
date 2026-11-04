@@ -21,9 +21,6 @@ import {
   TIER_GATES,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
-  RUSH_COOLDOWN_SECONDS,
-  RUSH_MAX_SECONDS,
-  RUSH_SCORE_DIVISOR,
   WEIGHT_BONUS_PER_WEIGHT,
   CONTINUOUS_CYCLE_MAX,
   SAVE_VERSION,
@@ -70,7 +67,6 @@ export function createState() {
     managers: [],
     cycles,
     achievements: [],
-    rushCooldownUntil: null,
     rng: EVENT_RNG_SEED,
     nextEventIn: EVENT_FIRST_DELAY,
     eventOffer: null,
@@ -86,8 +82,6 @@ export function createState() {
       taps: 0,
       generatorsBought: 0,
       upgradesBought: 0,
-      rushGames: 0,
-      bestRushScore: 0,
       runStartedAt: 0,
       eventsClaimed: 0,
     },
@@ -479,8 +473,6 @@ export function migrate(saveState) {
       s.cycles[id] = isFiniteNumber(v) && v >= 0 ? v : null;
     }
   }
-  s.rushCooldownUntil =
-    isFiniteNumber(saveState.rushCooldownUntil) ? saveState.rushCooldownUntil : null;
   s.rng = isFiniteNumber(saveState.rng) ? saveState.rng : EVENT_RNG_SEED;
   s.nextEventIn =
     isFiniteNumber(saveState.nextEventIn) && saveState.nextEventIn >= 0
@@ -652,6 +644,16 @@ export function nextMilestone(state, id) {
     if (p.owned > owned && (best === null || p.owned < best.owned)) best = { kind: 'payout', value: p.value, owned: p.owned };
   }
   return best;
+}
+
+// How many to buy in the Next buy mode (docs/UX-PLAN.md, section 3.3):
+// exactly enough to reach the row's next milestone, or 1 once every
+// milestone is reached.
+export function nextBuyCount(state, id) {
+  if (!validState(state)) return 1;
+  const m = nextMilestone(state, id);
+  if (m === null) return 1;
+  return Math.max(1, m.owned - (state.generators[id] || 0));
 }
 
 // The next global milestone (docs/LATE-GAME-DESIGN.md, section 3): the
@@ -837,7 +839,7 @@ export function prestige(state) {
   // first 3 managers.
   state.managers = hasWeightUpgrade(state, 'auto') ? ['pi'] : [];
   applyHeadStart(state);
-  // Kept: weights, weightUpgrades, totalLifetime, rushCooldownUntil, achievements.
+  // Kept: weights, weightUpgrades, totalLifetime, achievements.
   return gained;
 }
 
@@ -893,8 +895,7 @@ export function expandRegion(state) {
     state.weights += fresh.value;
     state.weightsEarnedThisCycle += fresh.value;
   }
-  // Kept: regions, regionPerks, weightsEverEarned, achievements, stats,
-  // rushCooldownUntil.
+  // Kept: regions, regionPerks, weightsEverEarned, achievements, stats.
   return gained;
 }
 
@@ -959,21 +960,6 @@ export function applyOffline(state, seconds) {
   state.stats.offlineSeconds += capped;
   state.stats.offlineTokens += earned;
   addTokens(state, earned);
-  return earned;
-}
-
-export function applyRush(state, score, now) {
-  if (!validState(state)) return 0;
-  const scoreN = isFiniteNumber(score) && score > 0 ? score : 0;
-  const nowN = isFiniteNumber(now) ? now : null;
-  if (state.rushCooldownUntil !== null && nowN !== null && nowN < state.rushCooldownUntil) return 0;
-  if (scoreN <= 0) return 0;
-  state.stats.rushGames += 1;
-  if (scoreN > state.stats.bestRushScore) state.stats.bestRushScore = scoreN;
-  const seconds = Math.min(RUSH_MAX_SECONDS, scoreN / RUSH_SCORE_DIVISOR);
-  const earned = tokensPerSecond(state) * seconds;
-  addTokens(state, earned);
-  if (nowN !== null) state.rushCooldownUntil = nowN + RUSH_COOLDOWN_SECONDS;
   return earned;
 }
 

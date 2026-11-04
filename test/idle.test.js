@@ -23,7 +23,6 @@ import {
   isTierUnlocked,
   showLockedTier,
   applyOffline,
-  applyRush,
   migrate,
   regionsUnlocked,
   regionsLockedText,
@@ -38,6 +37,7 @@ import {
   rowRate,
   cyclePayout,
   nextMilestone,
+  nextBuyCount,
   globalMilestone,
 } from '../src/idle/core.js';
 import {
@@ -79,7 +79,7 @@ test('createState: fresh state has the right fields', () => {
   assert.equal(s.managers.length, 0);
   assert.equal(s.upgrades.length, 0);
   assert.equal(s.weightUpgrades.length, 0);
-  assert.equal(s.rushCooldownUntil, null);
+  assert.equal(s.rushCooldownUntil, undefined);
   assert.equal(s.rng, 42);
   assert.equal(s.nextEventIn, 120);
   assert.equal(s.eventOffer, null);
@@ -442,17 +442,6 @@ test('applyOffline: Night Shift rate and Long Weekend cap', () => {
   assert.equal(applyOffline(s, 100000), 64800);
 });
 
-test('applyRush: formula and cooldown', () => {
-  const s = createState();
-  s.generators.pi = 10;
-  assert.equal(applyRush(s, 100, 1000), 20);
-  assert.equal(s.rushCooldownUntil, 1000 + 600);
-  assert.equal(applyRush(s, 100, 1000 + 10), 0);
-  assert.equal(applyRush(s, 100, 1000 + 600), 20);
-  assert.equal(applyRush(s, 20000, 1000 + 1200), 4000);
-  assert.equal(applyRush(s, 0, 1000 + 1800), 0);
-});
-
 test('click and setOverclock are no-ops', () => {
   const s = createState();
   s.generators.pi = 10;
@@ -479,7 +468,6 @@ test('migrate: v1 save -> v2 (refunds removed upgrades, drops heat, keeps the re
     overclock: true,
     throttled: false,
     autoPause: false,
-    rushCooldownUntil: null,
   };
   const s = migrate(v1);
   assert.equal(s.version, 3);
@@ -513,7 +501,7 @@ test('migrate: a v2 save passes through unchanged', () => {
     weightUpgrades: ['warm'],
     managers: ['pi'],
     cycles: { pi: 0.5, gamer: null },
-    rushCooldownUntil: 123,
+    rushCooldownUntil: 123, // Rush was removed: old saves drop it
   };
   const s = migrate(v2);
   assert.equal(s.version, 3);
@@ -522,7 +510,7 @@ test('migrate: a v2 save passes through unchanged', () => {
   assert.deepEqual(s.managers, ['pi']);
   assert.equal(s.cycles.pi, 0.5);
   assert.equal(s.cycles.gamer, null);
-  assert.equal(s.rushCooldownUntil, 123);
+  assert.equal(s.rushCooldownUntil, undefined);
   assert.equal(s.generators.gamer, 2);
 });
 
@@ -570,8 +558,6 @@ test('createState: stats start at zero', () => {
     taps: 0,
     generatorsBought: 0,
     upgradesBought: 0,
-    rushGames: 0,
-    bestRushScore: 0,
     runStartedAt: 0,
     eventsClaimed: 0,
   });
@@ -661,20 +647,6 @@ test('stats: prestiges increments only on success', () => {
   assert.equal(s.stats.prestiges, 1);
 });
 
-test('stats: rushGames and bestRushScore track rush payouts', () => {
-  const s = createState();
-  s.generators.pi = 10;
-  assert.equal(applyRush(s, 100, 1000), 20);
-  assert.equal(s.stats.rushGames, 1);
-  assert.equal(s.stats.bestRushScore, 100);
-  assert.equal(applyRush(s, 500, 1000 + 10), 0);
-  assert.equal(s.stats.rushGames, 1);
-  assert.equal(applyRush(s, 500, 1000 + 600), 100);
-  assert.equal(s.stats.bestRushScore, 500);
-  assert.equal(applyRush(s, 0, 1000 + 1200), 0);
-  assert.equal(s.stats.rushGames, 2);
-});
-
 test('stats: runStartedAt is the game time when the run began', () => {
   const s = createState();
   assert.equal(s.stats.runStartedAt, 0);
@@ -696,8 +668,6 @@ test('stats: prestige keeps every counter except runStartedAt', () => {
   s.stats.taps = 100;
   s.stats.generatorsBought = 25;
   s.stats.upgradesBought = 3;
-  s.stats.rushGames = 4;
-  s.stats.bestRushScore = 2000;
   assert.equal(prestige(s), 10);
   assert.equal(s.stats.allTimeTokens, 5000);
   assert.equal(s.stats.bestRunTokens, 4000);
@@ -709,8 +679,6 @@ test('stats: prestige keeps every counter except runStartedAt', () => {
   assert.equal(s.stats.taps, 100);
   assert.equal(s.stats.generatorsBought, 25);
   assert.equal(s.stats.upgradesBought, 3);
-  assert.equal(s.stats.rushGames, 4);
-  assert.equal(s.stats.bestRushScore, 2000);
   assert.equal(s.stats.runStartedAt, 123);
   // the new run earns below the old best, which is kept:
   // 1 * 1 * 7 * (1 + 0.1 * 10 weights) = 14
@@ -734,20 +702,18 @@ test('migrate: old saves get zero stats', () => {
     taps: 0,
     generatorsBought: 0,
     upgradesBought: 0,
-    rushGames: 0,
-    bestRushScore: 0,
     runStartedAt: 0,
     eventsClaimed: 0,
   });
 });
 
-test('ACHIEVEMENTS: 71 entries (48 owned + 23 others), unique ids, JSON-safe tests', () => {
-  assert.equal(ACHIEVEMENTS.length, 71);
+test('ACHIEVEMENTS: 69 entries (48 owned + 21 others), unique ids, JSON-safe tests', () => {
+  assert.equal(ACHIEVEMENTS.length, 69);
   const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
-  assert.equal(ids.size, 71);
+  assert.equal(ids.size, 69);
   const owned = ACHIEVEMENTS.filter((a) => a.test.kind === 'owned');
   assert.equal(owned.length, 48);
-  assert.equal(ACHIEVEMENTS.length - owned.length, 23);
+  assert.equal(ACHIEVEMENTS.length - owned.length, 21);
   for (const a of ACHIEVEMENTS) {
     assert.equal(typeof a.name, 'string');
     assert.equal(typeof a.desc, 'string');
@@ -802,17 +768,6 @@ test('achievements: taps unlock at 100 and 1,000', () => {
     s.stats.taps = n;
     assert.ok(checkAchievements(s).includes(id), id);
   }
-});
-
-test('achievements: rush games unlock at 1 and 10', () => {
-  const s = createState();
-  assert.deepEqual(checkAchievements(s), []);
-  s.stats.rushGames = 1;
-  assert.ok(checkAchievements(s).includes('rush-1'));
-  s.stats.rushGames = 9;
-  assert.ok(!checkAchievements(s).includes('rush-10'));
-  s.stats.rushGames = 10;
-  assert.ok(checkAchievements(s).includes('rush-10'));
 });
 
 test('achievements: an achievement unlocks only once', () => {
@@ -1207,7 +1162,6 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   s.managers = ['pi'];
   s.regionPerks = ['headStart'];
   s.achievements = ['gen-pi-1'];
-  s.rushCooldownUntil = 999;
   s.stats.taps = 5;
   s.stats.playSeconds = 123;
   assert.equal(expandRegion(s), 1);
@@ -1233,7 +1187,6 @@ test('expandRegion: resets the right fields, keeps the rest', () => {
   assert.equal(s.weightsEverEarned, 123);
   assert.deepEqual(s.regionPerks, ['headStart']);
   assert.deepEqual(s.achievements, ['gen-pi-1']);
-  assert.equal(s.rushCooldownUntil, 999);
   assert.equal(s.stats.taps, 5);
   assert.equal(s.stats.runStartedAt, 123);
   // nothing left to gain:
@@ -1968,4 +1921,26 @@ test('BACKGROUNDS: parallel to REGION_NAMES, and every non-null key has a file o
       assert.ok(onDisk.includes(`${key}.webp`), `icons/bg/${key}.webp missing`);
     }
   }
+});
+
+test('nextBuyCount: buys exactly up to the next milestone (Next buy mode)', () => {
+  const s = createState();
+  const cases = [
+    [1, 24], // to 25
+    [24, 1],
+    [25, 25], // to 50
+    [212, 88], // to 300 (payout)
+    [999, 1], // to 1,000
+    [1000, 1], // no milestone left: behaves as x1
+    [5000, 1],
+  ];
+  for (const [owned, expected] of cases) {
+    s.generators.pi = owned;
+    assert.equal(nextBuyCount(s, 'pi'), expected, `pi ${owned}`);
+  }
+  s.generators.pi = 1;
+  s.tokens = 1e12;
+  assert.equal(buy(s, 'pi', nextBuyCount(s, 'pi')), 24);
+  assert.equal(s.generators.pi, 25);
+  assert.equal(nextBuyCount(null, 'pi'), 1);
 });
