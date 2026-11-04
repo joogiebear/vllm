@@ -65,3 +65,18 @@ background scenes.
   bump `PORTRAIT_V`, release.
 - Offline after one online load: portraits still show.
 - `tools/release.sh` passes.
+
+## Change 1: no ring (owner chose "B", 2026-11-04 00:01 UTC)
+
+The owner doesn't like the ring. Portraits stand on the row like stickers.
+One small task, `icons.js` only:
+
+- In the portrait branch of `managerIcon`, remove `border`, `background`,
+  `borderRadius` and `overflow` from the span. Keep the fixed `width` and
+  `height` and `flexShrink: '0'`.
+- The `img` uses `objectFit: 'contain'` instead of `cover`, so nothing gets
+  clipped.
+- The Managers list size goes from 56 to 60 px (`ui.js`, one number).
+- Update the comment above `managerIcon` to match. No other change; the
+  SVG fallback keeps its look.
+- Run `tools/release.sh`.
