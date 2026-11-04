@@ -6,7 +6,7 @@ import {
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   regionsLockedText, regionsUnlockProgress, regionsHintLine,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, nextBuyCount, regionTarget, globalMilestone,
-} from './core.js?v=20261104214903';
+} from './core.js?v=20261104215236';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
@@ -14,20 +14,20 @@ import {
   REGION_PERKS, ACHIEVEMENTS,
   TIER_GATES, GLOBAL_MILESTONES,
   upgradeEffect, weightUpgradeEffect,
-} from './data.js?v=20261104214903';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261104214903';
-import { play } from './feedback.js?v=20261104214903';
-import { applyBackground } from './bg.js?v=20261104214903';
-import { mountAchievements } from './achievements-ui.js?v=20261104214903';
-import { mountStats } from './stats-ui.js?v=20261104214903';
-import { mountEvents } from './events-ui.js?v=20261104214903';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104214903';
-import { nextGoal } from './advice.js?v=20261104214903';
-import { Dialog, Toggle, bindProgress, announce, accessibleName, uid } from './components.js?v=20261104214903';
+} from './data.js?v=20261104215236';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261104215236';
+import { play } from './feedback.js?v=20261104215236';
+import { applyBackground } from './bg.js?v=20261104215236';
+import { mountAchievements } from './achievements-ui.js?v=20261104215236';
+import { mountStats } from './stats-ui.js?v=20261104215236';
+import { mountEvents } from './events-ui.js?v=20261104215236';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104215236';
+import { nextGoal } from './advice.js?v=20261104215236';
+import { Dialog, Toggle, bindProgress, announce, accessibleName, uid } from './components.js?v=20261104215236';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104214903';
-import { fmt } from './fmt.js?v=20261104214903';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104215236';
+import { fmt } from './fmt.js?v=20261104215236';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
@@ -1150,23 +1150,28 @@ export function createUI(state, io) {
     // (newest) first, with the time saved and lifetime tokens; an empty
     // slot shows "Empty". Restore asks for confirmation in an in-game
     // card, then replaces the state the same way import does.
-    let confirmEl = null;
+    // Restore confirm on the shared Dialog (components.js): focus stays
+    // inside, Escape or a backdrop tap cancels, focus returns to the
+    // backup button that opened it.
+    let confirmDlg = null;
     function closeConfirm() {
-      if (confirmEl && confirmEl.parentNode) confirmEl.parentNode.removeChild(confirmEl);
-      confirmEl = null;
+      if (confirmDlg) confirmDlg.close();
     }
     function confirmRestore(when, onYes) {
       closeConfirm();
-      const el = document.createElement('div');
-      el.className = 'bk-backdrop';
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-modal', 'true');
-      el.setAttribute('aria-label', 'Restore backup');
-      const card = document.createElement('div');
-      card.className = 'bk-card';
       const text = document.createElement('div');
       text.className = 'bk-text';
+      text.id = uid('bk');
       text.textContent = `Restore the backup from ${when}? Your current progress will be replaced.`;
+      const dlg = Dialog({
+        overlayClass: 'bk-backdrop',
+        panelClass: 'bk-card',
+        labelledBy: text.id,
+        onClose: () => {
+          if (dlg.el.parentNode) dlg.el.parentNode.removeChild(dlg.el);
+          if (confirmDlg === dlg) confirmDlg = null;
+        },
+      });
       const btns = document.createElement('div');
       btns.className = 'bk-btns';
       const cancel = document.createElement('button');
@@ -1182,14 +1187,9 @@ export function createUI(state, io) {
         onYes();
       });
       btns.append(cancel, yes);
-      card.append(text, btns);
-      el.appendChild(card);
-      document.body.appendChild(el);
-      confirmEl = el;
-      yes.focus();
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeConfirm();
-      });
+      dlg.panel.append(text, btns);
+      confirmDlg = dlg;
+      dlg.open(yes);
     }
     function doRestore(slot) {
       const restored = io.restoreBackup(slot);

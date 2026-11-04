@@ -1,9 +1,12 @@
 // "Welcome back" modal (docs/COMPLETION.md, "Welcome back").
 // showWelcome({ awaySeconds, earned, capped, affordable? }) is called from
 // app.js on load when offline earnings were credited. Skipped when earned
-// is 0. Focus is trapped on the Collect button; Escape closes.
-import { OFFLINE_CAP_HOURS } from './data.js?v=20261104214903';
-import { fmt } from './fmt.js?v=20261104214903';
+// is 0. Built on the shared Dialog (components.js): focus stays inside,
+// the game behind is inert, Escape or a backdrop tap closes, and focus
+// returns to where it was.
+import { Dialog, uid } from './components.js?v=20261104215236';
+import { OFFLINE_CAP_HOURS } from './data.js?v=20261104215236';
+import { fmt } from './fmt.js?v=20261104215236';
 
 const CSS = `
     /* Welcome back modal */
@@ -20,7 +23,7 @@ const CSS = `
       display: flex; flex-direction: column; align-items: center;
       gap: 8px; text-align: center;
     }
-    .wb-title { font-size: 18px; font-weight: 800; color: var(--text); }
+    .wb-title { margin: 0; font-size: 18px; font-weight: 800; color: var(--text); }
     .wb-line { font-size: 13px; color: var(--dim); }
     .wb-earned { font-size: 40px; font-weight: 800; color: var(--affordable); line-height: 1.1; }
     .wb-cap { font-size: 12px; color: var(--dim); }
@@ -41,7 +44,7 @@ function injectStyle() {
   document.head.appendChild(el);
 }
 
-let openEl = null;
+let openDlg = null;
 
 function fmtDur(seconds) {
   const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -57,15 +60,14 @@ function plural(n, word) {
 }
 
 export function closeWelcome() {
-  if (openEl && openEl.parentNode) openEl.parentNode.removeChild(openEl);
-  openEl = null;
+  if (openDlg) openDlg.close();
 }
 
 // True while the welcome-back card is covering the screen (docs/ART-DESIGN.md
 // §1: first-run hints never appear in the same second as the welcome-back
 // card, so the hint callout waits while it is open).
 export function isWelcomeOpen() {
-  return openEl !== null;
+  return openDlg !== null;
 }
 
 export function showWelcome(info) {
@@ -73,16 +75,19 @@ export function showWelcome(info) {
   closeWelcome();
   injectStyle();
 
-  const el = document.createElement('div');
-  el.className = 'wb-backdrop';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-modal', 'true');
-  el.setAttribute('aria-label', 'Welcome back');
+  const title = document.createElement('h2');
+  title.id = uid('wb');
+  const dlg = Dialog({
+    overlayClass: 'wb-backdrop',
+    panelClass: 'wb-card',
+    labelledBy: title.id,
+    onClose: () => {
+      if (dlg.el.parentNode) dlg.el.parentNode.removeChild(dlg.el);
+      if (openDlg === dlg) openDlg = null;
+    },
+  });
+  const card = dlg.panel;
 
-  const card = document.createElement('div');
-  card.className = 'wb-card';
-
-  const title = document.createElement('div');
   title.className = 'wb-title';
   title.textContent = 'Welcome back';
   card.appendChild(title);
@@ -123,17 +128,6 @@ export function showWelcome(info) {
   btn.addEventListener('click', closeWelcome);
   card.appendChild(btn);
 
-  el.appendChild(card);
-  document.body.appendChild(el);
-  openEl = el;
-  btn.focus();
-
-  // Focus trap: the only focusable is the button, so keep focus there.
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeWelcome();
-    else if (e.key === 'Tab') {
-      e.preventDefault();
-      btn.focus();
-    }
-  });
+  openDlg = dlg;
+  dlg.open(btn);
 }

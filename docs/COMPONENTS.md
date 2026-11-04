@@ -96,8 +96,10 @@ as done, and `NaN` or infinity counts as nothing yet (see `clampFraction`).
 
 ### `Dialog(props) -> { el, panel, open(initialFocus), close(), isOpen() }`
 
-One modal for every pop-up: the help cards, the reset sheet and the new-run
-moment.
+One modal for every pop-up: the help cards, the reset sheet, the new-run
+moment, the welcome-back card and the backup restore confirm. The last two
+are one-offs: they build a Dialog each time and remove its element in
+`onClose`.
 
 | Prop | Type | Default | Notes |
 | --- | --- | --- | --- |

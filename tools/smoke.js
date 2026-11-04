@@ -557,10 +557,16 @@ async function runChecks(cdp, sessionId, url) {
     6000,
     'game load (late save)'
   );
-  // Dismiss the welcome-back modal if the offline gap credited earnings.
-  await evalIn(
-    'const wb = document.querySelector(".wb-btn"); if (wb) wb.click(); true'
-  ).catch(() => {});
+  // The late save's offline gap credits earnings, so the welcome-back card
+  // opens on the shared Dialog: named by its title, the app inert behind
+  // it, and Collect closes it and frees the app again.
+  await check(
+    'a11y: welcome back is a labelled dialog over an inert app, Collect frees it',
+    () =>
+      evalIn(
+        '(() => { const p = document.querySelector(".wb-card"); if (!p) return false; const t = document.getElementById(p.getAttribute("aria-labelledby") || ""); const ok = p.getAttribute("role") === "dialog" && !!t && /Welcome back/.test(t.textContent) && document.getElementById("app").inert === true && document.activeElement === document.querySelector(".wb-btn"); document.querySelector(".wb-btn").click(); return ok && !document.querySelector(".wb-card") && document.getElementById("app").inert === false; })()'
+      )
+  );
 
   // The fixture loaded through load(): the Pi shows the saved 25 (a fresh
   // game would show 1) and the token count shows the saved 100T.
