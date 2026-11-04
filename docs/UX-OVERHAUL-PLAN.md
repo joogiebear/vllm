@@ -12,6 +12,10 @@ iOS work stays paused until this overhaul is live.
 
 1. First Pi cycle: `cycleSeconds` 7 -> 2 in data.js. Rate per second unchanged (tps 1),
    so a cycle pays 2. Re-run tools/idle-balance.js and note the first-manager time.
+   **Change (owner chose on the card, 2026-11-04 20:35 UTC): the Pi pays 7 per run again**
+   with the 2-second cycle (tps 1 -> 3.5), because rare tappers' first manager went
+   11 min -> 51 min at 2 per run. Re-run the balance bot and report first manager and
+   first prestige for active and rare-tap players.
 2. Region perks are paid in **Region credits**, a separate counter, so a perk never reads
    as losing Regions. One credit per Region earned; old saves get credits = Regions earned
    minus credits already spent on perks. The x2-per-Region multiplier is unchanged.
