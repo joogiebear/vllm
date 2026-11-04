@@ -97,20 +97,34 @@
       white-space: nowrap; text-align: center;
     }
     /* Row 2: full-width segmented control, four equal parts. */
-    .buy-sel {
-      display: flex; height: 44px; padding: 0 12px; flex-shrink: 0;
+    /* Segmented controls (buy amount + the tab switchers): one rounded
+       track with a dark background and a 1px border; equal-width
+       segments ~40 px tall (44 px tap area with the track padding).
+       The selected segment is a lighter fill with white bold text and a
+       2px var(--affordable) underline; unselected segments are dim text
+       with no fill — never a solid orange block, so a tab switcher
+       never reads as an action button. */
+    .buy-sel, #up-seg, #prestige-seg, #more-seg {
+      display: flex; align-items: center; gap: 2px;
+      padding: 2px; margin-bottom: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px;
     }
-    .buy-sel button {
-      flex: 1 1 0; min-width: 0;
-      border: 1px solid var(--border); border-left-width: 0;
-      background: var(--bg);
+    .buy-sel { height: 44px; padding: 0 12px; margin-bottom: 0; flex-shrink: 0; }
+    .buy-sel button, #up-seg button, #prestige-seg button, #more-seg button {
+      flex: 1 1 0; min-width: 0; height: 40px;
+      border: 0; border-radius: 8px;
+      background: transparent;
       color: var(--dim); font-size: 13px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .buy-sel button:first-child { border-left-width: 1px; }
-    .buy-sel button.active {
-      background: var(--affordable); border-color: var(--affordable);
-      color: #0b0f17; font-weight: 700;
+    #up-seg button, #prestige-seg button, #more-seg button { font-size: 14px; }
+    #prestige-seg button { position: relative; }
+    .buy-sel button.active, #up-seg button.active,
+    #prestige-seg button.active, #more-seg button.active {
+      background: rgba(255, 255, 255, 0.10);
+      color: #fff; font-weight: 700;
+      box-shadow: inset 0 -2px 0 var(--affordable);
     }
 
     /* Tabs (bottom menu) */
@@ -227,17 +241,8 @@
     .btn-l2 { font-size: 11px; }
     .gen-status { font-size: 13px; color: var(--dim); white-space: nowrap; }
 
-    /* Upgrades tab */
-    #up-seg { display: flex; gap: 4px; margin-bottom: 10px; }
-    #up-seg button {
-      flex: 1; min-height: 44px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--card);
-      color: var(--dim); font-size: 14px; cursor: pointer;
-    }
-    #up-seg button.active {
-      background: var(--affordable); border-color: var(--affordable);
-      color: #0b0f17; font-weight: 700;
-    }
+    /* Upgrades tab (the Managers | Upgrades segmented control is styled
+       with the other segmented controls, above). */
     #man-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
     #up-grid { display: flex; flex-direction: column; gap: 8px; }
     #buy-all {
@@ -270,17 +275,8 @@
     .up-row .buy:disabled { opacity: 0.5; cursor: default; }
     .up-row .buy .gain { display: block; font-size: 11px; }
 
-    /* Prestige tab */
-    #prestige-seg { display: flex; gap: 4px; margin-bottom: 10px; }
-    #prestige-seg button {
-      position: relative; flex: 1; min-height: 44px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--card);
-      color: var(--dim); font-size: 14px; cursor: pointer;
-    }
-    #prestige-seg button.active {
-      background: var(--affordable); border-color: var(--affordable);
-      color: #0b0f17; font-weight: 700;
-    }
+    /* Prestige tab (the Weights | Regions segmented control is styled
+       with the other segmented controls, above). */
     .seg-dot {
       position: absolute; top: 6px; right: 8px;
       width: 8px; height: 8px; border-radius: 50%;
@@ -384,18 +380,9 @@
     /* Shop tab */
     .shop-note { font-size: 14px; color: var(--dim); }
 
-    /* More tab */
+    /* More tab (the Achievements | Stats | Settings segmented control is
+       styled with the other segmented controls, above). */
     #tab-more { display: flex; flex-direction: column; gap: 12px; }
-    #more-seg { display: flex; gap: 4px; margin-bottom: 10px; }
-    #more-seg button {
-      flex: 1; min-height: 44px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--card);
-      color: var(--dim); font-size: 14px; cursor: pointer;
-    }
-    #more-seg button.active {
-      background: var(--affordable); border-color: var(--affordable);
-      color: #0b0f17; font-weight: 700;
-    }
     .settings-row { display: flex; flex-direction: column; gap: 6px; }
     .settings-row button {
       min-height: 44px; border-radius: 8px; border: 1px solid var(--border);

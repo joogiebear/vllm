@@ -1247,6 +1247,20 @@ export function createUI(state, io) {
     els.prestigeDot.hidden = weightsAvailable(state) < 1;
   }
 
+  // A segmented control must never show a single segment: with fewer
+  // than two visible segments it would read as one giant button, so
+  // hide the whole control.
+  function syncSegVisibility(container, btns) {
+    let visible = 0;
+    for (const b of btns) if (!b.hidden) visible++;
+    container.hidden = visible < 2;
+  }
+  function updateSegmentedControls() {
+    syncSegVisibility(document.getElementById('up-seg'), segBtns);
+    syncSegVisibility(document.getElementById('prestige-seg'), psegBtns);
+    syncSegVisibility(document.getElementById('more-seg'), moreSegBtns);
+  }
+
   function updateRushChip() {
     const ready =
       state.rushCooldownUntil === null || state.rushCooldownUntil <= view.lastNow;
@@ -1306,6 +1320,7 @@ export function createUI(state, io) {
     updatePrestige();
     updatePrestigeSeg();
     updateTabDots();
+    updateSegmentedControls();
     updateWeightUpgrades();
     updateRushChip();
   }
