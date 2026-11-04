@@ -3,14 +3,14 @@ import {
   tokensPerSecond, cost, weightsAvailable, createState, ensureStarter,
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
-  expandRegion, regionsAvailable, regionName, buyRegionPerk,
+  expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
 } from './core.js?v=20261104142309';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
-  REGION_PERKS, REGION_UNLOCK_WEIGHTS,
+  REGION_PERKS,
   TIER_GATES, GLOBAL_MILESTONES,
 } from './data.js?v=20261104142309';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261104142309';
@@ -1206,8 +1206,7 @@ export function createUI(state, io) {
   }
 
   function updatePrestigeSeg() {
-    const unlocked =
-      (state.weightsEverEarned || 0) >= REGION_UNLOCK_WEIGHTS;
+    const unlocked = regionsUnlocked(state);
     els.regionsSegBtn.hidden = !unlocked;
     // The dot marks the Regions segment once, until it has been viewed.
     els.regionDot.hidden = !unlocked || view.regionDotSeen;

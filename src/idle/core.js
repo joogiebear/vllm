@@ -17,6 +17,7 @@ import {
   REGION_GROWTH,
   REGION_NAMES,
   REGION_PERKS,
+  REGION_UNLOCK_WEIGHTS,
   TIER_GATES,
   OFFLINE_CAP_HOURS,
   OFFLINE_RATE,
@@ -427,6 +428,11 @@ export function migrate(saveState) {
   s.weightsSinceExpand = isFiniteNumber(saveState.weightsSinceExpand)
     ? saveState.weightsSinceExpand
     : s.weights;
+  // Older saves started weightsEverEarned at 0, so it undercounts: bump it to
+  // at least the current Weights / weightsSinceExpand. Never lowers it.
+  s.weightsEverEarned = Math.max(
+    s.weightsEverEarned, s.weights, s.weightsSinceExpand
+  );
   if (Array.isArray(saveState.regionPerks)) {
     s.regionPerks = saveState.regionPerks.filter((x) => typeof x === 'string');
   }
@@ -505,6 +511,14 @@ export function migrate(saveState) {
     s.hints.seen = HINT_IDS.slice();
   }
   return s;
+}
+
+// The Prestige tab shows its Regions segment once any Region is earned, or
+// the Weights counter is in sight of the first Region.
+export function regionsUnlocked(state) {
+  return (state.regionsEarned || 0) > 0
+    || (state.regions || 0) > 0
+    || Math.max(state.weightsEverEarned || 0, state.weights || 0) >= REGION_UNLOCK_WEIGHTS;
 }
 
 // SERVE / click left the game; kept as a no-op so the UI does not break

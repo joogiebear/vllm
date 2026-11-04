@@ -25,6 +25,7 @@ import {
   applyOffline,
   applyRush,
   migrate,
+  regionsUnlocked,
   click,
   setOverclock,
   claimEvent,
@@ -1281,7 +1282,7 @@ test('migrate: an old save gets the region fields at defaults; a v3 save passes 
   const s = migrate({ version: 2, tokens: 100, weights: 3, generators: { pi: 2 } });
   assert.equal(s.regions, 0);
   assert.equal(s.regionsEarned, 0);
-  assert.equal(s.weightsEverEarned, 0);
+  assert.equal(s.weightsEverEarned, 3); // bumped to the save's Weights
   assert.equal(s.weightsSinceExpand, 3); // missing: starts at the save's Weights
   assert.deepEqual(s.regionPerks, []);
   const v3 = {
@@ -1307,6 +1308,20 @@ test('migrate: weightsSinceExpand defaults to the save Weights; a present value 
   assert.equal(s.weightsSinceExpand, 7);
   const r = migrate({ version: 3, tokens: 5, weights: 7, weightsSinceExpand: 42, generators: {} });
   assert.equal(r.weightsSinceExpand, 42);
+});
+
+test('regionsUnlocked: an old save with 2700 Weights shows the Regions segment after migrate', () => {
+  const s = migrate({ version: 2, tokens: 100, weights: 2700, generators: { pi: 2 } });
+  assert.ok(regionsUnlocked(s));
+});
+
+test('regionsUnlocked: a save with regionsEarned 1 and 0 weightsEverEarned is unlocked', () => {
+  const s = migrate({ version: 3, regionsEarned: 1, weightsEverEarned: 0, weights: 0, generators: {} });
+  assert.ok(regionsUnlocked(s));
+});
+
+test('regionsUnlocked: a fresh game is not unlocked', () => {
+  assert.equal(regionsUnlocked(createState()), false);
 });
 
 test('buyRegionPerk: spends Regions, never lowers the multiplier, no double-buy', () => {
