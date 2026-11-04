@@ -84,6 +84,8 @@ export function mountStats(container, getState) {
   values.taps = row(all, 'Taps');
   values.generatorsBought = row(all, 'Generators bought');
   values.upgradesBought = row(all, 'Upgrades bought');
+  values.weightsEver = row(all, 'Weights earned');
+  values.regionsEarned = row(all, 'Regions earned');
 
 
   function update() {
@@ -101,6 +103,8 @@ export function mountStats(container, getState) {
     values.taps.textContent = fmt(st.taps || 0);
     values.generatorsBought.textContent = fmt(st.generatorsBought || 0);
     values.upgradesBought.textContent = fmt(st.upgradesBought || 0);
+    values.weightsEver.textContent = fmt(state ? state.weightsEverEarned || 0 : 0);
+    values.regionsEarned.textContent = fmt(state ? state.regionsEarned || 0 : 0);
   }
 
   update();

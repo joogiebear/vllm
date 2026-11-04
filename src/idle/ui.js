@@ -503,8 +503,10 @@ export function createUI(state, io) {
     els.prestigeBtn.textContent = 'PRESTIGE';
     const gained = prestige(state);
     if (gained > 0) play('prestige');
+    const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
+    const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
     showBanner(
-      `Prestige! +${gained} weights. New run begins — buy a Raspberry Pi.`,
+      `Prestige! +${gained} Weight${gained === 1 ? '' : 's'} (+${Math.round(gained * perWeight * 100)}% production). New run: buy a Raspberry Pi.`,
       'New run',
     );
   });
@@ -553,20 +555,20 @@ export function createUI(state, io) {
     if (getSetting('confirmPrestige') !== false && !view.expandArmed) {
       view.expandArmed = true;
       els.expandBtn.classList.add('armed');
-      els.expandBtn.textContent = 'CONFIRM EXPAND';
-      els.expandNote.hidden = false;
+      els.expandBtn.textContent = `CONFIRM: EXPAND TO ${nextRegionName().toUpperCase()}`;
       return;
     }
     view.expandArmed = false;
     els.expandBtn.classList.remove('armed');
-    els.expandBtn.textContent = 'EXPAND';
-    els.expandNote.hidden = true;
     const gained = expandRegion(state);
     if (gained > 0) play('prestige');
     // The Region changed: show the new scene (docs/ART-BACKGROUNDS.md).
     if (gained > 0) applyBackground(state);
+    // Name the tier this Region unlocks, if any (docs/UX-PLAN.md, 3.2).
+    const gate = TIER_GATES.find((t) => t.regions === (state.regionsEarned || 0));
+    const opened = gate ? GENERATORS.find((x) => x.id === gate.id) : null;
     showBanner(
-      `New region: ${regionName(state)}. +${gained} Region${gained === 1 ? '' : 's'}.`,
+      `New Region: ${regionName(state)}. All production x2.${opened ? ` ${opened.name} is now available.` : ''}`,
       'New region',
     );
   });
@@ -668,24 +670,44 @@ export function createUI(state, io) {
   helpCard.append(helpTitle, helpText, helpClose);
   helpOverlay.append(helpCard);
   document.body.append(helpOverlay);
+  let helpQueue = [];
+  function showHelp(key) {
+    const h = HELP[key];
+    if (!h) return;
+    helpTitle.textContent = h[0];
+    helpText.textContent = h[1];
+    helpClose.textContent = helpQueue.length > 0 ? 'Next' : 'Got it';
+    helpOverlay.hidden = false;
+    helpClose.focus();
+  }
   function closeHelp() {
+    if (helpQueue.length > 0) {
+      showHelp(helpQueue.shift());
+      return;
+    }
     helpOverlay.hidden = true;
   }
+  document.getElementById('howto-btn').addEventListener('click', () => {
+    helpQueue = ['managers', 'upgrades', 'prestige', 'regions', 'more'];
+    showHelp('servers');
+  });
   helpClose.addEventListener('click', closeHelp);
   helpOverlay.addEventListener('click', (e) => {
-    if (e.target === helpOverlay) closeHelp();
+    if (e.target === helpOverlay) {
+      helpQueue = [];
+      closeHelp();
+    }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !helpOverlay.hidden) closeHelp();
+    if (e.key === 'Escape' && !helpOverlay.hidden) {
+      helpQueue = [];
+      closeHelp();
+    }
   });
   document.querySelectorAll('.help-btn').forEach((b) => {
     b.addEventListener('click', () => {
-      const h = HELP[b.dataset.help];
-      if (!h) return;
-      helpTitle.textContent = h[0];
-      helpText.textContent = h[1];
-      helpOverlay.hidden = false;
-      helpClose.focus();
+      helpQueue = [];
+      showHelp(b.dataset.help);
     });
   });
 
@@ -696,7 +718,7 @@ export function createUI(state, io) {
   document.getElementById('import-btn').addEventListener('click', () => {
     const imported = io.importSave(els.importArea.value.trim());
     if (imported === null) {
-      showBanner('Import failed: bad save string.', 'Import error');
+      showBanner('That save code did not work. Check it was copied whole.', 'Import error');
       return;
     }
     io.replaceState(imported);
@@ -706,15 +728,15 @@ export function createUI(state, io) {
     if (!view.resetArmed) {
       view.resetArmed = true;
       els.resetBtn.classList.add('armed');
-      els.resetBtn.textContent = 'CONFIRM RESET';
+      els.resetBtn.textContent = 'Delete everything? Tap again';
       return;
     }
     view.resetArmed = false;
     els.resetBtn.classList.remove('armed');
-    els.resetBtn.textContent = 'HARD RESET';
+    els.resetBtn.textContent = 'Delete all progress';
     io.hardReset();
     io.replaceState(ensureStarter(createState()));
-    showBanner('Hard reset. Fresh run.', 'Reset');
+    showBanner('All progress deleted. Fresh start.', 'Reset');
   });
 
   // --- More > Settings: preferences wired to settings.js (docs/COMPLETION.md)
@@ -1205,7 +1227,14 @@ export function createUI(state, io) {
       } else {
         r.buyBtn.classList.remove('done');
         if (owned === 0) {
-          setLines(r, `Need ${r.g.name}`, null);
+          let text;
+          if (isTierUnlocked(state, r.m.id)) {
+            text = `Own ${/^[AEIOU]/.test(r.g.name) ? 'an' : 'a'} ${r.g.name} first`;
+          } else {
+            const n = TIER_GATES.find((t) => t.id === r.m.id).regions;
+            text = `Unlocks at ${regionName({ ...state, regionsEarned: n })} (${n} Region${n === 1 ? '' : 's'})`;
+          }
+          setLines(r, text, null);
           r.buyBtn.disabled = true;
           r.buyBtn.classList.remove('afford');
         } else {
@@ -1231,6 +1260,16 @@ export function createUI(state, io) {
     if (r.x5 && !x5Available(r.u)) return false;
     return r.u.cost <= state.tokens;
   }
+  // Upgrades list footer (docs/UX-PLAN.md, 3.1): the x5 rows not yet
+  // available are one dim line instead of hidden, and a card says when
+  // everything on the list is owned.
+  const upLocked = document.createElement('div');
+  upLocked.className = 'up-note';
+  const upDone = document.createElement('div');
+  upDone.className = 'up-note';
+  upDone.textContent = 'Everything bought for this run. More unlock after your next prestige.';
+  els.upGrid.append(upLocked, upDone);
+
   function updateUpgrades() {
     for (const r of upRefs) {
       if (r.x5) r.row.style.display = x5Available(r.u) ? '' : 'none';
@@ -1255,6 +1294,17 @@ export function createUI(state, io) {
     }
     const affordable = upRefs.some(upgradeCandidate);
     buyAllBtn.disabled = !affordable;
+    const lockedX5 = upRefs.filter((r) => r.x5 && !x5Available(r.u));
+    const byRegion = lockedX5.filter((r) => (state.regionsEarned || 0) < r.u.minRegions);
+    if (byRegion.length > 0) {
+      const n = byRegion[0].u.minRegions;
+      upLocked.textContent = `${lockedX5.length} more upgrades unlock at ${n} Region${n === 1 ? '' : 's'}`;
+    } else if (lockedX5.length > 0) {
+      upLocked.textContent = `${lockedX5.length} more upgrade${lockedX5.length === 1 ? '' : 's'} unlock with their tiers`;
+    }
+    upLocked.hidden = lockedX5.length === 0;
+    const visible = upRefs.filter((r) => !r.x5 || x5Available(r.u));
+    upDone.hidden = !visible.every((r) => (r.x5 ? state.x5Upgrades : state.upgrades).includes(r.u.id));
   }
 
   // The global milestone line (docs/LATE-GAME-DESIGN.md, section 3): the
@@ -1301,8 +1351,14 @@ export function createUI(state, io) {
     els.prestigeBtn.disabled = avail < 1;
   }
 
+  // The Region an Expand would open next ("Iowa", "Oregon", ...).
+  function nextRegionName() {
+    return regionName({ ...state, regionsEarned: (state.regionsEarned || 0) + 1 });
+  }
+
   function updateRegions() {
     const earned = state.regionsEarned || 0;
+    if (!view.expandArmed) els.expandBtn.textContent = `EXPAND TO ${nextRegionName().toUpperCase()}`;
     // One Region at a time (docs/LATE-GAME-DESIGN.md, section 2): the bar
     // fills as the Weights earned since the last expansion approach
     // regionTarget.
@@ -1321,7 +1377,7 @@ export function createUI(state, io) {
     els.regionHintFill.style.width = `${pct}%`;
     els.regionHintText.textContent = text;
     els.regionHintNote.hidden = avail >= 1;
-    els.regionMult.textContent = `Current multiplier x${fmt(Math.pow(2, earned))} — each Region doubles all production`;
+    els.regionMult.textContent = `Current multiplier x${fmt(Math.pow(2, earned))} (${earned} Region${earned === 1 ? '' : 's'}, each doubles production)`;
     els.expandBtn.disabled = avail < 1;
     for (const r of perkRefs) {
       const owned = (state.regionPerks || []).includes(r.p.id);

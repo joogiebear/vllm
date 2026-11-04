@@ -103,7 +103,7 @@ export function mountAchievements(container, getState) {
     name.textContent = a.name;
     const cond = document.createElement('span');
     cond.className = 'ach-cond';
-    cond.textContent = conditionText(a.test);
+    cond.textContent = conditionText(a.test) || a.desc;
     row.append(badgeEl, name, cond);
     list.appendChild(row);
     return { a, row, badgeEl, done: false };

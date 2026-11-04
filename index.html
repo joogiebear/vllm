@@ -457,6 +457,11 @@
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
     }
     #tier-footer[hidden] { display: none; }
+    .up-note {
+      padding: 10px 12px; font-size: 13px; color: var(--dim); text-align: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .up-note[hidden] { display: none; }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
@@ -565,7 +570,7 @@
           </div>
           <section id="region-expand" hidden>
             <button type="button" id="expand-btn" disabled>EXPAND</button>
-            <div id="expand-note" hidden>
+            <div id="expand-note">
               <div>Resets: the run, Weights, Weight upgrades, lifetime totals</div>
               <div>Kept: Regions, Region perks, achievements, stats, settings</div>
             </div>
@@ -588,15 +593,18 @@
         <div id="more-stats"></div>
         <div id="more-settings">
           <div class="settings-row">
-            <button type="button" id="export-btn">Export save</button>
+            <button type="button" id="howto-btn">How to play</button>
+          </div>
+          <div class="settings-row">
+            <button type="button" id="export-btn">Copy save code</button>
             <textarea id="export-area" rows="3" readonly></textarea>
           </div>
           <div class="settings-row">
-            <button type="button" id="import-btn">Import save</button>
-            <textarea id="import-area" rows="3" placeholder="Paste a save string"></textarea>
+            <button type="button" id="import-btn">Paste save code</button>
+            <textarea id="import-area" rows="3" placeholder="Paste a save code"></textarea>
           </div>
           <div class="settings-row">
-            <button type="button" id="reset-btn">HARD RESET</button>
+            <button type="button" id="reset-btn">Delete all progress</button>
           </div>
           <p id="settings-msg" role="status"></p>
         </div>

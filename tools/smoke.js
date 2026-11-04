@@ -690,6 +690,32 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
 
+  // Batch 3 (docs/UX-PLAN.md): Settings uses plain wording, How to play
+  // walks the help cards in order, Expand names its Region, and its
+  // resets/keeps list is always on screen.
+  await check(
+    'layout: Settings wording, How to play walks 6 cards, Expand names its Region',
+    () =>
+      evalIn(
+        `(async () => {
+          const reset = document.getElementById('reset-btn');
+          if (!reset || reset.textContent !== 'Delete all progress') return false;
+          if (document.getElementById('export-btn').textContent !== 'Copy save code') return false;
+          document.getElementById('howto-btn').click();
+          const ov = document.querySelector('.help-overlay');
+          let cards = 0;
+          while (ov && !ov.hidden && cards < 10) {
+            cards++;
+            ov.querySelector('button').click();
+          }
+          if (cards !== 6) return false;
+          const ex = document.getElementById('expand-btn');
+          const note = document.getElementById('expand-note');
+          return /^EXPAND TO [A-Z]/.test(ex.textContent) && !!note && !note.hidden;
+        })()`
+      )
+  );
+
   // Managers tab: the Pi manager row (Cron Job) shows a portrait img that
   // finished loading (docs/ART-PORTRAITS.md, task 5).
   await check(
