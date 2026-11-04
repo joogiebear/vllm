@@ -8,24 +8,24 @@ owner approves this. Design owner: thread Claude.
 - Ad-free. No pay-to-win. Paying is always optional.
 - Rule of thumb: **money buys thanks and looks, never progress.** The full
   game is free for everyone.
+- iOS only (2026-11-04, 15:25 UTC): the iPhone app is the target. No web
+  payments; the web build just has no Support row.
+- One non-invasive Support button in Settings. Rewards are cosmetics.
 
 ## What we offer
 
-1. **Support row in More** ("Support OVERCLOCK"), one quiet row, never a
-   pop-up.
-   - iPhone app: tip jar through Apple In-App Purchase, three sizes
-     (about $1.99 / $4.99 / $9.99). Apple requires IAP for digital tips;
-     small-business rate is 15%.
-   - Web: a GitHub Sponsors or Ko-fi link.
+1. **Support row in Settings** ("Support OVERCLOCK"), one quiet row, never a
+   pop-up. Tip jar through Apple In-App Purchase, three sizes (about
+   $1.99 / $4.99 / $9.99). Apple requires IAP for digital tips;
+   small-business rate is 15%. Hidden in the web build.
 2. **Thank-you cosmetics** for any tip: "Supporter" badge, gold frame on
    manager portraits, name in a credits screen.
 3. **Cosmetic packs** (later, $0.99-$2.99): alternate Region scenes,
    manager outfits, machine skins, colour themes. Zero gameplay effect.
 4. **Supporter Edition** (optional, ~$4.99 one time): every current and
    future cosmetic.
-5. **One gentle ask, ever:** after the first Region, a dismissible card:
-   "Enjoying OVERCLOCK? It's free and ad-free. If you'd like to support it,
-   there's a tip jar in More." Shown once, never again.
+5. No prompts or asks anywhere: the Settings row is the only way in
+   (owner wants it non-invasive).
 
 ## Never
 
