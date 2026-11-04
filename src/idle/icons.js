@@ -1,4 +1,4 @@
-import { PORTRAITS, PORTRAIT_V } from './data.js?v=20261104000300';
+import { PORTRAITS, PORTRAIT_V, TIER_ART, TIER_ART_V } from './data.js?v=20261104000300';
 
 // Tier colours and generator icons.
 // Style rules (docs/ART-DESIGN.md): 24x24 viewBox, stroke only at width 1.8,
@@ -194,6 +194,28 @@ export function managerIcon(genId, size = 32) {
   g.appendChild(tier);
   svg.appendChild(g);
   return svg;
+}
+
+// A machine icon for the main rows (docs/ART-TIERS.md): the 192 px WebP
+// machine art for tiers in TIER_ART, scaled to `size` px (objectFit
+// contain, nothing clipped), with pointer-events off so the round run
+// button keeps the tap. Relative path only: the game is served under
+// /vllm/. Tiers without art keep the SVG `icon(id, size)`.
+export function tierArt(id, size = 44) {
+  if (TIER_ART.includes(id)) {
+    const img = document.createElement('img');
+    img.src = `icons/tiers/${id}.webp?v=${TIER_ART_V}`;
+    img.alt = '';
+    img.decoding = 'async';
+    img.width = size;
+    img.height = size;
+    Object.assign(img.style, {
+      objectFit: 'contain',
+      pointerEvents: 'none',
+    });
+    return img;
+  }
+  return icon(id, size);
 }
 
 // Glyph id per non-tier achievement kind (the 'owned' kind uses the tier icon).
