@@ -488,6 +488,73 @@
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
     }
     .up-note[hidden] { display: none; }
+    /* Progress ladder (docs/UX-OVERHAUL-PLAN.md, batch D): one scroll,
+       three layers, every one visible from the first minute. */
+    .layer {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+    }
+    .layer.locked { border-style: dashed; }
+    .layer-hd { display: flex; align-items: center; gap: 10px; }
+    .layer-n {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--border);
+      font-size: 13px; font-weight: 800; color: var(--affordable);
+    }
+    .layer.locked .layer-n { color: #5f6f86; }
+    .layer-hd b { font-size: 16px; color: var(--text); }
+    .layer-hd > span:last-child { margin-left: auto; font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .layer-p { margin: 0; font-size: 13px; color: var(--dim); line-height: 1.4; }
+    .layer .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--dim); }
+    .layer .kv b { color: var(--text); font-weight: 600; text-align: right; }
+    .layer-sec { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #5f6f86; padding-top: 4px; }
+    .layer #prestige-hint, .layer #region-head, .layer #region-locked { background: none; border: 0; padding: 0; margin: 0; }
+    .layer #expand-note { margin-top: 0; display: flex; flex-direction: column; gap: 4px; }
+    .layer #region-perks { margin-top: 0; }
+    /* Reset confirm sheet: You gain / You lose / You keep. */
+    .reset-ov {
+      position: fixed; inset: 0; z-index: 130; background: rgba(3, 5, 9, 0.72);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .reset-ov[hidden], .moment-ov[hidden] { display: none; }
+    /* Progress is one ladder: the old Weights | Regions switcher stays in
+       the DOM for its dot and the goal-line jump, but never shows. */
+    #prestige-seg { display: none !important; }
+    .reset-sheet {
+      width: 100%; max-width: 520px; background: var(--card); border-radius: 22px 22px 0 0;
+      padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .reset-grab { width: 36px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 2px; }
+    .reset-sheet h3 { margin: 0; font-size: 20px; font-weight: 800; color: var(--text); }
+    .reset-sheet ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .reset-sheet li { display: flex; gap: 10px; font-size: 14px; color: var(--dim); }
+    .reset-sheet li b { color: var(--text); min-width: 76px; white-space: nowrap; }
+    .reset-sheet li.gain b { color: #68d391; }
+    .reset-sheet li.lose b, .reset-sheet li.lose span { color: #fc8181; }
+    .reset-note { font-size: 12px; color: #5f6f86; line-height: 1.4; }
+    .reset-go, .reset-no, .moment-go {
+      min-height: 48px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .reset-go, .moment-go { background: var(--affordable); border: 1px solid var(--affordable); color: #1a1204; }
+    .reset-no { background: transparent; border: 1px solid var(--border); color: var(--dim); }
+    /* The new-run moment after a reset. */
+    .moment-ov {
+      position: fixed; inset: 0; z-index: 130; padding: 24px;
+      background: radial-gradient(circle at 50% 30%, rgba(255, 181, 71, 0.18), transparent 60%), rgba(3, 5, 9, 0.88);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .moment-card {
+      width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 22px 20px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .moment-kicker { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--affordable); }
+    .moment-big { font-size: 40px; font-weight: 800; line-height: 1.05; color: var(--affordable); }
+    .moment-label { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+    .moment-text { margin: 0; font-size: 13px; color: var(--dim); }
+    .moment-go { width: 100%; margin-top: 8px; }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
@@ -539,55 +606,56 @@
         <div id="up-grid"></div>
       </section>
 
-      <section id="tab-prestige" aria-label="Prestige" hidden>
-        <div id="prestige-seg" role="tablist" aria-label="Prestige section">
+      <section id="tab-prestige" aria-label="Progress" hidden>
+        <!-- Kept for the Regions dot and the goal-line jump; no switcher is shown. -->
+        <div id="prestige-seg" hidden>
           <button type="button" data-seg="weights">Weights</button>
-          <button type="button" data-seg="regions">Regions<span id="regions-seg-lock"> · Locked</span><span class="seg-dot" hidden></span></button>
+          <button type="button" data-seg="regions">Regions<span id="regions-seg-lock"></span><span class="seg-dot" hidden></span></button>
         </div>
-        <div id="prestige-weights">
+        <div id="prestige-weights" class="layer">
+          <div class="layer-hd"><span class="layer-n">1</span><b>Prestige &rarr; Weights</b><span id="layer-p-now"></span></div>
+          <p class="layer-p">Start a new generation. Each Weight adds +10% to all production, forever.</p>
           <div id="prestige-hint">
             <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
-            <div id="prestige-hint-text">…</div>
+            <div id="prestige-hint-text">&hellip;</div>
             <div id="prestige-hint-bonus"></div>
           </div>
-          <section id="prestige">
-            <div class="p-head">
-              <div>
-                <h2>Prestige now</h2>
-                <p>Resets tokens, machines, upgrades and managers. Keeps Weights, Weight upgrades, Regions and achievements.</p>
-              </div>
-              <div class="p-avail">
-                <span>+<span id="w-avail">0</span></span>
-                <span>Weights available</span>
-              </div>
-            </div>
-            <button type="button" id="prestige-btn" disabled>PRESTIGE</button>
-            <div id="prestige-grid"></div>
-          </section>
-          <div id="regions-hint-line"></div>
+          <button type="button" id="prestige-btn" disabled>Prestige</button>
+          <div class="kv"><span>Keeps</span><b>Weights, Weight upgrades, Regions, achievements</b></div>
+          <span id="w-avail" hidden>0</span>
+          <div class="layer-sec">Spend Weights (kept forever)</div>
+          <div id="prestige-grid"></div>
+          <div id="regions-hint-line" hidden></div>
         </div>
-        <div id="prestige-regions" hidden>
-          <div id="region-locked">
-            <div class="hint-bar"><div id="region-locked-fill"></div></div>
-            <div id="region-locked-text">…</div>
-            <div id="region-locked-note">Each Region doubles all production and moves your server room somewhere new.</div>
-          </div>
-          <div id="region-head" hidden>
-            <div id="region-hint">
-              <div class="hint-bar"><div id="region-hint-fill"></div></div>
-              <div id="region-hint-text">…</div>
-              <div id="region-hint-note" hidden>Weights from every Prestige count toward it. Regions come one at a time.</div>
+        <div id="prestige-regions">
+          <div id="layer-regions" class="layer">
+            <div class="layer-hd"><span class="layer-n">2</span><b>Regions</b><span id="layer-r-state"></span></div>
+            <p class="layer-p">The bigger reset. Each Region doubles all production for good, moves your server room somewhere new and opens bigger machines.</p>
+            <div id="region-locked">
+              <div class="hint-bar"><div id="region-locked-fill"></div></div>
+              <div id="region-locked-text">&hellip;</div>
             </div>
-            <div id="region-mult"></div>
-          </div>
-          <section id="region-expand" hidden>
-            <button type="button" id="expand-btn" disabled>EXPAND</button>
+            <div id="region-head" hidden>
+              <div id="region-hint">
+                <div class="hint-bar"><div id="region-hint-fill"></div></div>
+                <div id="region-hint-text">&hellip;</div>
+                <div id="region-hint-note" hidden>Weights from every Prestige count toward it. Regions come one at a time.</div>
+              </div>
+              <div id="region-mult"></div>
+            </div>
+            <section id="region-expand" hidden>
+              <button type="button" id="expand-btn" disabled>EXPAND</button>
+            </section>
             <div id="expand-note">
-              <div>Resets: the run, Weights, Weight upgrades, lifetime totals</div>
-              <div>Kept: Regions, Region perks, achievements, stats, settings</div>
+              <div class="kv"><span>Resets</span><b>the run, Weights, Weight upgrades</b></div>
+              <div class="kv"><span>Keeps</span><b>Regions, Region credits and perks, achievements</b></div>
             </div>
-          </section>
-          <div id="region-perks" hidden></div>
+          </div>
+          <div id="layer-perks" class="layer">
+            <div class="layer-hd"><span class="layer-n">3</span><b>Region perks</b><span id="perk-credits"></span></div>
+            <p class="layer-p">Bought with Region credits, one for each Region you earn. Kept forever.</p>
+            <div id="region-perks"></div>
+          </div>
         </div>
       </section>
 

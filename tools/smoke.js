@@ -394,32 +394,27 @@ async function runChecks(cdp, sessionId, url) {
         `[...document.querySelectorAll("#gen-cards .gen-card")].every((c) => c.hidden || !c.textContent.includes("Unlocks at"))`
       )
   );
-  // The Regions segment is always visible, even on a fresh (locked)
-  // game: the button shows a "Locked" tag (rule: nothing important is
-  // hidden), and opening it renders the locked panel with the 2,000
-  // unlock threshold while Expand and the perks stay hidden.
+  // Progress (docs/UX-OVERHAUL-PLAN.md, batch D): one ladder, every layer
+  // visible from minute one. On a fresh game Regions is locked at 2,000
+  // Weights with no Expand button, and the perks are listed but locked.
   await check(
-    'fresh game: Regions segment button is visible with a Locked tag',
-    () =>
-      evalIn(
-        `(() => { const b = document.querySelector('#prestige-seg [data-seg="regions"]'); return !!(b && !b.hidden && b.textContent.includes('Locked')); })()`
-      )
-  );
-  await check(
-    'fresh game: opening the Regions segment shows the locked panel (2,000 threshold, no Expand)',
+    'fresh game: Progress shows Prestige, Regions (locked at 2,000) and Region perks',
     () =>
       evalIn(
         `(async () => {
-          const b = document.querySelector('#prestige-seg [data-seg="regions"]');
-          if (!b) return false;
-          b.click();
-          await new Promise((r) => setTimeout(r, 50));
-          const panel = document.getElementById('region-locked');
-          if (!panel || panel.hidden) return false;
-          if (!panel.textContent.includes('2,000')) return false;
+          document.querySelector('#tabs [data-tab="prestige"]').click();
+          await new Promise((r) => setTimeout(r, 100));
+          const ok = ['prestige-weights', 'layer-regions', 'layer-perks'].every((id) => {
+            const el = document.getElementById(id);
+            return el && el.getClientRects().length > 0;
+          });
+          const locked = document.getElementById('region-locked');
           const expand = document.getElementById('region-expand');
-          const perks = document.getElementById('region-perks');
-          return (!expand || expand.hidden) && (!perks || perks.hidden);
+          const perkBtns = [...document.querySelectorAll('#region-perks button')];
+          document.querySelector('#tabs [data-tab="game"]').click();
+          await new Promise((r) => setTimeout(r, 100));
+          return ok && !locked.hidden && locked.textContent.includes('2,000') && expand.hidden
+            && perkBtns.length >= 6 && perkBtns.every((b) => b.disabled);
         })()`
       )
   );
@@ -739,6 +734,30 @@ async function runChecks(cdp, sessionId, url) {
           const ex = document.getElementById('expand-btn');
           const note = document.getElementById('expand-note');
           return /^EXPAND TO [A-Z]/.test(ex.textContent) && !!note && !note.hidden;
+        })()`
+      )
+  );
+
+  // Prestige asks first: the sheet says what is gained, lost and kept, and
+  // "Not yet" leaves the run as it was.
+  await check(
+    'late save: Prestige opens the gain/lose/keep sheet and Not yet keeps the run',
+    () =>
+      evalIn(
+        `(async () => {
+          document.querySelector('#tabs [data-tab="prestige"]').click();
+          await new Promise((r) => setTimeout(r, 100));
+          const btn = document.getElementById('prestige-btn');
+          if (!btn || btn.disabled || !/^Prestige for \\+/.test(btn.textContent)) return false;
+          const before = document.getElementById('tokens').textContent;
+          btn.click();
+          const ov = document.querySelector('.reset-ov');
+          if (!ov || ov.hidden) return false;
+          const text = ov.textContent;
+          if (!text.includes('You gain') || !text.includes('You lose') || !text.includes('You keep')) return false;
+          ov.querySelector('.reset-no').click();
+          await new Promise((r) => setTimeout(r, 150));
+          return ov.hidden && document.getElementById('tokens').textContent === before;
         })()`
       )
   );

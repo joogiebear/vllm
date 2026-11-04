@@ -165,6 +165,11 @@ export function createUI(state, io) {
     regionLockedText: document.getElementById('region-locked-text'),
     regionsSegLock: document.getElementById('regions-seg-lock'),
     regionsHintLine: document.getElementById('regions-hint-line'),
+    layerPNow: document.getElementById('layer-p-now'),
+    layerRegions: document.getElementById('layer-regions'),
+    layerRState: document.getElementById('layer-r-state'),
+    layerPerks: document.getElementById('layer-perks'),
+    perkCredits: document.getElementById('perk-credits'),
     regionsSegBtn: document.querySelector('#prestige-seg [data-seg="regions"]'),
     regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
     regionName: document.getElementById('region-name'),
@@ -495,25 +500,140 @@ export function createUI(state, io) {
     return { u, row, buyBtn, l1, l2 };
   });
 
-  // Prestige. The second confirm is skipped when confirmPrestige is off.
-  els.prestigeBtn.addEventListener('click', () => {
-    if (getSetting('confirmPrestige') !== false && !view.prestigeArmed) {
-      view.prestigeArmed = true;
-      els.prestigeBtn.classList.add('armed');
-      els.prestigeBtn.textContent = 'CONFIRM PRESTIGE';
+  // Reset confirm (docs/UX-OVERHAUL-PLAN.md, batch D): a bottom sheet that
+  // says what you gain, lose and keep, with one primary button and "Not
+  // yet". It replaces the old double-tap arming. Skipped when the
+  // "Confirm before resets" setting is off.
+  const sheetOv = document.createElement('div');
+  sheetOv.className = 'reset-ov';
+  sheetOv.hidden = true;
+  const sheet = document.createElement('div');
+  sheet.className = 'reset-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  const sheetGrab = document.createElement('div');
+  sheetGrab.className = 'reset-grab';
+  const sheetTitle = document.createElement('h3');
+  const sheetList = document.createElement('ul');
+  const sheetNote = document.createElement('div');
+  sheetNote.className = 'reset-note';
+  const sheetGo = document.createElement('button');
+  sheetGo.type = 'button';
+  sheetGo.className = 'reset-go';
+  const sheetNo = document.createElement('button');
+  sheetNo.type = 'button';
+  sheetNo.className = 'reset-no';
+  sheetNo.textContent = 'Not yet';
+  sheet.append(sheetGrab, sheetTitle, sheetList, sheetNote, sheetGo, sheetNo);
+  sheetOv.append(sheet);
+  document.body.append(sheetOv);
+  let sheetAction = null;
+  function closeSheet() {
+    sheetOv.hidden = true;
+    sheetAction = null;
+  }
+  sheetNo.addEventListener('click', closeSheet);
+  sheetOv.addEventListener('click', (e) => {
+    if (e.target === sheetOv) closeSheet();
+  });
+  sheetGo.addEventListener('click', () => {
+    const act = sheetAction;
+    closeSheet();
+    if (act) act();
+  });
+  function confirmReset(o, action) {
+    if (getSetting('confirmPrestige') === false) {
+      action();
       return;
     }
-    view.prestigeArmed = false;
-    els.prestigeBtn.classList.remove('armed');
-    els.prestigeBtn.textContent = 'PRESTIGE';
-    const gained = prestige(state);
-    if (gained > 0) play('prestige');
+    sheetTitle.textContent = o.title;
+    sheetList.replaceChildren();
+    for (const [cls, label, text] of [['gain', 'You gain', o.gain], ['lose', 'You lose', o.lose], ['keep', 'You keep', o.keep]]) {
+      const li = document.createElement('li');
+      li.className = cls;
+      const b = document.createElement('b');
+      b.textContent = label;
+      const span = document.createElement('span');
+      span.textContent = text;
+      li.append(b, span);
+      sheetList.append(li);
+    }
+    sheetNote.textContent = o.note;
+    sheetGo.textContent = o.go;
+    sheetAction = action;
+    sheetOv.hidden = false;
+    sheetGo.focus();
+  }
+
+  // The new-run moment: a full-screen card after a reset, so the biggest
+  // decision in the game ends on a reward, not a banner.
+  const momentOv = document.createElement('div');
+  momentOv.className = 'moment-ov';
+  momentOv.hidden = true;
+  const momentCard = document.createElement('div');
+  momentCard.className = 'moment-card';
+  momentCard.setAttribute('role', 'dialog');
+  momentCard.setAttribute('aria-modal', 'true');
+  const momentKicker = document.createElement('p');
+  momentKicker.className = 'moment-kicker';
+  const momentBig = document.createElement('div');
+  momentBig.className = 'moment-big';
+  const momentLabel = document.createElement('p');
+  momentLabel.className = 'moment-label';
+  const momentText = document.createElement('p');
+  momentText.className = 'moment-text';
+  const momentGo = document.createElement('button');
+  momentGo.type = 'button';
+  momentGo.className = 'moment-go';
+  momentGo.textContent = 'Boot it';
+  momentCard.append(momentKicker, momentBig, momentLabel, momentText, momentGo);
+  momentOv.append(momentCard);
+  document.body.append(momentOv);
+  momentGo.addEventListener('click', () => {
+    momentOv.hidden = true;
+    const t = document.querySelector('#tabs [data-tab="game"]');
+    if (t) t.click();
+  });
+  function showMoment(kicker, big, label, text) {
+    momentKicker.textContent = kicker;
+    momentBig.textContent = big;
+    momentLabel.textContent = label;
+    momentText.textContent = text;
+    momentOv.hidden = false;
+    momentGo.focus();
+  }
+
+  function perWeightNow() {
     const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
-    const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
-    showBanner(
-      `Prestige! +${gained} Weight${gained === 1 ? '' : 's'} (+${Math.round(gained * perWeight * 100)}% production). New run: buy a Raspberry Pi.`,
-      'New run',
-    );
+    return wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
+  }
+
+  els.prestigeBtn.addEventListener('click', () => {
+    const avail = weightsAvailable(state);
+    if (avail < 1) return;
+    let machines = 0;
+    for (const g of GENERATORS) machines += state.generators[g.id] || 0;
+    const ups = state.upgrades.length + (state.x5Upgrades || []).length;
+    const s = avail === 1 ? '' : 's';
+    confirmReset({
+      title: 'Prestige now?',
+      gain: `+${fmt(avail)} Weight${s}: all production +${Math.round(avail * perWeightNow() * 100)}%, forever`,
+      lose: `${fmt(state.tokens)} tokens, ${fmt(machines)} machines, ${state.managers.length} managers, ${ups} upgrades`,
+      keep: 'Weights, Weight upgrades, Regions, achievements',
+      note: 'Your new run starts with one Raspberry Pi and the bonus above.',
+      go: `Prestige for +${fmt(avail)} Weight${s}`,
+    }, () => {
+      const gained = prestige(state);
+      if (gained <= 0) return;
+      play('prestige');
+      const bonus = Math.round(perWeightNow() * (state.weights || 0) * 100);
+      showMoment(
+        `GENERATION ${fmt((state.stats.prestiges || 0) + 1)}`,
+        `+${fmt(gained)}`,
+        `Weight${gained === 1 ? '' : 's'} earned`,
+        `All production is now +${bonus}%. Your first Pi is already plugged in.`,
+      );
+    });
   });
 
   // Region perks (Prestige tab, Regions segment): one row per perk, bought
@@ -554,28 +674,35 @@ export function createUI(state, io) {
     return { p, row, buyBtn, l1, l2 };
   });
 
-  // Expand (the second prestige layer). The second confirm is skipped when
-  // confirmPrestige is off, like prestige.
+  // Expand (the second reset layer), through the same confirm sheet. The
+  // sheet says in red that Weights reset.
   els.expandBtn.addEventListener('click', () => {
-    if (getSetting('confirmPrestige') !== false && !view.expandArmed) {
-      view.expandArmed = true;
-      els.expandBtn.classList.add('armed');
-      els.expandBtn.textContent = `CONFIRM: EXPAND TO ${nextRegionName().toUpperCase()}`;
-      return;
-    }
-    view.expandArmed = false;
-    els.expandBtn.classList.remove('armed');
-    const gained = expandRegion(state);
-    if (gained > 0) play('prestige');
-    // The Region changed: show the new scene (docs/ART-BACKGROUNDS.md).
-    if (gained > 0) applyBackground(state);
-    // Name the tier this Region unlocks, if any (docs/UX-PLAN.md, 3.2).
-    const gate = TIER_GATES.find((t) => t.regions === (state.regionsEarned || 0));
-    const opened = gate ? GENERATORS.find((x) => x.id === gate.id) : null;
-    showBanner(
-      `New Region: ${regionName(state)}. All production x2.${opened ? ` ${opened.name} is now available.` : ''}`,
-      'New region',
-    );
+    if (regionsAvailable(state) < 1) return;
+    const next = nextRegionName();
+    const gate = TIER_GATES.find((t) => t.regions === (state.regionsEarned || 0) + 1);
+    const opens = gate ? GENERATORS.find((x) => x.id === gate.id) : null;
+    confirmReset({
+      title: `Expand to ${next}?`,
+      gain: `All production x2 for good, 1 Region credit${opens ? `, and ${opens.name}` : ''}`,
+      lose: `All ${fmt(state.weights || 0)} Weights, your Weight upgrades and this run`,
+      keep: 'Regions, Region credits and perks, achievements',
+      note: 'Weights reset to zero. With the x2 they come back faster.',
+      go: `Expand to ${next}`,
+    }, () => {
+      const gained = expandRegion(state);
+      if (gained <= 0) return;
+      play('prestige');
+      // The Region changed: show the new scene (docs/ART-BACKGROUNDS.md).
+      applyBackground(state);
+      const g2 = TIER_GATES.find((t) => t.regions === (state.regionsEarned || 0));
+      const opened = g2 ? GENERATORS.find((x) => x.id === g2.id) : null;
+      showMoment(
+        'NEW REGION',
+        regionName(state),
+        'All production x2',
+        opened ? `${opened.name} is now available.` : 'Your server room has moved somewhere new.',
+      );
+    });
   });
 
   // Prestige tab (Weights | Regions segments), remembered across visits.
@@ -586,8 +713,11 @@ export function createUI(state, io) {
   function setPrestigeSeg(seg, persist) {
     view.prestigeSeg = seg;
     psegBtns.forEach((b) => b.classList.toggle('active', b.dataset.seg === seg));
-    els.prestigeWeights.hidden = seg !== 'weights';
-    els.prestigeRegions.hidden = seg !== 'regions';
+    // One ladder now (batch D): both layers always show; asking for the
+    // Regions part scrolls to it.
+    if (persist && seg === 'regions') {
+      els.prestigeRegions.scrollIntoView({ block: 'start' });
+    }
     if (persist) {
       try {
         localStorage.setItem(PSEG_KEY, seg);
@@ -664,7 +794,7 @@ export function createUI(state, io) {
     servers: ['Servers', 'Each machine runs a cycle and pays tokens when the bar fills.\nTap a machine to run it yourself, or hire its manager so it runs by itself.\nBuy more of a machine to earn more per cycle. At 25, 50, 100, 200 and 400 owned it runs twice as fast; at 300, 500, 750 and 1,000 it pays more.\nThe Next button buys exactly enough to reach the next boost.'],
     managers: ['Managers', 'One manager per machine. A hired manager runs that machine forever, even while the game is closed.\nYou need to own the machine first.\nManagers reset when you prestige.'],
     upgrades: ['Upgrades', 'One-time boosts paid with tokens. Some boost one machine, some boost everything.\nThey reset when you prestige, so you buy them again each run.\nBuy all buys every one you can afford, cheapest first.'],
-    prestige: ['Prestige', 'When your lifetime tokens are high enough you can prestige: the run starts over and you earn Weights.\nEach Weight adds +10% to all production, in every later run.\nWeight upgrades are paid in Weights and survive prestige.'],
+    prestige: ['Progress', 'Two resets, top to bottom.\nPrestige: when your lifetime tokens are high enough, start a new generation and earn Weights. Each Weight adds +10% to all production, forever. Spend Weights on Weight upgrades.\nRegions: once you have earned 2,000 Weights in total, expand. Weights reset, but all production doubles for good and bigger machines open. Each Region also gives a credit for a Region perk.'],
     regions: ['Regions', 'Regions are the bigger reset above Prestige.\nThey unlock once you have earned 2,000 Weights in total.\nExpanding resets Weights too, but doubles all production for good, moves your server room somewhere new and unlocks bigger machines.'],
     more: ['More', 'Achievements each add +1% production.\nStats show your totals for this run and all time.\nSettings has sound, haptics, backups and "Show tips again".'],
   };
@@ -906,7 +1036,7 @@ export function createUI(state, io) {
       { value: 'short', label: 'Short' },
       { value: 'sci', label: 'Scientific' },
     ]));
-    prefs.appendChild(makeToggleRow('Confirm before prestige', 'confirmPrestige'));
+    prefs.appendChild(makeToggleRow('Confirm before resets', 'confirmPrestige'));
     autoProcureRow = makeToggleRow('Auto-Procure', 'autoProcure', 'Buy All runs by itself every 10 s');
     autoProcureRow.hidden = true;
     prefs.appendChild(autoProcureRow);
@@ -1233,8 +1363,7 @@ export function createUI(state, io) {
   }
   function updateGoal() {
     const tab = view.tab || 'game';
-    let help = tab === 'game' ? 'servers' : tab;
-    if (tab === 'prestige' && view.prestigeSeg === 'regions') help = 'regions';
+    const help = tab === 'game' ? 'servers' : tab;
     els.goalHelp.dataset.help = help;
     if (tab !== 'game') {
       if (view.goalTab === tab) return;
@@ -1396,15 +1525,22 @@ export function createUI(state, io) {
   function updatePrestige() {
     const avail = weightsAvailable(state);
     els.wAvail.textContent = fmt(avail);
-    const next = Math.floor(state.lifetime / PRESTIGE_DIVISOR) + 1;
-    const frac = Math.min(1, state.lifetime / (PRESTIGE_DIVISOR * next));
+    // Weights follow sqrt(total lifetime / PRESTIGE_DIVISOR) (core.js
+    // weightsAvailable), so the next one lands at DIVISOR * k^2.
+    const total = Math.max(0, state.totalLifetime || 0);
+    const k = Math.floor(Math.sqrt(total / PRESTIGE_DIVISOR)) + 1;
+    const need = PRESTIGE_DIVISOR * k * k;
+    const frac = Math.min(1, total / need);
     els.prestigeHintFill.style.width = `${Math.round(frac * 100)}%`;
-    els.prestigeHintText.textContent = `Next weight at ${fmt(PRESTIGE_DIVISOR * next)} lifetime`;
-    const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
-    const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
-    const bonus = Math.round(perWeight * (state.weights || 0) * 100);
-    els.prestigeHintBonus.textContent = `Current bonus +${bonus}%`;
+    els.prestigeHintText.textContent = `Next Weight at ${fmt(need)} lifetime tokens (${fmt(total)} so far, ${Math.round(frac * 100)}%)`;
+    const weights = state.weights || 0;
+    const bonus = Math.round(perWeightNow() * weights * 100);
+    els.prestigeHintBonus.textContent = `Current bonus +${bonus}% from ${fmt(weights)} Weight${weights === 1 ? '' : 's'}`;
+    els.layerPNow.textContent = `+${bonus}% now`;
     els.prestigeBtn.disabled = avail < 1;
+    els.prestigeBtn.textContent = avail >= 1
+      ? `Prestige for +${fmt(avail)} Weight${avail === 1 ? '' : 's'}`
+      : 'Prestige · earn your first Weight';
   }
 
   // The Region an Expand would open next ("Iowa", "Oregon", ...).
@@ -1414,7 +1550,7 @@ export function createUI(state, io) {
 
   function updateRegions() {
     const earned = state.regionsEarned || 0;
-    if (!view.expandArmed) els.expandBtn.textContent = `EXPAND TO ${nextRegionName().toUpperCase()}`;
+    els.expandBtn.textContent = `EXPAND TO ${nextRegionName().toUpperCase()}`;
     // One Region at a time (docs/LATE-GAME-DESIGN.md, section 2): the bar
     // fills as the Weights earned since the last expansion approach
     // regionTarget.
@@ -1443,8 +1579,14 @@ export function createUI(state, io) {
         r.buyBtn.classList.add('done');
       } else {
         r.buyBtn.classList.remove('done');
-        setLines(r, 'Buy', `${r.p.cost} Region${r.p.cost === 1 ? '' : 's'}`);
-        r.buyBtn.disabled = (state.regions || 0) < r.p.cost;
+        const c = `${r.p.cost} credit${r.p.cost === 1 ? '' : 's'}`;
+        if (!regionsUnlocked(state)) {
+          setLines(r, 'Locked', c);
+          r.buyBtn.disabled = true;
+        } else {
+          setLines(r, 'Buy', c);
+          r.buyBtn.disabled = (state.regions || 0) < r.p.cost;
+        }
       }
     }
   }
@@ -1461,7 +1603,14 @@ export function createUI(state, io) {
     els.regionLocked.hidden = unlocked;
     els.regionHead.hidden = !unlocked;
     els.regionExpand.hidden = !unlocked;
-    els.regionPerksGrid.hidden = !unlocked;
+    els.regionPerksGrid.hidden = false;
+    els.layerRegions.classList.toggle('locked', !unlocked);
+    els.layerRState.textContent = !unlocked
+      ? 'Locked'
+      : regionsAvailable(state) >= 1 ? 'Ready' : `x${fmt(Math.pow(2, state.regionsEarned || 0))} now`;
+    const credits = state.regions || 0;
+    els.layerPerks.classList.toggle('locked', (state.regionsEarned || 0) === 0 && credits === 0);
+    els.perkCredits.textContent = `${fmt(credits)} credit${credits === 1 ? '' : 's'}`;
     if (!unlocked) {
       els.regionLockedText.textContent = regionsLockedText(state);
       els.regionLockedFill.style.width = `${Math.round(regionsUnlockProgress(state) * 100)}%`;
@@ -1469,6 +1618,7 @@ export function createUI(state, io) {
     // Always-visible pointer on the Weights view, so the feature is
     // discoverable from where players already are.
     els.regionsHintLine.textContent = regionsHintLine(state);
+    els.regionsHintLine.hidden = true;
     updateRegions();
   }
 
@@ -1493,7 +1643,6 @@ export function createUI(state, io) {
     container.hidden = visible < 2;
   }
   function updateSegmentedControls() {
-    syncSegVisibility(document.getElementById('prestige-seg'), psegBtns);
     syncSegVisibility(document.getElementById('more-seg'), moreSegBtns);
   }
 
