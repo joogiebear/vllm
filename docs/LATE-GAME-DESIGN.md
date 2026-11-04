@@ -126,3 +126,14 @@ app build), new tiers past 12, and any change to the Shop.
 
 Tasks 2-4 touch `core.js` and go one at a time; 5-6 go after 2-4; 7 can run
 beside them.
+
+## Fix 1 (2026-11-04): don't show the locked tier too early
+
+Found on the live site: a brand-new game shows "Orbital Compute Ring,
+Unlocks at Iowa (1 Region)" right under the Gaming GPU, before tiers 3-8
+exist. Section 1 meant "the next locked tier is shown once you reach it".
+
+One small task, `ui.js` visibility rule only (around `nextLocked`): a
+Region-locked row is visible only when the tier just before it in
+`GENERATORS` is owned (owned > 0). Everything else stays as is. Test with
+the smoke test's fresh game (no Orbital row) and late save (unchanged).
