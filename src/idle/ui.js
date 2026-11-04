@@ -1076,20 +1076,26 @@ export function createUI(state, io) {
     for (const r of manRefs) {
       const hired = hasManager(state, r.m.id);
       const owned = state.generators[r.m.id] || 0;
-      r.row.classList.toggle('dim', hired);
       if (hired) {
-        setLines(r, 'Hired', null);
+        // Hired rows stay full-strength (name, description, portrait); the
+        // button area shows a solid green "Hired" pill, not a dimmed
+        // button (docs/ART-BACKGROUNDS.md).
+        setLines(r, '✓ Hired', null);
         r.buyBtn.disabled = true;
         r.buyBtn.classList.remove('afford');
-      } else if (owned === 0) {
-        setLines(r, `Need ${r.g.name}`, null);
-        r.buyBtn.disabled = true;
-        r.buyBtn.classList.remove('afford');
+        r.buyBtn.classList.add('done');
       } else {
-        const afford = r.m.cost <= state.tokens;
-        setLines(r, 'Hire', `${fmtCost(r.m.cost)} tokens`);
-        r.buyBtn.disabled = !afford;
-        r.buyBtn.classList.toggle('afford', afford);
+        r.buyBtn.classList.remove('done');
+        if (owned === 0) {
+          setLines(r, `Need ${r.g.name}`, null);
+          r.buyBtn.disabled = true;
+          r.buyBtn.classList.remove('afford');
+        } else {
+          const afford = r.m.cost <= state.tokens;
+          setLines(r, 'Hire', `${fmtCost(r.m.cost)} tokens`);
+          r.buyBtn.disabled = !afford;
+          r.buyBtn.classList.toggle('afford', afford);
+        }
       }
     }
   }
@@ -1114,10 +1120,14 @@ export function createUI(state, io) {
       r.row.classList.toggle('owned', owned);
       r.row.classList.toggle('dim', !owned);
       if (owned) {
-        r.buyBtn.textContent = '✓';
+        // Owned rows stay solid with a green "Owned" pill (docs/
+        // ART-BACKGROUNDS.md); only not-owned rows dim their text.
+        r.buyBtn.textContent = '✓ Owned';
         r.buyBtn.disabled = true;
         r.buyBtn.classList.remove('afford');
+        r.buyBtn.classList.add('done');
       } else {
+        r.buyBtn.classList.remove('done');
         const c = r.u.cost;
         const afford = c <= state.tokens;
         r.buyBtn.textContent = fmtCost(c);
@@ -1148,9 +1158,11 @@ export function createUI(state, io) {
     for (const r of wuRefs) {
       const owned = state.weightUpgrades.includes(r.u.id);
       if (owned) {
-        setLines(r, '✓', null);
+        setLines(r, '✓ Owned', null);
         r.buyBtn.disabled = true;
+        r.buyBtn.classList.add('done');
       } else {
+        r.buyBtn.classList.remove('done');
         setLines(r, 'Buy', `${r.u.cost} Weight${r.u.cost === 1 ? '' : 's'}`);
         r.buyBtn.disabled = state.weights < r.u.cost;
       }
@@ -1196,9 +1208,11 @@ export function createUI(state, io) {
     for (const r of perkRefs) {
       const owned = (state.regionPerks || []).includes(r.p.id);
       if (owned) {
-        setLines(r, 'Owned', null);
+        setLines(r, '✓ Owned', null);
         r.buyBtn.disabled = true;
+        r.buyBtn.classList.add('done');
       } else {
+        r.buyBtn.classList.remove('done');
         setLines(r, 'Buy', `${r.p.cost} Region${r.p.cost === 1 ? '' : 's'}`);
         r.buyBtn.disabled = (state.regions || 0) < r.p.cost;
       }

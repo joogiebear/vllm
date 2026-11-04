@@ -60,7 +60,7 @@ names or text. Theme stays GPUs and servers.
   ("Buy x10" + cost, orange only when affordable) and a timer showing time left
   in the cycle.
 - Upgrades tab: segmented control Managers | Upgrades, one row each,
-  owned ones dimmed with "Hired" / check mark. Buy All stays.
+  owned ones solid with a green "Hired" / "Owned" pill. Buy All stays.
 - Calm palette: background #0b0f17, cards #131a27, borders #1d2636, text
   #eef3f9, dim #93a3b8, affordable #ffb547, tier colours from the mockup.
 - Prestige, Shop, Settings tabs unchanged apart from colours.

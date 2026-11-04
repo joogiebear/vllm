@@ -251,7 +251,9 @@
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 6px 12px;
     }
-    .up-row.dim { opacity: 0.55; }
+    /* Not-owned rows dim only their text; the card stays solid over the
+       Region background (docs/ART-BACKGROUNDS.md). */
+    .up-row.dim .name { color: var(--dim); }
     .up-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .up-row .name { font-size: 14px; font-weight: 700; color: var(--text); }
     .up-row .effect { font-size: 12px; color: var(--dim); }
@@ -267,9 +269,6 @@
     }
     .up-row .buy:disabled { opacity: 0.5; cursor: default; }
     .up-row .buy .gain { display: block; font-size: 11px; }
-    .up-row .check { color: var(--affordable); font-size: 18px; }
-    .up-row.owned { padding: 6px 12px; }
-    .up-row.owned .buy { display: none; }
 
     /* Prestige tab */
     #prestige-seg { display: flex; gap: 4px; margin-bottom: 10px; }
@@ -346,7 +345,14 @@
       color: #0b0f17; font-weight: 700;
     }
     .wu .buy:disabled { opacity: 0.5; cursor: default; }
-    .wu .check { color: var(--affordable); font-size: 18px; }
+    /* Done state (Hired / Owned): a subtle green-tinted pill with a tick,
+       always solid — never a dimmed button (docs/ART-BACKGROUNDS.md). */
+    .up-row .buy.done, .wu .buy.done {
+      opacity: 1; cursor: default;
+      background: rgba(104, 211, 145, 0.12);
+      border-color: rgba(104, 211, 145, 0.45);
+      color: #68d391; font-weight: 700;
+    }
     #region-mult { font-size: 12px; color: var(--dim); margin-top: 2px; }
     #region-expand {
       background: var(--card); border: 1px solid var(--border);
