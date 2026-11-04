@@ -165,3 +165,36 @@ Two small tasks, one at a time:
    - auto: "Start each run with the Cron Job hired"
    - distill: "+13% bonus per Weight"
    Test: every `WEIGHT_UPGRADES` id has an entry.
+
+## Fix 3 (2026-11-04): Regions always on screen
+
+Owner, 14:48 UTC: "I still do not clearly see a regions button. If this
+is a game, things clearly need to be shown on screen and not hidden behind
+something that only we know." Rule for the whole game from now on: every
+progression layer is visible from the start, shown as locked with what it
+takes, never hidden until a threshold.
+
+The owner's save is still below 2,000 total Weights, so fix 2's change
+(show the segment for saves that already passed it) doesn't reach it.
+
+Three small tasks, in order (after the upgrade-labels task in fix 2):
+
+1. **Regions segment always visible** (`ui.js` `updatePrestigeSeg`, drop
+   the `hidden` rule). Before `REGION_UNLOCK_WEIGHTS` total Weights, the
+   Regions view shows a locked card instead of the Expand button:
+   "Regions: open at 2,000 Weights earned in total (you have 409, 20%).
+   Each Region doubles all production and unlocks new machines." with the
+   same progress bar style. Remove the auto-switch back to Weights.
+2. **Goal strip on the Game tab** (`index.html` + `ui.js`): one slim
+   solid bar (36 px, card colour, rounded) just below the header, above
+   the rows, tappable, opens Prestige on the Regions segment. Text, by
+   state:
+   - no Weights earned yet: "Next goal: Prestige for your first Weight
+     (Prestige tab)" with the lifetime-to-first-Weight progress.
+   - Regions not open yet: "Regions open at 2,000 Weights: 409 / 2,000"
+     with bar.
+   - Regions open: "Next Region (Iowa): 2,700 / 26,000 Weights" with bar.
+   - Region ready: gold strip, "Region ready: tap to expand to Iowa".
+   Updates at most once a second. Never hidden.
+3. **Smoke checks:** a fresh game shows the goal strip and the Regions
+   segment (locked card); tapping the strip lands on Prestige → Regions.
