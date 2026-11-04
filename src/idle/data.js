@@ -3,7 +3,7 @@
 // helpers only.
 
 export const GENERATORS = [
-  { id: 'pi', name: 'Raspberry Pi', baseCost: 15, tps: 1, cycleSeconds: 7 },
+  { id: 'pi', name: 'Raspberry Pi', baseCost: 15, tps: 1, cycleSeconds: 2 },
   { id: 'gamer', name: 'Gaming GPU', baseCost: 500, tps: 8, cycleSeconds: 3 },
   { id: 'workstation', name: 'Workstation', baseCost: 2400, tps: 47, cycleSeconds: 6 },
   { id: 'rack', name: 'Rack Server', baseCost: 26000, tps: 260, cycleSeconds: 12 },

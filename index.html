@@ -468,7 +468,16 @@
     #buy-row .buy-sel { flex: 1 1 auto; height: 36px; padding: 2px; margin: 0; }
     #buy-row .buy-sel button { height: 30px; }
     .gen-status { margin-left: auto; font-size: 12px; color: var(--dim); white-space: nowrap; }
-    .gen-status.idle { color: var(--affordable); font-weight: 700; }
+    .gen-status.idle { color: var(--affordable); font-weight: 700; letter-spacing: 0.02em; }
+    /* The never-tapped Pi pulses until its first boot. */
+    .gen-icon.pulse { position: relative; }
+    .gen-icon.pulse::before {
+      content: ''; position: absolute; inset: -7px; border-radius: 50%;
+      border: 2px solid var(--affordable); animation: boot-pulse 1.4s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes boot-pulse { 0% { transform: scale(0.88); opacity: 0.9; } 100% { transform: scale(1.22); opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .gen-icon.pulse::before { animation: none; opacity: 0.8; } }
     #tier-footer {
       margin-top: 8px; padding: 10px 12px; text-align: center; font-size: 13px; color: var(--dim);
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
@@ -489,7 +498,7 @@
       <div id="hud-row1">
         <div id="hud-left">
           <div id="tokens-line"><span id="tokens" class="value">0</span><small>tokens</small></div>
-          <div id="rate"><span id="tps">0</span> per sec <span id="region-name" hidden></span></div>
+          <div id="rate"><span id="tps">0</span><span id="rate-unit"> per sec</span> <span id="region-name" hidden></span></div>
         </div>
         <div id="hud-right">
           <div id="weights-chip" class="chip" hidden>Weights +0%</div>

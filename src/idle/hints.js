@@ -11,13 +11,15 @@
 // ('run' | 'buy' | 'manager') or null. The DOM callout (mountHint) polls
 // it and shows the bubble when the target is on screen, waiting while the
 // welcome-back card or an achievement toast is up.
-import { cost } from './core.js?v=20261104201139';
+import { cost, cyclePayout } from './core.js?v=20261104201139';
+import { GENERATORS } from './data.js?v=20261104201139';
+import { fmt } from './fmt.js?v=20261104201139';
 import { isWelcomeOpen } from './welcome.js?v=20261104201139';
 import { isToastVisible } from './toast.js?v=20261104201139';
 
 export const HINT_TEXTS = {
-  run: 'Tap the Pi to run it. When the bar fills, you get tokens.',
-  buy: 'Buy more Pis to earn more each run. Every 25 owned makes them faster.',
+  run: 'Tap the Pi to boot it. When the bar fills, you get tokens.',
+  buy: 'Buy more Pis to earn more each run. At 25 owned they run twice as fast.',
   manager: 'Hire a manager on the Managers tab. It runs the row for you, even while you\'re away.',
 };
 
@@ -52,61 +54,34 @@ function injectStyle() {
   styleInjected = true;
   const el = document.createElement('style');
   el.textContent = `
-    .hint-host {
-      position: fixed; inset: 0;
-      pointer-events: none;
-      z-index: 101;
-    }
+    /* An inline card under the Pi row (docs/UX-OVERHAUL-PLAN.md, batch C):
+       it never covers the thing it talks about. */
     .hint-bubble {
-      position: absolute;
-      max-width: 260px;
-      background: var(--card, #131a27);
-      border: 1px solid var(--border, #263143);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 14px;
-      line-height: 1.35;
-      color: var(--text, #eef3f9);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-      pointer-events: auto;
-      opacity: 0;
-      transition: opacity 150ms ease;
+      position: relative; margin: 2px 0 4px;
+      background: var(--affordable, #ffb547); color: #1a1204;
+      border-radius: 12px; padding: 10px 12px;
+      font-size: 14px; font-weight: 600; line-height: 1.35;
     }
-    .hint-bubble.show { opacity: 1; }
-    .hint-bubble::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 8px solid transparent;
-    }
-    .hint-bubble.hint-above::after {
-      top: 100%;
-      border-top-color: var(--card, #131a27);
-    }
-    .hint-bubble:not(.hint-above)::after {
-      bottom: 100%;
-      border-bottom-color: var(--card, #131a27);
+    .hint-bubble::before {
+      content: ''; position: absolute; left: 34px; top: -8px;
+      border: 8px solid transparent; border-top: 0;
+      border-bottom-color: var(--affordable, #ffb547);
     }
     .hint-gotit {
       margin-top: 8px;
-      min-height: 32px;
+      min-height: 36px;
       padding: 0 14px;
       border-radius: 8px;
-      border: 1px solid var(--border, #263143);
-      background: var(--bg, #0b0f17);
-      color: var(--dim, #8b98ab);
-      font-size: 13px;
+      border: 1px solid rgba(26, 18, 4, 0.35);
+      background: transparent;
+      color: #1a1204;
+      font-size: 13px; font-weight: 700;
       cursor: pointer;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .hint-bubble { transition: none; }
     }
   `;
   document.head.appendChild(el);
 }
 
-let host = null;
 let bubble = null;
 let currentHintId = null;
 let timer = null;
@@ -121,10 +96,9 @@ function markSeen(id, state) {
 function ensureBubble() {
   if (bubble) return bubble;
   injectStyle();
-  host = document.createElement('div');
-  host.className = 'hint-host';
   bubble = document.createElement('div');
   bubble.className = 'hint-bubble';
+  bubble.setAttribute('role', 'status');
   const text = document.createElement('div');
   text.className = 'hint-text';
   const gotIt = document.createElement('button');
@@ -133,62 +107,32 @@ function ensureBubble() {
   gotIt.textContent = 'Got it';
   gotIt.addEventListener('click', () => dismissCurrent(stateRef));
   bubble.append(text, gotIt);
-  host.appendChild(bubble);
-  document.body.appendChild(host);
   return bubble;
 }
 
-// Position the bubble above (preferred) or below its target, clamped to the
-// viewport and kept clear of the header and the bottom menu. A bubble may
-// only go above the target when it fits entirely below the header; with no
-// room for that it goes below the target.
-function placeBubble(el, rect) {
-  const gap = 10;
-  const hud = document.getElementById('hud');
-  const headerBottom = hud ? hud.getBoundingClientRect().bottom : 0;
-  const tabs = document.getElementById('tabs');
-  const bottomMenu =
-    tabs && tabs.getBoundingClientRect().height > 0
-      ? tabs.getBoundingClientRect().height + 16
-      : 96;
-  const bh = el.offsetHeight;
-  const bw = el.offsetWidth;
-  let left = rect.left + rect.width / 2 - bw / 2;
-  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-  // Space above is measured from under the header, so a bubble above the
-  // target can never cover the header (token count).
-  const spaceAbove = Math.max(0, rect.top - headerBottom);
-  const spaceBelow = window.innerHeight - rect.bottom - bottomMenu;
-  const above = spaceAbove >= bh + gap;
-  let top;
-  if (above) {
-    top = rect.top - bh - gap; // >= headerBottom + gap, fits under the header
-    el.classList.add('hint-above');
-  } else {
-    top = Math.min(
-      rect.bottom + gap,
-      Math.max(headerBottom + 8, window.innerHeight - bh - bottomMenu - 8)
-    );
-    el.classList.remove('hint-above');
+// The hint text, with the real numbers for the boot hint.
+function hintText(id) {
+  if (id === 'run' && stateRef) {
+    const pi = GENERATORS.find((g) => g.id === 'pi');
+    const pays = fmt(cyclePayout(stateRef, pi));
+    const price = fmt(Math.ceil(cost(stateRef, 'pi', 1)));
+    return `Tap the Pi to boot it. When the bar fills you get ${pays} tokens. A second Pi costs ${price}.`;
   }
-  el.style.left = left + 'px';
-  el.style.top = top + 'px';
+  return HINT_TEXTS[id];
 }
 
-function showBubble(id, target) {
+// Show the hint as an inline card right under the Pi row.
+function showBubble(id) {
   const el = ensureBubble();
-  const text = el.querySelector('.hint-text');
-  text.textContent = HINT_TEXTS[id];
+  el.querySelector('.hint-text').textContent = hintText(id);
   currentHintId = id;
-  const rect = target.getBoundingClientRect();
-  placeBubble(el, rect);
-  void el.offsetWidth;
-  el.classList.add('show');
+  const card = document.querySelector('#gen-cards .gen-card');
+  if (card && el.previousElementSibling !== card) card.after(el);
 }
 
 function hideBubble() {
   if (!bubble) return;
-  bubble.classList.remove('show');
+  bubble.remove();
   currentHintId = null;
 }
 
@@ -223,7 +167,7 @@ function check() {
     hideBubble();
     return;
   }
-  if (currentHintId !== id) showBubble(id, target);
+  if (currentHintId !== id) showBubble(id);
 }
 
 // Mark the currently shown hint seen and hide it (the "Got it" button).

@@ -97,6 +97,24 @@ export function nextGoal(state) {
     };
   }
 
+  // First run (docs/UX-OVERHAUL-PLAN.md, batch C): boot the Pi, buy a
+  // second one, hire Cron Job.
+  const managersHired = (state.managers || []).length;
+  const pis = (state.generators && state.generators.pi) || 0;
+  const taps = (state.stats && state.stats.taps) || 0;
+  if (managersHired === 0 && (state.weights || 0) === 0 && (state.regionsEarned || 0) === 0) {
+    if (taps === 0 && (state.lifetime || 0) === 0 && pis <= 1) {
+      return { kind: 'boot', text: 'Boot your Raspberry Pi', have: 0, need: 1, tab: 'game', note: 'step 1 of 3' };
+    }
+    if (pis === 1) {
+      return { kind: 'generator', text: 'Buy a second Pi', have: state.tokens, need: cost(state, 'pi', 1), tab: 'game' };
+    }
+    const cron = MANAGERS.find((m) => m.id === 'pi');
+    if (pis >= 2 && cron) {
+      return { kind: 'manager', text: `Hire ${cron.name}`, have: state.tokens, need: cron.cost, tab: 'managers' };
+    }
+  }
+
   let manager = null;
   for (const m of MANAGERS) {
     if (!((state.generators && state.generators[m.id]) > 0)) continue;

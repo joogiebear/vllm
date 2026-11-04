@@ -175,6 +175,7 @@ export function createUI(state, io) {
     goalNum: document.getElementById('goal-num'),
     goalFill: document.getElementById('goal-fill'),
     tierFooter: document.getElementById('tier-footer'),
+    rateUnit: document.getElementById('rate-unit'),
   };
 
   // Buy-mode switch (header row 2): x1 / x10 / x100 / Max. The row is
@@ -1175,14 +1176,23 @@ export function createUI(state, io) {
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
 
+      // Status word (batch C): TAP TO BOOT on a brand-new Pi, TAP TO RUN on
+      // an idle row, a countdown while running, Auto with a manager. The
+      // never-tapped Pi pulses until the first tap.
+      const firstBoot = g.id === 'pi' && (state.stats.taps || 0) === 0 && !managed;
       let statusText = '';
+      let idle = false;
       if (isLocked) statusText = '';
       else if (managed) statusText = 'Auto';
       else if (running && !continuous) statusText = fmtCountdown(ct - progress);
-      else statusText = 'Tap to run';
+      else {
+        statusText = firstBoot ? 'TAP TO BOOT' : 'TAP TO RUN';
+        idle = true;
+      }
       r.status.textContent = statusText;
       r.status.hidden = statusText === '';
-      r.status.classList.toggle('idle', statusText === 'Tap to run');
+      r.status.classList.toggle('idle', idle);
+      r.icon.classList.toggle('pulse', firstBoot && !running);
     }
   }
 
@@ -1251,8 +1261,9 @@ export function createUI(state, io) {
     }
     setGoalLabel('Next: ', g.text, '');
     const frac = g.need > 0 ? Math.min(1, Math.max(0, g.have / g.need)) : 1;
-    const ready = frac >= 1;
-    els.goalNum.textContent = ready ? 'Ready ›' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
+    const ready = frac >= 1 && !g.note;
+    if (g.note) els.goalNum.textContent = g.note;
+    else els.goalNum.textContent = ready ? 'Ready ›' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
     els.goalNum.classList.toggle('ready', ready);
     els.goalFill.style.width = `${Math.round(frac * 100)}%`;
   }
@@ -1495,7 +1506,24 @@ export function createUI(state, io) {
     // Step the font down once the text is 8+ chars so long values
     // ("1.23e15", "999.9T") stay on one line at 360 px.
     els.tokens.classList.toggle('long', tokenText.length >= 8);
-    els.tps.textContent = fmt(tokensPerSecond(state));
+    // The rate line says what is really happening (docs/UX-OVERHAUL-PLAN.md,
+    // batch C): nothing running, or how many machines run before the first
+    // manager, then the rate.
+    let running = 0;
+    for (const g of GENERATORS) {
+      if ((state.generators[g.id] || 0) === 0) continue;
+      if (hasManager(state, g.id) || (state.cycles[g.id] !== null && state.cycles[g.id] !== undefined)) running++;
+    }
+    if (running === 0) {
+      els.tps.textContent = '0';
+      els.rateUnit.textContent = ' per sec · nothing running yet';
+    } else if ((state.managers || []).length === 0) {
+      els.tps.textContent = `${running} machine${running === 1 ? '' : 's'}`;
+      els.rateUnit.textContent = ' running';
+    } else {
+      els.tps.textContent = fmt(tokensPerSecond(state));
+      els.rateUnit.textContent = ' per sec';
+    }
 
     const earnedRegions = state.regionsEarned || 0;
     const hasWeights = state.weights > 0 || (state.weightsEarnedThisCycle || 0) > 0;

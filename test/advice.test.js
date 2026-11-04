@@ -131,14 +131,20 @@ test('nextGoal: prestige only once it would raise Weights by at least half', () 
   assert.notEqual(nextGoal(s).kind, 'prestige');
 });
 
-test('nextGoal: a fresh game points at buying a Raspberry Pi', () => {
+test('nextGoal: a first run walks boot, a second Pi, then Cron Job', () => {
   const s = stateWith(0, { pi: 1 });
+  assert.equal(nextGoal(s).kind, 'boot');
+  assert.equal(nextGoal(s).text, 'Boot your Raspberry Pi');
+  s.stats.taps = 1;
+  s.lifetime = 2;
   const g = nextGoal(s);
-  assert.equal(g.kind, 'generator');
-  assert.equal(g.text, 'Buy a Raspberry Pi');
+  assert.equal(g.text, 'Buy a second Pi');
   assert.equal(g.tab, 'game');
   assert.equal(g.have, 0);
   assert.ok(g.need > 0);
+  s.generators.pi = 2;
+  assert.equal(nextGoal(s).text, 'Hire Cron Job');
+  assert.equal(nextGoal(s).tab, 'managers');
 });
 
 test('nextGoal: an unhired manager that is the cheapest thing is the goal', () => {
@@ -152,6 +158,7 @@ test('nextGoal: an unhired manager that is the cheapest thing is the goal', () =
 
 test('nextGoal: only machines on screen are suggested, never a far tier', () => {
   const s = stateWith(1e30, { pi: 1 });
+  s.managers = ['pi'];
   const g = nextGoal(s);
   if (g.kind === 'generator') assert.ok(['Buy a Raspberry Pi', 'Unlock Gaming GPU'].includes(g.text), g.text);
 });

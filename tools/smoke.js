@@ -497,9 +497,10 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
   // Batch 2 (docs/UX-PLAN.md): the goal strip names a next goal, the idle
-  // Pi row says "Tap to run", and the footer counts the tiers to come.
+  // Pi row says "TAP TO BOOT" and pulses, the rate line says nothing is
+  // running yet, and the footer counts the tiers to come.
   await check(
-    'fresh game: goal strip shows a next goal, Pi says Tap to run, footer counts tiers',
+    'fresh game: goal line names a goal, Pi pulses with TAP TO BOOT, rate says nothing running, footer counts tiers',
     () =>
       evalIn(
         `(async () => {
@@ -511,7 +512,9 @@ async function runChecks(cdp, sessionId, url) {
           }
           if (!strip || strip.hidden || !/^Next: ./.test(document.getElementById('goal-label').textContent)) return false;
           const st = document.querySelector('#gen-cards .gen-card .gen-status');
-          if (!st || st.textContent !== 'Tap to run') return false;
+          if (!st || st.textContent !== 'TAP TO BOOT') return false;
+          if (!document.querySelector('#gen-cards .gen-card .gen-icon.pulse')) return false;
+          if (!/nothing running yet/.test(document.getElementById('rate').textContent)) return false;
           const f = document.getElementById('tier-footer');
           return !!f && /more tiers to discover/.test(f.textContent);
         })()`

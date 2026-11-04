@@ -293,21 +293,21 @@ test('tick: a tapped row pays one lump at the end of the cycle, then stops', () 
   const s = createState();
   s.generators.pi = 1;
   assert.equal(runRow(s, 'pi'), true);
-  tick(s, 3.5);
+  tick(s, 1);
   assert.equal(s.tokens, 0);
-  tick(s, 3.5);
-  assert.equal(s.tokens, 7);
+  tick(s, 1);
+  assert.equal(s.tokens, 2); // a 2 s cycle at 1 per second
   assert.equal(s.cycles.pi, null);
   tick(s, 10);
-  assert.equal(s.tokens, 7);
+  assert.equal(s.tokens, 2);
 });
 
 test('tick: a row with a manager restarts itself', () => {
   const s = createState();
   s.generators.pi = 1;
   s.managers.push('pi');
-  tick(s, 21);
-  assert.equal(s.tokens, 21);
+  tick(s, 20); // ten 2 s cycles
+  assert.equal(s.tokens, 20);
   assert.equal(s.cycles.pi, 0);
 });
 
@@ -318,7 +318,7 @@ test('tick: a cycle under 0.25s is continuous (bar full, pays every tick)', () =
   tick(s, 2);
   // 400 owned: speed x32 (5 milestones) and payout x2 (the 300 milestone)
   assert.equal(s.tokens, 51200);
-  assert.equal(s.cycles.pi, 0.21875);
+  assert.equal(s.cycles.pi, 0.0625); // 2 s / 32
 });
 
 test('tick: a row with 0 owned cannot run', () => {
@@ -333,23 +333,23 @@ test('milestones: cycle time halves, steady-state rate unchanged', () => {
   const s = createState();
   s.generators.pi = 24;
   s.managers.push('pi');
-  tick(s, 7);
-  assert.equal(s.tokens, 168);
+  tick(s, 2); // one 2 s cycle pays 24 * 2
+  assert.equal(s.tokens, 48);
   assert.equal(s.cycles.pi, 0);
   s.generators.pi = 25;
   s.cycles.pi = 0;
-  tick(s, 3.5);
-  assert.equal(s.tokens, 168 + 175);
+  tick(s, 1); // x2 speed: a 1 s cycle pays 25 * 2
+  assert.equal(s.tokens, 48 + 50);
   assert.equal(s.cycles.pi, 0);
   s.generators.pi = 50;
   s.cycles.pi = 0;
-  tick(s, 1.75);
-  assert.equal(s.tokens, 168 + 175 + 350);
+  tick(s, 0.5);
+  assert.equal(s.tokens, 48 + 50 + 100);
   assert.equal(s.cycles.pi, 0);
   s.generators.pi = 100;
   s.cycles.pi = 0;
-  tick(s, 0.875);
-  assert.equal(s.tokens, 168 + 175 + 350 + 700);
+  tick(s, 0.25);
+  assert.equal(s.tokens, 48 + 50 + 100 + 200);
   assert.equal(s.cycles.pi, 0);
 });
 
@@ -577,12 +577,12 @@ test('stats: allTimeTokens and bestRunTokens follow earnings', () => {
   const s = createState();
   s.generators.pi = 1;
   s.managers.push('pi');
-  tick(s, 7);
-  assert.equal(s.stats.allTimeTokens, 7);
-  assert.equal(s.stats.bestRunTokens, 7);
-  tick(s, 7);
-  assert.equal(s.stats.allTimeTokens, 14);
-  assert.equal(s.stats.bestRunTokens, 14);
+  tick(s, 2);
+  assert.equal(s.stats.allTimeTokens, 2);
+  assert.equal(s.stats.bestRunTokens, 2);
+  tick(s, 2);
+  assert.equal(s.stats.allTimeTokens, 4);
+  assert.equal(s.stats.bestRunTokens, 4);
 });
 
 test('stats: taps count manual row starts only', () => {
@@ -681,11 +681,11 @@ test('stats: prestige keeps every counter except runStartedAt', () => {
   assert.equal(s.stats.upgradesBought, 3);
   assert.equal(s.stats.runStartedAt, 123);
   // the new run earns below the old best, which is kept:
-  // 1 * 1 * 7 * (1 + 0.1 * 10 weights) = 14
+  // 1 * 1 * 2 * (1 + 0.1 * 10 weights) = 4
   s.generators.pi = 1;
   s.managers.push('pi');
-  tick(s, 7);
-  assert.equal(s.lifetime, 14);
+  tick(s, 2);
+  assert.equal(s.lifetime, 4);
   assert.equal(s.stats.bestRunTokens, 4000);
 });
 
@@ -943,13 +943,13 @@ test('events: claiming each kind has the right effect and duration', () => {
   s.eventOffer = { kind: 'turbo', claimBy: 20 };
   assert.equal(claimEvent(s), 'turbo');
   assert.deepEqual(s.eventActive, { kind: 'turbo', remaining: 30 });
-  tick(s, 3.5); // 7s cycle -> 3.5s under turbo: one payout of 7
-  assert.equal(s.tokens, 7);
-  tick(s, 30); // turbo ends; the row runs 4 full 7s cycles
+  tick(s, 1); // 2s cycle -> 1s under turbo: one payout of 2
+  assert.equal(s.tokens, 2);
+  tick(s, 30); // turbo ends; the row runs 15 full 2s cycles
   assert.equal(s.eventActive, null, 'turbo ends at 30s');
-  assert.equal(s.tokens, 35);
-  tick(s, 3.5); // only half of a 7s cycle: no payout
-  assert.equal(s.tokens, 35);
+  assert.equal(s.tokens, 32);
+  tick(s, 1); // only half of a 2s cycle: no payout
+  assert.equal(s.tokens, 32);
 
   // windfall: instantly pays 180 seconds of the current tokensPerSecond
   s = createState();
@@ -1399,21 +1399,21 @@ test('Fresh Weights: 5 Weights at the start of each new region, counted as earne
 test('Overclocked Fabric: cycle times 20% shorter', () => {
   const s = createState();
   s.generators.pi = 1;
-  const base = cycleTime(s, GENERATORS[0]); // Raspberry Pi: 7 s
+  const base = cycleTime(s, GENERATORS[0]); // Raspberry Pi: 2 s
   s.regionPerks = ['overclock'];
   assert.equal(cycleTime(s, GENERATORS[0]), base * 0.8);
   s.generators.pi = 25; // milestone: halved, then 20% off
-  assert.equal(cycleTime(s, GENERATORS[0]), (7 / 2) * 0.8);
-  // behaviour: 11.5 s buys 2 cycles (2 * 5.6 = 11.2 <= 11.5); without
-  // the perk it would be 1 (11.5 / 7 = 1.6)
+  assert.equal(cycleTime(s, GENERATORS[0]), (2 / 2) * 0.8);
+  // behaviour: 3.3 s buys 2 cycles (2 * 1.6 = 3.2 <= 3.3); without
+  // the perk it would be 1 (3.3 / 2 = 1.65)
   const s2 = createState();
   s2.generators.pi = 1;
   s2.managers = ['pi'];
   s2.regionPerks = ['overclock'];
-  tick(s2, 11.5);
-  assert.equal(s2.tokens, 14); // 2 cycles * 7
-  tick(s2, 5.6);
-  assert.equal(s2.tokens, 21); // 3rd cycle completes
+  tick(s2, 3.3);
+  assert.equal(s2.tokens, 4); // 2 cycles * 2
+  tick(s2, 1.6);
+  assert.equal(s2.tokens, 6); // 3rd cycle completes
 });
 
 test('Event Desk: halves the event gap and makes timed events last 50% longer', () => {
