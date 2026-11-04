@@ -1,6 +1,6 @@
 # Machine icons on the main rows
 
-Status: DRAFT, waiting on the owner's "go". Design owner: thread Claude.
+Status: APPROVED by the owner ("Go", 2026-11-04 00:22 UTC). Design owner: thread Claude.
 Builder: desktop RC, with Qwen writing all code in small tasks. Same pattern
 as docs/ART-PORTRAITS.md, so reuse that code shape.
 
