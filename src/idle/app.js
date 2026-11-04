@@ -1,6 +1,6 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
 import { tick, applyOffline, autoProcureDue, buyAllUpgrades } from './core.js?v=20261104165003';
-import { AUTOSAVE_SECONDS, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261104165003';
+import { AUTOSAVE_SECONDS, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES, UPGRADES, MANAGERS } from './data.js?v=20261104165003';
 import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261104165003';
 import { get } from './settings.js?v=20261104165003';
 import { createUI } from './ui.js?v=20261104165003';
@@ -60,13 +60,35 @@ function offlineCapped(state, seconds) {
   const capHours = long && (state.weightUpgrades || []).includes('long') ? long.value : OFFLINE_CAP_HOURS;
   return seconds > capHours * 3600;
 }
+// What the player can buy right now, for the welcome-back card's
+// "You can now afford" line.
+function affordableNow(state) {
+  const upgrades = UPGRADES.filter(
+    (u) => !(state.upgrades || []).includes(u.id) && u.cost <= state.tokens,
+  ).length;
+  const managers = MANAGERS.filter(
+    (m) => (state.generators[m.id] || 0) > 0
+      && !(state.managers || []).includes(m.id)
+      && m.cost <= state.tokens,
+  ).length;
+  return { upgrades, managers };
+}
+function welcomeBack(seconds, earned) {
+  showWelcome({
+    awaySeconds: seconds,
+    earned,
+    capped: offlineCapped(state, seconds),
+    affordable: affordableNow(state),
+  });
+}
+
 function applyOfflineEarnings() {
   if (savedAt === null) return;
   const now = Date.now();
   const seconds = (now - savedAt) / 1000;
   if (seconds < 5) return; // short gaps: nothing to report
   const earned = applyOffline(state, seconds);
-  if (earned > 0) showWelcome({ awaySeconds: seconds, earned, capped: offlineCapped(state, seconds) });
+  if (earned > 0) welcomeBack(seconds, earned);
 }
 
 function saveNow() {
@@ -86,14 +108,24 @@ function step() {
   last = now;
   if (dt > 60) {
     const earned = applyOffline(state, dt);
-    if (earned > 0) showWelcome({ awaySeconds: dt, earned, capped: offlineCapped(state, dt) });
+    if (earned > 0) welcomeBack(dt, earned);
   } else {
     // checkAchievements (inside tick) appends newly unlocked ids; compare the
     // length before and after and toast each new one.
     const before = (state.achievements || []).length;
     tick(state, dt);
     const after = state.achievements || [];
+    // A brand-new save stays quiet for its first 2 minutes: achievements
+    // earned then show as a dot on More instead of a toast, so the first
+    // thing a new player sees is the tutorial, not a reward for nothing.
+    const quiet = (state.stats.playSeconds || 0) < 120
+      && (state.stats.prestiges || 0) === 0
+      && (state.regionsEarned || 0) === 0;
     for (let i = before; i < after.length; i++) {
+      if (quiet) {
+        ui.noteNewAchievement();
+        continue;
+      }
       const a = ACHIEVEMENTS.find((x) => x.id === after[i]);
       toast('Achievement: ' + (a ? a.name : after[i]));
     }

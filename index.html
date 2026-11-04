@@ -51,6 +51,7 @@
        segmented control, Game tab only). */
     #hud {
       position: sticky; top: 0; z-index: 10;
+      padding-top: env(safe-area-inset-top);
       display: flex; flex-direction: column;
       background: var(--card);
       border-bottom: 1px solid var(--border);
@@ -616,7 +617,7 @@
       <button type="button" data-tab="managers">Managers<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
       <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="more">More</button>
+      <button type="button" data-tab="more">More<span class="tab-dot" hidden></span></button>
     </nav>
   </div>
   <script type="module" src="src/idle/app.js?v=20261104165003"></script>

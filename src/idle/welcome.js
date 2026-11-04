@@ -22,7 +22,7 @@ const CSS = `
     }
     .wb-title { font-size: 18px; font-weight: 800; color: var(--text); }
     .wb-line { font-size: 13px; color: var(--dim); }
-    .wb-earned { font-size: 30px; font-weight: 800; color: var(--affordable); }
+    .wb-earned { font-size: 40px; font-weight: 800; color: var(--affordable); line-height: 1.1; }
     .wb-cap { font-size: 12px; color: var(--dim); }
     .wb-btn {
       min-height: 44px; width: 100%; margin-top: 8px;
@@ -87,22 +87,15 @@ export function showWelcome(info) {
   title.textContent = 'Welcome back';
   card.appendChild(title);
 
-  const away = document.createElement('div');
-  away.className = 'wb-line';
-  away.textContent = `You were away ${fmtDur(info.awaySeconds || 0)}`;
-  card.appendChild(away);
-
   const earned = document.createElement('div');
   earned.className = 'wb-earned';
-  earned.textContent = `Your managed servers earned ${fmt(info.earned)}`;
+  earned.textContent = `+${fmt(info.earned)} tokens`;
   card.appendChild(earned);
 
-  if (info.capped) {
-    const cap = document.createElement('div');
-    cap.className = 'wb-cap';
-    cap.textContent = `Offline earnings cap at ${OFFLINE_CAP_HOURS}h. Upgrade it in Prestige.`;
-    card.appendChild(cap);
-  }
+  const away = document.createElement('div');
+  away.className = 'wb-line';
+  away.textContent = `Your managers kept the machines running while you were away ${fmtDur(info.awaySeconds || 0)}.`;
+  card.appendChild(away);
 
   // "You can now afford" only when non-zero (info.affordable = { upgrades, managers }).
   const aff = info.affordable || {};
@@ -114,6 +107,13 @@ export function showWelcome(info) {
     line.className = 'wb-line';
     line.textContent = `You can now afford: ${parts.join(', ')}`;
     card.appendChild(line);
+  }
+
+  if (info.capped) {
+    const cap = document.createElement('div');
+    cap.className = 'wb-cap';
+    cap.textContent = `Offline earnings stop after ${info.capHours || OFFLINE_CAP_HOURS} h. Long Weekend (a Weight upgrade) raises it to 24 h.`;
+    card.appendChild(cap);
   }
 
   const btn = document.createElement('button');

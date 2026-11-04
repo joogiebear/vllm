@@ -146,6 +146,7 @@ export function createUI(state, io) {
     settingsMsg: document.getElementById('settings-msg'),
     upDot: document.querySelector('#tabs [data-tab="upgrades"] .tab-dot'),
     manDot: document.querySelector('#tabs [data-tab="managers"] .tab-dot'),
+    moreDot: document.querySelector('#tabs [data-tab="more"] .tab-dot'),
     prestigeDot: document.querySelector('#tabs [data-tab="prestige"] .tab-dot'),
     prestigeWeights: document.getElementById('prestige-weights'),
     prestigeRegions: document.getElementById('prestige-regions'),
@@ -628,6 +629,7 @@ export function createUI(state, io) {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
       });
+      if (tab === 'more') els.moreDot.hidden = true;
       // Opening Managers dismisses the manager hint (docs/ART-DESIGN.md §1).
       if (tab === 'managers') naturalDismiss('manager', state);
     });
@@ -985,6 +987,7 @@ export function createUI(state, io) {
       lab.className = 'set-label';
       if (b === null) {
         lab.textContent = 'Empty';
+        row.append(lab);
       } else {
         lab.textContent = `${fmtBackupTime(b.savedAt)} · ${fmt(b.lifetime)} tokens`;
         const btn = document.createElement('button');
@@ -1496,5 +1499,11 @@ export function createUI(state, io) {
   // First-run hints (docs/ART-DESIGN.md §1): mount the callout.
   mountHint(state);
 
-  return { update, showBanner };
+  // An achievement earned during a new save's quiet first minutes: a dot
+  // on More instead of a toast.
+  function noteNewAchievement() {
+    els.moreDot.hidden = false;
+  }
+
+  return { update, showBanner, noteNewAchievement };
 }

@@ -4,6 +4,7 @@
 // 3 seconds. Several toasts queue and never overlap. The host is
 // pointer-events: none, so a toast never blocks a tap.
 // prefers-reduced-motion: no slide, the pill just appears and vanishes.
+import { isWelcomeOpen } from './welcome.js?v=20261104165003';
 const STYLE_ID = 'overclock-toast-style';
 const SHOW_MS = 3000;
 const OUT_MS = 250;
@@ -71,6 +72,12 @@ function ensureHost() {
 function showNext() {
   if (queue.length === 0) {
     busy = false;
+    return;
+  }
+  // Hold toasts until the welcome-back card closes.
+  if (isWelcomeOpen()) {
+    busy = true;
+    setTimeout(showNext, 400);
     return;
   }
   busy = true;

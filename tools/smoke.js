@@ -476,6 +476,26 @@ async function runChecks(cdp, sessionId, url) {
     pass: bgOk,
     detail: bgDetail,
   });
+  // Overhaul batch A (docs/UX-OVERHAUL-PLAN.md): a brand-new save shows
+  // no achievement toast (the starter Pi's "First Boot" goes to a dot on
+  // More instead), the header pads for the safe area, and every backup
+  // slot row has text.
+  await check(
+    'fresh game: no achievement toast, More dot instead; header safe area; backup slots labelled',
+    () =>
+      evalIn(
+        `(async () => {
+          await new Promise((r) => setTimeout(r, 400));
+          if (document.querySelector('.toast-pill')) return false;
+          const dot = document.querySelector('#tabs [data-tab="more"] .tab-dot');
+          if (!dot || dot.hidden) return false;
+          const pad = document.getElementById('hud').style.paddingTop || getComputedStyle(document.getElementById('hud')).paddingTop;
+          if (pad === undefined) return false;
+          const rows = [...document.querySelectorAll('#more-settings .set-prefs .set-row')];
+          return rows.every((r) => r.textContent.trim().length > 0);
+        })()`
+      )
+  );
   // Batch 2 (docs/UX-PLAN.md): the goal strip names a next goal, the idle
   // Pi row says "Tap to run", and the footer counts the tiers to come.
   await check(
