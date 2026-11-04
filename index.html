@@ -28,7 +28,11 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
     body {
-      background: var(--bg);
+      background-color: var(--bg);
+      background-repeat: no-repeat;
+      background-size: 100% auto;
+      background-attachment: fixed;
+      background-position: center 100px;
       color: var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -156,7 +160,7 @@
     /* Generator cards */
     #gen-cards { display: flex; flex-direction: column; gap: 8px; }
     .gen-card {
-      background: var(--card); border: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.80); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px;
       display: flex; flex-direction: column; gap: 6px;
     }
