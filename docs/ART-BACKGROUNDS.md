@@ -54,3 +54,25 @@ see-through cards. Header and tab bar stay solid so the numbers stay crisp.
 - `tools/release.sh` passes.
 - Adding a scene later: drop `icons/bg/<key>.webp`, put the key in
   `BACKGROUNDS`, bump `BG_V`, release.
+
+## Fix 1 (2026-11-04): faded rows let the scene show through
+
+Owner's screenshot (Upgrades, Managers): hired managers look washed out
+with the Home Lab picture showing through them, while locked managers
+("Need Orbital Compute Ring") look brighter than the ones you own.
+Cause: `.up-row.dim { opacity: 0.55 }` fades the whole card, including its
+background, so the scene shows through; and locked rows aren't dimmed at all.
+
+One small task, `index.html` CSS plus two lines in `ui.js`:
+
+- Fade the row's contents, not its card: replace `.up-row.dim { opacity:
+  0.55 }` with `.up-row.dim > * { opacity: 0.55 }`, so every row keeps a
+  solid card background. This applies to every list that uses `dim`
+  (upgrades and managers).
+- Managers: a row is `dim` when hired **or** when its tier isn't owned yet
+  (the "Need …" rows). Only rows you can act on (hire now, or save up
+  for) stay bright.
+- Hired rows show a small green check and "Hired" in place of the
+  disabled button (like owned upgrades), so they read as done, not broken.
+- Smoke: on the late save, Managers shows at least one hired row whose
+  computed card background alpha is 1.
