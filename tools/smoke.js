@@ -426,8 +426,8 @@ async function runChecks(cdp, sessionId, url) {
   // The first-run tip ("Tap the Pi to run it...") shows before the tap,
   // because tapping the run button dismisses it.
   await check(
-    'fresh game: first tip appears',
-    () => poll(4000, 'document.querySelector(".hint-bubble.show")')
+    'fresh game: first tip appears inline under the Pi card',
+    () => poll(4000, 'document.querySelector("#gen-cards .gen-card + .hint-bubble")')
   );
   // The Pi's run button (the round icon on the first card) holds the WebP
   // machine art img that finished loading (docs/ART-TIERS.md, task 5).
