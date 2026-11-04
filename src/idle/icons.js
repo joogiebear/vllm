@@ -1,4 +1,5 @@
 import { PORTRAITS, PORTRAIT_V, TIER_ART, TIER_ART_V } from './data.js?v=20261104210051';
+import { ArtImage } from './components.js?v=20261104210051';
 
 // Tier colours and generator icons.
 // Style rules (docs/ART-DESIGN.md): 24x24 viewBox, stroke only at width 1.8,
@@ -150,19 +151,21 @@ export function managerIcon(genId, size = 32) {
       boxSizing: 'border-box',
       flexShrink: '0',
     });
-    const img = document.createElement('img');
-    img.src = `icons/managers/${genId}.webp?v=${PORTRAIT_V}`;
-    img.alt = '';
-    img.decoding = 'async';
-    Object.assign(img.style, {
-      display: 'block',
-      width: '100%',
-      height: '100%',
-      objectFit: 'contain',
-    });
-    span.appendChild(img);
+    // A loading disc until the portrait arrives; the drawn icon if it
+    // never does (docs/COMPONENTS.md, ArtImage).
+    span.appendChild(ArtImage({
+      src: `icons/managers/${genId}.webp?v=${PORTRAIT_V}`,
+      alt: '',
+      style: { display: 'block', width: '100%', height: '100%', objectFit: 'contain' },
+      fallback: () => managerSvg(genId, size),
+    }));
     return span;
   }
+  return managerSvg(genId, size);
+}
+
+// The drawn manager icon: the person glyph with the tier glyph in a disc.
+function managerSvg(genId, size) {
   const ns = 'http://www.w3.org/2000/svg';
   const color = TIER_COLORS[genId] || '#93a3b8';
   const svg = document.createElementNS(ns, 'svg');
@@ -203,17 +206,14 @@ export function managerIcon(genId, size = 32) {
 // /vllm/. Tiers without art keep the SVG `icon(id, size)`.
 export function tierArt(id, size = 44) {
   if (TIER_ART.includes(id)) {
-    const img = document.createElement('img');
-    img.src = `icons/tiers/${id}.webp?v=${TIER_ART_V}`;
-    img.alt = '';
-    img.decoding = 'async';
-    img.width = size;
-    img.height = size;
-    Object.assign(img.style, {
-      objectFit: 'contain',
-      pointerEvents: 'none',
+    return ArtImage({
+      src: `icons/tiers/${id}.webp?v=${TIER_ART_V}`,
+      alt: '',
+      width: size,
+      height: size,
+      style: { objectFit: 'contain', pointerEvents: 'none' },
+      fallback: () => icon(id, size),
     });
-    return img;
   }
   return icon(id, size);
 }

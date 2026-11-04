@@ -647,6 +647,20 @@
     }
     .set-danger-note { padding: 4px 6px 0; }
     .reset-go.danger { background: rgba(252, 129, 129, 0.15); border-color: rgba(252, 129, 129, 0.6); color: #fc8181; }
+    /* docs/COMPONENTS.md: text only screen readers hear, and the art
+       loading state (a soft disc until the file arrives). */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    .art-img.loading {
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 70%);
+      animation: art-pulse 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes art-pulse { from { opacity: 0.5; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .art-img.loading { animation: none; } }
+    :focus-visible { outline: 2px solid var(--affordable); outline-offset: 2px; }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>

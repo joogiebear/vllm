@@ -817,6 +817,67 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
 
+  // Components (docs/COMPONENTS.md): accessibility and edge cases.
+  await check(
+    'a11y: a dialog takes focus, marks the app inert, closes on Escape and gives focus back',
+    () =>
+      evalIn(
+        `(async () => {
+          document.querySelector('#tabs [data-tab="game"]').click();
+          await new Promise((r) => setTimeout(r, 100));
+          const opener = document.getElementById('goal-help');
+          opener.focus();
+          opener.click();
+          const panel = document.querySelector('.help-card');
+          if (!panel || panel.getAttribute('role') !== 'dialog' || panel.getAttribute('aria-modal') !== 'true') return false;
+          const title = document.getElementById(panel.getAttribute('aria-labelledby'));
+          if (!title || !title.textContent.trim()) return false;
+          if (!panel.contains(document.activeElement)) return false;
+          if (!document.getElementById('app').inert) return false;
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await new Promise((r) => setTimeout(r, 50));
+          return panel.parentElement.hidden && document.activeElement === opener && !document.getElementById('app').inert;
+        })()`
+      )
+  );
+  await check(
+    'a11y: every visible button has a name, bars report values, Settings uses real switches',
+    () =>
+      evalIn(
+        `(async () => {
+          const named = (b) => (b.getAttribute('aria-label') || b.textContent || '').trim().length > 0;
+          for (const t of ['game', 'managers', 'upgrades', 'prestige', 'more']) {
+            document.querySelector('#tabs [data-tab="' + t + '"]').click();
+            await new Promise((r) => setTimeout(r, 100));
+            const bad = [...document.querySelectorAll('#app button')].filter((b) => b.getClientRects().length > 0 && !named(b));
+            if (bad.length) return false;
+          }
+          const bars = [...document.querySelectorAll('[role="progressbar"]')];
+          if (bars.length < 4 || !bars.every((b) => b.hasAttribute('aria-valuenow') && b.getAttribute('aria-label'))) return false;
+          const sw = [...document.querySelectorAll('#more-settings [role="switch"]')];
+          document.querySelector('#tabs [data-tab="game"]').click();
+          return sw.length >= 2 && sw.every((b) => ['true', 'false'].includes(b.getAttribute('aria-checked')));
+        })()`
+      )
+  );
+  await check(
+    'edge: art that fails to load falls back to the drawn icon',
+    () =>
+      evalIn(
+        `(async () => {
+          const m = await import(new URL('src/idle/components.js', location.href).href);
+          const box = document.createElement('div');
+          document.body.append(box);
+          const img = m.ArtImage({ src: 'icons/tiers/pi.webp', fallback: () => Object.assign(document.createElement('span'), { className: 'fb-test' }) });
+          box.append(img);
+          img.dispatchEvent(new Event('error'));
+          const ok = !!box.querySelector('.fb-test') && !box.querySelector('img');
+          box.remove();
+          return ok;
+        })()`
+      )
+  );
+
   // Managers tab: the Pi manager row (Cron Job) shows a portrait img that
   // finished loading (docs/ART-PORTRAITS.md, task 5).
   await check(

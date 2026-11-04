@@ -23,6 +23,7 @@ import { mountStats } from './stats-ui.js?v=20261104210051';
 import { mountEvents } from './events-ui.js?v=20261104210051';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104210051';
 import { nextGoal } from './advice.js?v=20261104210051';
+import { Dialog, Toggle, bindProgress, announce, accessibleName, uid } from './components.js?v=20261104210051';
 
 // Tier colours live in icons.js (one source); imported back here.
 import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104210051';
@@ -96,6 +97,8 @@ function setLines(r, line1, line2) {
   r.l1.textContent = line1;
   r.l2.textContent = line2 ? line2 : '';
   r.l2.hidden = !line2;
+  // One spoken name for both lines ("Hire, 15.0K"), docs/COMPONENTS.md.
+  if (r.l1.parentElement) r.l1.parentElement.setAttribute('aria-label', accessibleName(line1, line2));
 }
 
 // Next buy mode (docs/UX-PLAN.md, section 3.3): heads for the row's next
@@ -183,6 +186,12 @@ export function createUI(state, io) {
     rateUnit: document.getElementById('rate-unit'),
   };
 
+  // Progress bars report their value to screen readers (docs/COMPONENTS.md).
+  const goalBar = bindProgress(els.goalFill.parentElement, els.goalFill, { label: 'Progress to the next goal' });
+  const prestigeBar = bindProgress(els.prestigeHintFill.parentElement, els.prestigeHintFill, { label: 'Progress to the next Weight' });
+  const regionLockBar = bindProgress(els.regionLockedFill.parentElement, els.regionLockedFill, { label: 'Progress to unlocking Regions' });
+  const regionBar = bindProgress(els.regionHintFill.parentElement, els.regionHintFill, { label: 'Progress to the next Region' });
+
   // Buy-mode switch (header row 2): x1 / x10 / x100 / Max. The row is
   // Game-tab only; the tab handler below toggles its visibility.
   const buySel = document.getElementById('buy-sel');
@@ -225,6 +234,7 @@ export function createUI(state, io) {
     const icon = document.createElement('button');
     icon.type = 'button';
     icon.className = 'gen-icon';
+    icon.setAttribute('aria-label', `Run ${g.name}`);
     icon.style.setProperty('--tier-color', TIER_COLORS[g.id]);
     const tier = tierArt(g.id, 44);
     tier.style.color = TIER_COLORS[g.id];
@@ -275,6 +285,9 @@ export function createUI(state, io) {
 
     const bar = document.createElement('div');
     bar.className = 'gen-bar';
+    // The bar is a second, larger tap target for the round button, which
+    // already carries the name; screen readers skip the duplicate.
+    bar.setAttribute('aria-hidden', 'true');
     const barFill = document.createElement('div');
     barFill.className = 'gen-bar-fill';
     const barPayout = document.createElement('span');
@@ -321,6 +334,7 @@ export function createUI(state, io) {
         naturalDismiss('buy', state);
         flash(card);
         play('buy');
+        announce(`Bought ${fmt(bought)} ${g.name}. You own ${fmt(state.generators[g.id] || 0)}.`);
       }
       updateGenCards(state);
     });
@@ -384,6 +398,7 @@ export function createUI(state, io) {
       if (ok) {
         flash(row);
         play('buy');
+        announce(`Bought ${u.name}.`);
       }
       updateUpgrades(state);
     });
@@ -465,6 +480,7 @@ export function createUI(state, io) {
         naturalDismiss('manager', state);
         flash(row);
         play('hire');
+        announce(`Hired ${m.name}. ${g.name} now runs by itself.`);
         updateGenCards();
       }
       updateManagers();
@@ -582,16 +598,18 @@ export function createUI(state, io) {
   // says what you gain, lose and keep, with one primary button and "Not
   // yet". It replaces the old double-tap arming. Skipped when the
   // "Confirm before resets" setting is off.
-  const sheetOv = document.createElement('div');
-  sheetOv.className = 'reset-ov';
-  sheetOv.hidden = true;
-  const sheet = document.createElement('div');
-  sheet.className = 'reset-sheet';
-  sheet.setAttribute('role', 'dialog');
-  sheet.setAttribute('aria-modal', 'true');
+  const sheetTitle = document.createElement('h3');
+  sheetTitle.id = uid('sheet');
+  const sheetDlg = Dialog({
+    overlayClass: 'reset-ov',
+    panelClass: 'reset-sheet',
+    labelledBy: sheetTitle.id,
+    onClose: () => {
+      sheetAction = null;
+    },
+  });
   const sheetGrab = document.createElement('div');
   sheetGrab.className = 'reset-grab';
-  const sheetTitle = document.createElement('h3');
   const sheetList = document.createElement('ul');
   const sheetNote = document.createElement('div');
   sheetNote.className = 'reset-note';
@@ -602,21 +620,12 @@ export function createUI(state, io) {
   sheetNo.type = 'button';
   sheetNo.className = 'reset-no';
   sheetNo.textContent = 'Not yet';
-  sheet.append(sheetGrab, sheetTitle, sheetList, sheetNote, sheetGo, sheetNo);
-  sheetOv.append(sheet);
-  document.body.append(sheetOv);
+  sheetDlg.panel.append(sheetGrab, sheetTitle, sheetList, sheetNote, sheetGo, sheetNo);
   let sheetAction = null;
-  function closeSheet() {
-    sheetOv.hidden = true;
-    sheetAction = null;
-  }
-  sheetNo.addEventListener('click', closeSheet);
-  sheetOv.addEventListener('click', (e) => {
-    if (e.target === sheetOv) closeSheet();
-  });
+  sheetNo.addEventListener('click', () => sheetDlg.close());
   sheetGo.addEventListener('click', () => {
     const act = sheetAction;
-    closeSheet();
+    sheetDlg.close();
     if (act) act();
   });
   function confirmReset(o, action) {
@@ -640,21 +649,20 @@ export function createUI(state, io) {
     sheetGo.textContent = o.go;
     sheetGo.classList.toggle('danger', !!o.danger);
     sheetAction = action;
-    sheetOv.hidden = false;
-    sheetGo.focus();
+    sheetDlg.open(sheetGo);
   }
 
   // The new-run moment: a full-screen card after a reset, so the biggest
   // decision in the game ends on a reward, not a banner.
-  const momentOv = document.createElement('div');
-  momentOv.className = 'moment-ov';
-  momentOv.hidden = true;
-  const momentCard = document.createElement('div');
-  momentCard.className = 'moment-card';
-  momentCard.setAttribute('role', 'dialog');
-  momentCard.setAttribute('aria-modal', 'true');
   const momentKicker = document.createElement('p');
   momentKicker.className = 'moment-kicker';
+  momentKicker.id = uid('moment');
+  const momentDlg = Dialog({
+    overlayClass: 'moment-ov',
+    panelClass: 'moment-card',
+    labelledBy: momentKicker.id,
+    closeOnBackdrop: false,
+  });
   const momentBig = document.createElement('div');
   momentBig.className = 'moment-big';
   const momentLabel = document.createElement('p');
@@ -665,11 +673,9 @@ export function createUI(state, io) {
   momentGo.type = 'button';
   momentGo.className = 'moment-go';
   momentGo.textContent = 'Boot it';
-  momentCard.append(momentKicker, momentBig, momentLabel, momentText, momentGo);
-  momentOv.append(momentCard);
-  document.body.append(momentOv);
+  momentDlg.panel.append(momentKicker, momentBig, momentLabel, momentText, momentGo);
   momentGo.addEventListener('click', () => {
-    momentOv.hidden = true;
+    momentDlg.close();
     const t = document.querySelector('#tabs [data-tab="game"]');
     if (t) t.click();
   });
@@ -678,8 +684,8 @@ export function createUI(state, io) {
     momentBig.textContent = big;
     momentLabel.textContent = label;
     momentText.textContent = text;
-    momentOv.hidden = false;
-    momentGo.focus();
+    momentDlg.open(momentGo);
+    announce(`${kicker}. ${big} ${label}. ${text}`);
   }
 
   function perWeightNow() {
@@ -877,21 +883,14 @@ export function createUI(state, io) {
     regions: ['Regions', 'Regions are the bigger reset above Prestige.\nThey unlock once you have earned 2,000 Weights in total.\nExpanding resets Weights too, but doubles all production for good, moves your server room somewhere new and unlocks bigger machines.'],
     more: ['More', 'Achievements each add +1% production.\nStats show your totals for this run and all time.\nSettings has sound, haptics, backups and "Show tips again".'],
   };
-  const helpOverlay = document.createElement('div');
-  helpOverlay.className = 'help-overlay';
-  helpOverlay.hidden = true;
-  const helpCard = document.createElement('div');
-  helpCard.className = 'help-card';
-  helpCard.setAttribute('role', 'dialog');
-  helpCard.setAttribute('aria-modal', 'true');
   const helpTitle = document.createElement('h3');
+  helpTitle.id = uid('help');
+  const helpDlg = Dialog({ overlayClass: 'help-overlay', panelClass: 'help-card', labelledBy: helpTitle.id });
   const helpText = document.createElement('p');
   const helpClose = document.createElement('button');
   helpClose.type = 'button';
   helpClose.textContent = 'Got it';
-  helpCard.append(helpTitle, helpText, helpClose);
-  helpOverlay.append(helpCard);
-  document.body.append(helpOverlay);
+  helpDlg.panel.append(helpTitle, helpText, helpClose);
   let helpQueue = [];
   function showHelp(key) {
     const h = HELP[key];
@@ -899,33 +898,21 @@ export function createUI(state, io) {
     helpTitle.textContent = h[0];
     helpText.textContent = h[1];
     helpClose.textContent = helpQueue.length > 0 ? 'Next' : 'Got it';
-    helpOverlay.hidden = false;
-    helpClose.focus();
+    helpDlg.open(helpClose);
   }
+  // "Got it" closes; with How to play's queue it steps to the next card.
   function closeHelp() {
     if (helpQueue.length > 0) {
       showHelp(helpQueue.shift());
       return;
     }
-    helpOverlay.hidden = true;
+    helpDlg.close();
   }
   document.getElementById('howto-btn').addEventListener('click', () => {
     helpQueue = ['managers', 'upgrades', 'prestige', 'regions', 'more'];
     showHelp('servers');
   });
   helpClose.addEventListener('click', closeHelp);
-  helpOverlay.addEventListener('click', (e) => {
-    if (e.target === helpOverlay) {
-      helpQueue = [];
-      closeHelp();
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !helpOverlay.hidden) {
-      helpQueue = [];
-      closeHelp();
-    }
-  });
   document.querySelectorAll('.help-btn').forEach((b) => {
     b.addEventListener('click', () => {
       helpQueue = [];
@@ -1106,33 +1093,14 @@ export function createUI(state, io) {
     return row;
   }
 
+  // A Settings switch (role="switch", docs/COMPONENTS.md) bound to a key.
   function makeToggleRow(label, key, note) {
-    const row = document.createElement('div');
-    row.className = 'set-row';
-    const lab = document.createElement('span');
-    lab.className = 'set-label';
-    lab.textContent = label;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    const sync = () => {
-      const on = getSetting(key) !== false;
-      btn.textContent = on ? 'On' : 'Off';
-      btn.classList.toggle('active', on);
-      btn.setAttribute('aria-pressed', String(on));
-    };
-    btn.addEventListener('click', () => {
-      setSetting(key, getSetting(key) === false);
-      sync();
-    });
-    sync();
-    row.append(lab, btn);
-    if (note) {
-      const n = document.createElement('div');
-      n.className = 'set-note';
-      n.textContent = note;
-      row.appendChild(n);
-    }
-    return row;
+    return Toggle({
+      label,
+      note,
+      checked: getSetting(key) !== false,
+      onChange: (on) => setSetting(key, on),
+    }).el;
   }
 
   // The Auto-Procure toggle is only shown when the perk is owned.
@@ -1504,7 +1472,7 @@ export function createUI(state, io) {
       setGoalLabel('', bold, rest);
       els.goalNum.textContent = '';
       els.goalNum.classList.remove('ready');
-      els.goalFill.style.width = '0%';
+      goalBar.set(0, 'No goal right now');
       return;
     }
     if (view.goalTab === 'game' && view.lastNow - view.goalAt < 500) return;
@@ -1516,7 +1484,7 @@ export function createUI(state, io) {
       setGoalLabel('Next: ', 'claim the event below', '');
       els.goalNum.textContent = '';
       els.goalNum.classList.remove('ready');
-      els.goalFill.style.width = '0%';
+      goalBar.set(0, 'No goal right now');
       return;
     }
     setGoalLabel('Next: ', g.text, '');
@@ -1525,7 +1493,7 @@ export function createUI(state, io) {
     if (g.note) els.goalNum.textContent = g.note;
     else els.goalNum.textContent = ready ? 'Ready ›' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
     els.goalNum.classList.toggle('ready', ready);
-    els.goalFill.style.width = `${Math.round(frac * 100)}%`;
+    goalBar.set(frac, ready ? `${g.text}: ready` : `${g.text}: ${els.goalNum.textContent}`);
   }
 
   function updateManagers() {
@@ -1732,7 +1700,7 @@ export function createUI(state, io) {
     const k = Math.floor(Math.sqrt(total / PRESTIGE_DIVISOR)) + 1;
     const need = PRESTIGE_DIVISOR * k * k;
     const frac = Math.min(1, total / need);
-    els.prestigeHintFill.style.width = `${Math.round(frac * 100)}%`;
+    prestigeBar.set(frac, `${fmt(total)} of ${fmt(need)} lifetime tokens`);
     els.prestigeHintText.textContent = `Next Weight at ${fmt(need)} lifetime tokens (${fmt(total)} so far, ${Math.round(frac * 100)}%)`;
     const weights = state.weights || 0;
     const bonus = Math.round(perWeightNow() * weights * 100);
@@ -1767,7 +1735,7 @@ export function createUI(state, io) {
       pct = Math.min(100, Math.round((progress / target) * 100));
       text = `Next Region: earn ${fmtExact(target)} Weights by prestiging (${fmtExact(progress)} so far, ${pct}%)`;
     }
-    els.regionHintFill.style.width = `${pct}%`;
+    regionBar.set(pct / 100, text);
     els.regionHintText.textContent = text;
     els.regionHintNote.hidden = avail >= 1;
     els.regionMult.textContent = `Current multiplier x${fmt(Math.pow(2, earned))} (${earned} Region${earned === 1 ? '' : 's'}, each doubles production)`;
@@ -1814,7 +1782,7 @@ export function createUI(state, io) {
     els.perkCredits.textContent = `${fmt(credits)} credit${credits === 1 ? '' : 's'}`;
     if (!unlocked) {
       els.regionLockedText.textContent = regionsLockedText(state);
-      els.regionLockedFill.style.width = `${Math.round(regionsUnlockProgress(state) * 100)}%`;
+      regionLockBar.set(regionsUnlockProgress(state), els.regionLockedText.textContent);
     }
     // Always-visible pointer on the Weights view, so the feature is
     // discoverable from where players already are.

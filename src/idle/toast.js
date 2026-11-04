@@ -5,6 +5,7 @@
 // pointer-events: none, so a toast never blocks a tap.
 // prefers-reduced-motion: no slide, the pill just appears and vanishes.
 import { isWelcomeOpen } from './welcome.js?v=20261104210051';
+import { announce } from './components.js?v=20261104210051';
 const STYLE_ID = 'overclock-toast-style';
 const SHOW_MS = 3000;
 const OUT_MS = 250;
@@ -109,6 +110,7 @@ function showNext() {
 
 export function toast(text) {
   if (text === null || text === undefined || text === '') return;
+  announce(String(text));
   queue.push(String(text));
   if (!busy) showNext();
 }
