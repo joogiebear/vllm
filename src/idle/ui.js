@@ -15,6 +15,7 @@ import {
 } from './data.js?v=20261104003036';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261104003036';
 import { play } from './feedback.js?v=20261104003036';
+import { applyBackground } from './bg.js?v=20261104003036';
 import { mountAchievements } from './achievements-ui.js?v=20261104003036';
 import { mountStats } from './stats-ui.js?v=20261104003036';
 import { mountEvents } from './events-ui.js?v=20261104003036';
@@ -544,6 +545,8 @@ export function createUI(state, io) {
     els.expandNote.hidden = true;
     const gained = expandRegion(state);
     if (gained > 0) play('prestige');
+    // The Region changed: show the new scene (docs/ART-BACKGROUNDS.md).
+    if (gained > 0) applyBackground(state);
     showBanner(
       `New region: ${regionName(state)}. +${gained} Region${gained === 1 ? '' : 's'}.`,
       'New region',

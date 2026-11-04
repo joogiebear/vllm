@@ -4,6 +4,7 @@ import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEI
 import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261104003036';
 import { get } from './settings.js?v=20261104003036';
 import { createUI } from './ui.js?v=20261104003036';
+import { applyBackground } from './bg.js?v=20261104003036';
 import { fmt } from './fmt.js?v=20261104003036';
 import { showWelcome } from './welcome.js?v=20261104003036';
 import { toast } from './toast.js?v=20261104003036';
@@ -166,6 +167,7 @@ document.addEventListener('visibilitychange', () => {
 
 readRushResult();
 applyOfflineEarnings();
+applyBackground(state);
 ui.update(state, Date.now());
 document.getElementById('boot')?.remove();
 setInterval(step, 100);
