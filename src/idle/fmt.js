@@ -1,6 +1,6 @@
 // Number formatting (docs/COMPLETION.md). Extracted from ui.js so DOM-free
 // modules (welcome.js) can use it without pulling in the whole UI.
-import { get as getSetting } from './settings.js?v=20261104165003';
+import { get as getSetting } from './settings.js?v=20261104200620';
 
 export function fmt(n) {
   if (!Number.isFinite(n)) return '∞';
