@@ -380,6 +380,15 @@ async function runChecks(cdp, sessionId, url) {
     'fresh game: #gen-cards has at least one card',
     () => evalIn('document.querySelectorAll("#gen-cards .gen-card").length >= 1')
   );
+  // The Region-locked next-tier row (docs/LATE-GAME-DESIGN.md, section
+  // 1) is hidden on a fresh game: no visible row says "Unlocks at ...".
+  await check(
+    'fresh game: no visible row says "Unlocks at"',
+    () =>
+      evalIn(
+        `[...document.querySelectorAll("#gen-cards .gen-card")].every((c) => c.hidden || !c.textContent.includes("Unlocks at"))`
+      )
+  );
   // The first-run tip ("Tap the Pi to run it...") shows before the tap,
   // because tapping the run button dismisses it.
   await check(

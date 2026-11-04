@@ -21,6 +21,7 @@ import {
   ensureStarter,
   cost,
   isTierUnlocked,
+  showLockedTier,
   applyOffline,
   applyRush,
   migrate,
@@ -1663,6 +1664,23 @@ test('isTierUnlocked: tiers 1-8 always unlocked; gated tiers locked at 0 regions
     }
   }
   for (const t of TIER_GATES) assert.ok(!isTierUnlocked(s, t.id), `${t.id} should be locked`);
+});
+
+test('showLockedTier: fresh game -> no locked row shown for orbital', () => {
+  const s = createState();
+  assert.equal(showLockedTier(s, 'orbital'), false);
+});
+
+test('showLockedTier: owning 1 swarm with 0 Regions -> orbital locked row shown', () => {
+  const s = createState();
+  s.generators.swarm = 1;
+  assert.equal(showLockedTier(s, 'orbital'), true);
+});
+
+test('showLockedTier: with 1 Region orbital is unlocked as before (no locked row)', () => {
+  const s = createState();
+  s.regionsEarned = 1;
+  assert.equal(showLockedTier(s, 'orbital'), false);
 });
 
 for (const gate of TIER_GATES) {

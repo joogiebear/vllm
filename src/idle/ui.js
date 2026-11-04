@@ -4,7 +4,7 @@ import {
   runRow, rowRate, cyclePayout, cycleTime, hasManager, buyManager,
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
-  maxBuyable, isTierUnlocked, nextMilestone, regionTarget, globalMilestone,
+  maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
 } from './core.js?v=20261104002631';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
@@ -967,7 +967,7 @@ export function createUI(state, io) {
       if ((state.generators[r.g.id] || 0) === 0 && nextUnowned === null) {
         nextUnowned = r.g.id;
       }
-      if (!isTierUnlocked(state, r.g.id) && nextLocked === null) {
+      if (!isTierUnlocked(state, r.g.id) && showLockedTier(state, r.g.id) && nextLocked === null) {
         nextLocked = r.g.id;
       }
     }

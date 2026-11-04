@@ -571,6 +571,21 @@ export function isTierUnlocked(state, id) {
   return (state.generators[id] || 0) > 0;
 }
 
+// The locked next-tier row ("Unlocks at <region> (<n> Regions)",
+// docs/LATE-GAME-DESIGN.md, section 1) is shown only once the player
+// owns at least one of the tier just before it (for Orbital that is
+// the Dyson Inference Swarm), so a fresh game does not show the
+// endgame. Unlocked or already owned tiers are not locked rows.
+export function showLockedTier(state, id) {
+  if (!validState(state)) return false;
+  const gate = TIER_GATES.find((g) => g.id === id);
+  if (!gate) return false;
+  if (isTierUnlocked(state, id)) return false;
+  const idx = GENERATORS.findIndex((g) => g.id === id);
+  if (idx <= 0) return false;
+  return (state.generators[GENERATORS[idx - 1].id] || 0) > 0;
+}
+
 // The next speed or payout milestone for a row (docs/LATE-GAME-DESIGN.md,
 // section 3): the smallest threshold above the owned count, from the
 // doubling (speed x2) and payout tables. Returns { kind, value, owned },
