@@ -1,10 +1,10 @@
 // OVERCLOCK main: canvas sizing, the fixed-step loop, and the wiring of
 // sim, render, input and audio.
 
-import { createGame, step, TICK_SECONDS } from './sim.js?v=20261104003036';
-import { render, ingestEvents, resetFx } from './render.js?v=20261104003036';
-import { createInput } from './input.js?v=20261104003036';
-import { createAudio } from './audio.js?v=20261104003036';
+import { createGame, step, TICK_SECONDS } from './sim.js?v=20261104013855';
+import { render, ingestEvents, resetFx } from './render.js?v=20261104013855';
+import { createInput } from './input.js?v=20261104013855';
+import { createAudio } from './audio.js?v=20261104013855';
 
 const W = 960;
 const H = 600;

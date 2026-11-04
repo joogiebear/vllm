@@ -5,25 +5,25 @@ import {
   claimEvent,
   expandRegion, regionsAvailable, regionName, buyRegionPerk,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
-} from './core.js?v=20261104003036';
+} from './core.js?v=20261104013855';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS, REGION_UNLOCK_WEIGHTS,
   TIER_GATES, GLOBAL_MILESTONES,
-} from './data.js?v=20261104003036';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261104003036';
-import { play } from './feedback.js?v=20261104003036';
-import { applyBackground } from './bg.js?v=20261104003036';
-import { mountAchievements } from './achievements-ui.js?v=20261104003036';
-import { mountStats } from './stats-ui.js?v=20261104003036';
-import { mountEvents } from './events-ui.js?v=20261104003036';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104003036';
+} from './data.js?v=20261104013855';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261104013855';
+import { play } from './feedback.js?v=20261104013855';
+import { applyBackground } from './bg.js?v=20261104013855';
+import { mountAchievements } from './achievements-ui.js?v=20261104013855';
+import { mountStats } from './stats-ui.js?v=20261104013855';
+import { mountEvents } from './events-ui.js?v=20261104013855';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104013855';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104003036';
-import { fmt } from './fmt.js?v=20261104003036';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104013855';
+import { fmt } from './fmt.js?v=20261104013855';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
