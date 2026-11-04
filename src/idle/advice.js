@@ -2,8 +2,12 @@
 // No DOM, no mutation of the passed state, no side effects — the UI layer
 // renders the result.
 
-import { GENERATORS, UPGRADES } from './data.js?v=20261104162436';
-import { tokensPerSecond, cost } from './core.js?v=20261104162436';
+import { GENERATORS, UPGRADES, MANAGERS, PRESTIGE_DIVISOR } from './data.js?v=20261104162436';
+import {
+  tokensPerSecond, cost, isTierUnlocked, hasManager, weightsAvailable,
+  regionsAvailable, regionName,
+} from './core.js?v=20261104162436';
+import { fmt } from './fmt.js?v=20261104162436';
 
 // A clone of state with one candidate purchase applied.
 function withPurchase(state, kind, id) {
@@ -25,7 +29,16 @@ function withPurchase(state, kind, id) {
 // clone with the candidate applied.
 export function nextBestBuy(state) {
   const candidates = [];
+  // Only machines the player can see and buy: the ones owned, plus the
+  // first one not owned yet (the Servers list shows no others).
+  let firstUnowned = true;
   for (const g of GENERATORS) {
+    const owned = (state.generators && state.generators[g.id]) || 0;
+    if (owned === 0) {
+      if (!firstUnowned) continue;
+      firstUnowned = false;
+    }
+    if (!isTierUnlocked(state, g.id)) continue;
     candidates.push({ kind: 'generator', id: g.id, cost: cost(state, g.id, 1) });
   }
   for (const u of UPGRADES) {
@@ -55,4 +68,61 @@ export function nextBestBuy(state) {
     if (t !== bt) return t < bt ? c : best;
     return c.cost - state.tokens < best.cost - state.tokens ? c : best;
   });
+}
+
+// The one goal shown in the strip under the header (docs/UX-PLAN.md,
+// section 3.2). Pure. Returns { kind, text, have, need, tab, seg } or null
+// (no strip) while an event offer is on screen, since the event banner is
+// the goal then. `have`/`need` drive the progress bar; `tab` is the bottom
+// tab a tap opens.
+export function nextGoal(state) {
+  if (!state || typeof state !== 'object') return null;
+  if (state.eventOffer) return null;
+
+  if (regionsAvailable(state) >= 1) {
+    const next = regionName({ ...state, regionsEarned: (state.regionsEarned || 0) + 1 });
+    return { kind: 'region', text: `Region ready: expand to ${next}`, have: 1, need: 1, tab: 'prestige', seg: 'regions' };
+  }
+
+  // Prestige is the goal once it is worth it: the reset raises Weights by
+  // at least half (and the first time, by any amount). Otherwise it would
+  // fill the strip for the whole run after the first Weight appears.
+  const gained = weightsAvailable(state);
+  const weights = state.weights || 0;
+  if (gained >= Math.max(1, Math.ceil(weights / 2))) {
+    return {
+      kind: 'prestige',
+      text: `Prestige ready: +${fmt(gained)} Weight${gained === 1 ? '' : 's'}`,
+      have: 1, need: 1, tab: 'prestige', seg: 'weights',
+    };
+  }
+
+  let manager = null;
+  for (const m of MANAGERS) {
+    if (!((state.generators && state.generators[m.id]) > 0)) continue;
+    if (hasManager(state, m.id)) continue;
+    if (manager === null || m.cost < manager.cost) manager = m;
+  }
+  const buy = nextBestBuy(state);
+  if (manager !== null && (buy === null || manager.cost <= buy.cost)) {
+    return { kind: 'manager', text: `Hire ${manager.name}`, have: state.tokens, need: manager.cost, tab: 'managers' };
+  }
+  if (buy !== null) {
+    if (buy.kind === 'upgrade') {
+      const u = UPGRADES.find((x) => x.id === buy.id);
+      return { kind: 'upgrade', text: `Buy ${u.name}`, have: state.tokens, need: buy.cost, tab: 'upgrades' };
+    }
+    const g = GENERATORS.find((x) => x.id === buy.id);
+    const owned = (state.generators && state.generators[g.id]) || 0;
+    return {
+      kind: 'generator',
+      text: owned === 0 ? `Unlock ${g.name}` : `Buy a ${g.name}`,
+      have: state.tokens, need: buy.cost, tab: 'game',
+    };
+  }
+
+  const total = Math.max(0, state.totalLifetime || 0);
+  const k = Math.floor(Math.sqrt(total / PRESTIGE_DIVISOR)) + 1;
+  const need = PRESTIGE_DIVISOR * k * k;
+  return { kind: 'weight', text: `Next Weight at ${fmt(need)} lifetime tokens`, have: total, need, tab: 'prestige', seg: 'weights' };
 }

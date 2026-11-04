@@ -22,6 +22,7 @@ import { mountAchievements } from './achievements-ui.js?v=20261104162436';
 import { mountStats } from './stats-ui.js?v=20261104162436';
 import { mountEvents } from './events-ui.js?v=20261104162436';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104162436';
+import { nextGoal } from './advice.js?v=20261104162436';
 
 // Tier colours live in icons.js (one source); imported back here.
 import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104162436';
@@ -36,6 +37,15 @@ function fmtExact(n) {
 // "17.3 tokens" shows as "18 tokens"); 1,000+ goes through fmt's K/M/B.
 function fmtCost(n) {
   return fmt(n < 1000 ? Math.ceil(n) : n);
+}
+
+// Row countdown: "0:04", "2:15", "1:02:03".
+function fmtCountdown(seconds) {
+  const s = Math.max(0, Math.ceil(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
 function fmtTime(ms) {
@@ -101,6 +111,9 @@ function nextAffordable(state, id) {
 export function createUI(state, io) {
   const view = {
     buyMode: 'next',
+    onServers: true,
+    goalAt: 0,
+    goal: null,
     prestigeSeg: 'weights',
     prestigeArmed: false,
     expandArmed: false,
@@ -153,6 +166,11 @@ export function createUI(state, io) {
     regionsSegBtn: document.querySelector('#prestige-seg [data-seg="regions"]'),
     regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
     regionName: document.getElementById('region-name'),
+    goalStrip: document.getElementById('goal-strip'),
+    goalText: document.getElementById('goal-text'),
+    goalNum: document.getElementById('goal-num'),
+    goalFill: document.getElementById('goal-fill'),
+    tierFooter: document.getElementById('tier-footer'),
   };
 
   // Buy-mode switch (header row 2): x1 / x10 / x100 / Max. The row is
@@ -296,9 +314,12 @@ export function createUI(state, io) {
       }
       updateGenCards(state);
     });
-    const status = document.createElement('div');
+    // Row status (docs/UX-PLAN.md, section 3.4): Auto, a countdown, or
+    // Tap to run, on the right of the name line.
+    const status = document.createElement('span');
     status.className = 'gen-status';
-    bottom.append(buyBtn, status);
+    nameLine.append(status);
+    bottom.append(buyBtn);
 
     card.append(top, bottom);
     els.genCards.appendChild(card);
@@ -599,6 +620,8 @@ export function createUI(state, io) {
       });
       // The buy-amount row (header row 2) is Game-tab only.
       buySel.hidden = tab !== 'game';
+      view.onServers = tab === 'game';
+      view.goalAt = 0;
       tabs.forEach((x) => {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
@@ -606,6 +629,18 @@ export function createUI(state, io) {
       // Opening Managers dismisses the manager hint (docs/ART-DESIGN.md §1).
       if (tab === 'managers') naturalDismiss('manager', state);
     });
+  });
+
+  // Goal strip tap: open the tab that holds the goal.
+  els.goalStrip.addEventListener('click', () => {
+    const g = view.goal;
+    if (!g || g.tab === 'game') return;
+    const t = document.querySelector(`#tabs [data-tab="${g.tab}"]`);
+    if (t) t.click();
+    if (g.seg) {
+      const sb = document.querySelector(`#prestige-seg [data-seg="${g.seg}"]`);
+      if (sb) sb.click();
+    }
   });
 
   // Help cards (docs/UX-PLAN.md, principle 2): every panel head has a "?"
@@ -1105,12 +1140,54 @@ export function createUI(state, io) {
       r.buyBtn.disabled = disabled;
       r.buyBtn.classList.toggle('afford', !disabled);
 
-      // The status line next to the Buy button is gone: the manager badge
-      // on the icon shows a hired manager, the bar shows the rate, and
-      // the Buy button is full width. The element stays in the DOM
-      // (stable), always hidden.
-      r.status.hidden = true;
+      let statusText = '';
+      if (isLocked) statusText = '';
+      else if (managed) statusText = 'Auto';
+      else if (running && !continuous) statusText = fmtCountdown(ct - progress);
+      else statusText = 'Tap to run';
+      r.status.textContent = statusText;
+      r.status.hidden = statusText === '';
+      r.status.classList.toggle('idle', statusText === 'Tap to run');
     }
+  }
+
+  // Under the last row (docs/UX-PLAN.md, section 3.5): how many tiers are
+  // still to come, without naming them.
+  function updateTierFooter() {
+    let shown = 0;
+    let gated = false;
+    for (const r of genRefs) {
+      if (r.card.hidden) continue;
+      shown++;
+      if (!isTierUnlocked(state, r.g.id)) gated = true;
+    }
+    const allOwned = genRefs.every((r) => (state.generators[r.g.id] || 0) > 0);
+    const more = GENERATORS.length - shown;
+    let text = '';
+    if (allOwned) text = `All ${GENERATORS.length} tiers online`;
+    else if (more > 0 && gated) text = `${more} more tier${more === 1 ? '' : 's'} · unlocked by Regions`;
+    else if (more > 0) text = `${more} more tier${more === 1 ? '' : 's'} to discover`;
+    els.tierFooter.textContent = text;
+    els.tierFooter.hidden = text === '';
+  }
+
+  // The goal strip, recomputed at most twice a second (nextGoal tries
+  // every candidate buy) and only while Servers is open.
+  function updateGoal() {
+    if (!view.onServers) {
+      els.goalStrip.hidden = true;
+      return;
+    }
+    if (view.lastNow - view.goalAt < 500) return;
+    view.goalAt = view.lastNow;
+    const g = nextGoal(state);
+    view.goal = g;
+    els.goalStrip.hidden = g === null;
+    if (g === null) return;
+    els.goalText.textContent = g.text;
+    const frac = g.need > 0 ? Math.min(1, Math.max(0, g.have / g.need)) : 1;
+    els.goalNum.textContent = frac >= 1 ? 'Open' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
+    els.goalFill.style.width = `${Math.round(frac * 100)}%`;
   }
 
   function updateManagers() {
@@ -1348,6 +1425,8 @@ export function createUI(state, io) {
     }
 
     updateGenCards();
+    updateTierFooter();
+    updateGoal();
     updateUpgrades();
     updateGlobalMilestone();
     updateManagers();

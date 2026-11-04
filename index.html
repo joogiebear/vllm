@@ -433,6 +433,30 @@
       min-height: 44px; border-radius: 12px; border: 0; cursor: pointer;
       background: var(--affordable); color: #1a1204; font-size: 15px; font-weight: 700;
     }
+    /* Goal strip (docs/UX-PLAN.md, section 3.2): one next goal, Servers
+       tab only, under the buy-amount row. Tapping opens where it is. */
+    #goal-strip {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px;
+      align-items: center; margin: 0 12px 8px; padding: 6px 10px;
+      background: var(--bg); color: var(--text); font: inherit; text-align: left;
+      border: 1px solid rgba(255, 181, 71, 0.45); border-radius: 10px; cursor: pointer;
+    }
+    #goal-strip[hidden] { display: none; }
+    #goal-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #goal-label b { color: var(--affordable); }
+    #goal-num { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .goal-bar {
+      grid-column: 1 / -1; display: block; height: 6px; border-radius: 99px;
+      background: rgba(255, 255, 255, 0.12); overflow: hidden;
+    }
+    #goal-fill { display: block; height: 100%; width: 0; background: var(--affordable); border-radius: 99px; }
+    .gen-status { margin-left: auto; font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .gen-status.idle { color: var(--affordable); font-weight: 700; }
+    #tier-footer {
+      margin-top: 8px; padding: 10px 12px; text-align: center; font-size: 13px; color: var(--dim);
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    }
+    #tier-footer[hidden] { display: none; }
     .flash { animation: flash 0.5s ease-out; }
   </style>
 </head>
@@ -456,6 +480,11 @@
         <button type="button" data-mode="next" class="active">Next</button>
         <button type="button" data-mode="max">Max</button>
       </div>
+      <button type="button" id="goal-strip" hidden>
+        <span id="goal-label"><b>Next goal:</b> <span id="goal-text"></span></span>
+        <span id="goal-num"></span>
+        <span class="goal-bar"><span id="goal-fill"></span></span>
+      </button>
     </header>
 
     <main id="tab-scroll">
@@ -466,6 +495,7 @@
           <button type="button" class="help-btn" data-help="servers" aria-label="How Servers work">?</button>
         </div>
         <div id="gen-cards"></div>
+        <div id="tier-footer"></div>
       </section>
 
       <section id="tab-managers" aria-label="Managers" hidden>

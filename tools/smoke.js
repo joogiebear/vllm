@@ -476,6 +476,27 @@ async function runChecks(cdp, sessionId, url) {
     pass: bgOk,
     detail: bgDetail,
   });
+  // Batch 2 (docs/UX-PLAN.md): the goal strip names a next goal, the idle
+  // Pi row says "Tap to run", and the footer counts the tiers to come.
+  await check(
+    'fresh game: goal strip shows a next goal, Pi says Tap to run, footer counts tiers',
+    () =>
+      evalIn(
+        `(async () => {
+          const t0 = Date.now();
+          let strip = document.getElementById('goal-strip');
+          while ((!strip || strip.hidden) && Date.now() - t0 < 2000) {
+            await new Promise((r) => setTimeout(r, 100));
+            strip = document.getElementById('goal-strip');
+          }
+          if (!strip || strip.hidden || !document.getElementById('goal-text').textContent) return false;
+          const st = document.querySelector('#gen-cards .gen-card .gen-status');
+          if (!st || st.textContent !== 'Tap to run') return false;
+          const f = document.getElementById('tier-footer');
+          return !!f && /more tiers to discover/.test(f.textContent);
+        })()`
+      )
+  );
   // Tap the Pi's run button (the round icon on the first card) and watch
   // the payout bar's scaleX move off zero within 1 s.
   await evalIn(

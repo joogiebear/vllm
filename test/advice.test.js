@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, cost, tokensPerSecond } from '../src/idle/core.js';
-import { nextBestBuy } from '../src/idle/advice.js';
+import { nextBestBuy, nextGoal } from '../src/idle/advice.js';
+import { UPGRADES } from '../src/idle/data.js';
 
 // --- helpers -------------------------------------------------------------------
 
@@ -100,4 +101,57 @@ test('gain is the tokensPerSecond difference on a clone', () => {
 test('result has exactly the documented shape', () => {
   const r = nextBestBuy(stateWith(1000, { pi: 10 }));
   assert.deepEqual(Object.keys(r).sort(), ['affordable', 'cost', 'gain', 'id', 'kind']);
+});
+
+// --- nextGoal (docs/UX-PLAN.md, section 3.2) -------------------------------------
+
+test('nextGoal: hidden while an event offer is on screen', () => {
+  const s = stateWith(0, { pi: 1 });
+  s.eventOffer = { kind: 'windfall', expiresIn: 20 };
+  assert.equal(nextGoal(s), null);
+});
+
+test('nextGoal: a Region ready beats everything else', () => {
+  const s = stateWith(0, { pi: 1 });
+  s.weightsSinceExpand = 1e9;
+  s.totalLifetime = 1e30;
+  const g = nextGoal(s);
+  assert.equal(g.kind, 'region');
+  assert.equal(g.tab, 'prestige');
+  assert.equal(g.seg, 'regions');
+  assert.match(g.text, /^Region ready: expand to /);
+});
+
+test('nextGoal: prestige only once it would raise Weights by at least half', () => {
+  const s = stateWith(0, { pi: 1 });
+  s.totalLifetime = 1e15;
+  assert.equal(nextGoal(s).kind, 'prestige');
+  assert.match(nextGoal(s).text, /^Prestige ready: \+/);
+  s.weights = 1e9; // a huge bank: a few more Weights are not worth a reset
+  assert.notEqual(nextGoal(s).kind, 'prestige');
+});
+
+test('nextGoal: a fresh game points at buying a Raspberry Pi', () => {
+  const s = stateWith(0, { pi: 1 });
+  const g = nextGoal(s);
+  assert.equal(g.kind, 'generator');
+  assert.equal(g.text, 'Buy a Raspberry Pi');
+  assert.equal(g.tab, 'game');
+  assert.equal(g.have, 0);
+  assert.ok(g.need > 0);
+});
+
+test('nextGoal: an unhired manager that is the cheapest thing is the goal', () => {
+  const s = stateWith(0, { pi: 60 }, UPGRADES.map((u) => u.id));
+  s.generators.gamer = 1; // the next machine is owned, so no cheap unlock
+  const g = nextGoal(s);
+  assert.equal(g.kind, 'manager');
+  assert.equal(g.text, 'Hire Cron Job');
+  assert.equal(g.tab, 'managers');
+});
+
+test('nextGoal: only machines on screen are suggested, never a far tier', () => {
+  const s = stateWith(1e30, { pi: 1 });
+  const g = nextGoal(s);
+  if (g.kind === 'generator') assert.ok(['Buy a Raspberry Pi', 'Unlock Gaming GPU'].includes(g.text), g.text);
 });
