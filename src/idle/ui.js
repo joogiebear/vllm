@@ -6,7 +6,7 @@ import {
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   regionsLockedText, regionsUnlockProgress, regionsHintLine,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, regionTarget, globalMilestone,
-} from './core.js?v=20261104145532';
+} from './core.js?v=20261104145857';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
@@ -14,18 +14,18 @@ import {
   REGION_PERKS,
   TIER_GATES, GLOBAL_MILESTONES,
   upgradeEffect, weightUpgradeEffect,
-} from './data.js?v=20261104145532';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261104145532';
-import { play } from './feedback.js?v=20261104145532';
-import { applyBackground } from './bg.js?v=20261104145532';
-import { mountAchievements } from './achievements-ui.js?v=20261104145532';
-import { mountStats } from './stats-ui.js?v=20261104145532';
-import { mountEvents } from './events-ui.js?v=20261104145532';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104145532';
+} from './data.js?v=20261104145857';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261104145857';
+import { play } from './feedback.js?v=20261104145857';
+import { applyBackground } from './bg.js?v=20261104145857';
+import { mountAchievements } from './achievements-ui.js?v=20261104145857';
+import { mountStats } from './stats-ui.js?v=20261104145857';
+import { mountEvents } from './events-ui.js?v=20261104145857';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104145857';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104145532';
-import { fmt } from './fmt.js?v=20261104145532';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104145857';
+import { fmt } from './fmt.js?v=20261104145857';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
