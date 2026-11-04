@@ -1,6 +1,6 @@
 # UX review (independent, 2026-11-04)
 
-Status: FOR OWNER REVIEW. Nothing here is approved or built yet. Mock-up: see the thread link (also `overclock-ux-review/mockup.html` in the project files). Screenshot file names below refer to the reviewer's working folder, not the repo.
+Status: APPROVED by the owner ("Go", 2026-11-04 20:03 UTC). Build order: docs/UX-OVERHAUL-PLAN.md. Mock-up: see the thread link (also `overclock-ux-review/mockup.html` in the project files). Screenshot file names below refer to the reviewer's working folder, not the repo.
 
 
 Reviewed 2026-11-04 against the repo clone, served locally and played in a 390x844 touch viewport (Playwright, iPhone profile). I played a fresh start for the first ten minutes, a hand-built "ten minutes in" save with a two-hour absence, an event offer, the late-game fixture (`test/fixtures/late-save.json`), a real prestige, and a Regions-ready save. Screenshots are in `shots/` (prefix `f` fresh, `m` ten minutes, `e` event, `l` late, `r` regions). The mock-up is `mockup.html`; its rendered screens are `mock-*.png`. Mock-up screens are named in bold below, for example **Home (10 min)**.
