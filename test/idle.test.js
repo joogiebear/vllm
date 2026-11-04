@@ -63,6 +63,20 @@ import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkAchievements } from '../src/idle/achievements.js';
+import { readFileSync } from 'node:fs';
+
+// The rule tests below use the Raspberry Pi as a unit-rate machine (1 token
+// per second, 2 s cycle) so their numbers stay readable. The real Pi pays 7
+// per 2 s run (tps 3.5); 'Raspberry Pi: the real data pays 7 per 2 s run'
+// pins that. core.js loads data.js with a release stamp (?v=...), which is
+// a separate module instance from a plain import, so the pin goes through
+// the exact specifier core.js uses. Each test file runs in its own process.
+const coreSrc = readFileSync(new URL('../src/idle/core.js', import.meta.url), 'utf8');
+const dataSpec = (coreSrc.match(/from '\.\/(data\.js[^']*)'/) || [null, 'data.js'])[1];
+const coreData = await import(new URL('../src/idle/' + dataSpec, import.meta.url).href);
+const REAL_PI_TPS = coreData.GENERATORS[0].tps;
+coreData.GENERATORS[0].tps = 1;
+GENERATORS[0].tps = 1; // and the plain import this file also uses
 
 test('createState: fresh state has the right fields', () => {
   const s = createState();
@@ -1943,4 +1957,10 @@ test('nextBuyCount: buys exactly up to the next milestone (Next buy mode)', () =
   assert.equal(buy(s, 'pi', nextBuyCount(s, 'pi')), 24);
   assert.equal(s.generators.pi, 25);
   assert.equal(nextBuyCount(null, 'pi'), 1);
+});
+
+test('Raspberry Pi: the real data pays 7 per 2 s run', () => {
+  assert.equal(REAL_PI_TPS, 3.5);
+  assert.equal(coreData.GENERATORS[0].cycleSeconds, 2);
+  assert.equal(REAL_PI_TPS * coreData.GENERATORS[0].cycleSeconds, 7);
 });

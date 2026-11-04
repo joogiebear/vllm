@@ -4,6 +4,19 @@ import assert from 'node:assert/strict';
 import { createState, cost, tokensPerSecond } from '../src/idle/core.js';
 import { nextBestBuy, nextGoal } from '../src/idle/advice.js';
 import { UPGRADES } from '../src/idle/data.js';
+import { readFileSync } from 'node:fs';
+
+// The rule tests below use the Raspberry Pi as a unit-rate machine (1 token
+// per second, 2 s cycle) so their numbers stay readable. The real Pi pays 7
+// per 2 s run (tps 3.5); 'Raspberry Pi: the real data pays 7 per 2 s run'
+// pins that. core.js loads data.js with a release stamp (?v=...), which is
+// a separate module instance from a plain import, so the pin goes through
+// the exact specifier core.js uses. Each test file runs in its own process.
+const coreSrc = readFileSync(new URL('../src/idle/core.js', import.meta.url), 'utf8');
+const dataSpec = (coreSrc.match(/from '\.\/(data\.js[^']*)'/) || [null, 'data.js'])[1];
+const coreData = await import(new URL('../src/idle/' + dataSpec, import.meta.url).href);
+const REAL_PI_TPS = coreData.GENERATORS[0].tps;
+coreData.GENERATORS[0].tps = 1;
 
 // --- helpers -------------------------------------------------------------------
 
