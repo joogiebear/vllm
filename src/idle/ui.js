@@ -12,6 +12,7 @@ import {
   CONTINUOUS_CYCLE_MAX, MANAGERS,
   REGION_PERKS,
   TIER_GATES, GLOBAL_MILESTONES,
+  upgradeEffect, weightUpgradeEffect,
 } from './data.js?v=20261104142708';
 import { get as getSetting, set as setSetting } from './settings.js?v=20261104142708';
 import { play } from './feedback.js?v=20261104142708';
@@ -85,21 +86,6 @@ function setLines(r, line1, line2) {
   r.l2.textContent = line2 ? line2 : '';
   r.l2.hidden = !line2;
 }
-
-function upgradeWords(u) {
-  switch (u.kind) {
-    case 'production': return `×${u.value} production`;
-    case 'productionTier': return `×${u.value} ${u.tier} output`;
-    case 'cacheRate': return `+${Math.round(u.value * 100)}% cache rate`;
-    default: return `+${Math.round(u.value * 100)}%`;
-  }
-}
-
-const WU_WORDS = {
-  auto: 'Managers auto-run their rows',
-  distill: '+% bonus per weight',
-  offline: 'Offline progress',
-};
 
 export function createUI(state, io) {
   const view = {
@@ -303,7 +289,7 @@ export function createUI(state, io) {
     name.textContent = u.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
-    effect.textContent = upgradeWords(u);
+    effect.textContent = upgradeEffect(u);
     left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';
@@ -456,7 +442,7 @@ export function createUI(state, io) {
     name.textContent = u.name;
     const effect = document.createElement('span');
     effect.className = 'effect';
-    effect.textContent = WU_WORDS[u.id] || `×${u.value}`;
+    effect.textContent = weightUpgradeEffect(u);
     left.append(name, effect);
     const buyBtn = document.createElement('button');
     buyBtn.type = 'button';

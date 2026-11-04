@@ -1,5 +1,6 @@
 // Table data for the idle game. Values transcribed from docs/IDLE-DESIGN.md
-// and docs/CYCLES-DESIGN.md. No logic: exported constants only.
+// and docs/CYCLES-DESIGN.md. No state: exported constants and pure
+// helpers only.
 
 export const GENERATORS = [
   { id: 'pi', name: 'Raspberry Pi', baseCost: 15, tps: 1, cycleSeconds: 7 },
@@ -296,3 +297,46 @@ export const SAVE_KEY = 'overclock.idle.v1';
 export const SAVE_CORRUPT_KEY = 'overclock.idle.corrupt';
 export const RUSH_RESULT_KEY = 'overclock.rush';
 export const AUTOSAVE_SECONDS = 15;
+
+// Plain-English effect lines for upgrades and Weight upgrades. The data
+// tables above carry kinds, ids and values; the words are built here so
+// the UI never shows an internal code. Pure functions: no state.
+// kind: 'production' multiplies every row's output; 'productionTier'
+// multiplies one tier's output; 'cacheRate' adds to the rate multiplier.
+export function upgradeEffect(u) {
+  switch (u.kind) {
+    case 'production':
+      return `All production x${u.value}`;
+    case 'productionTier': {
+      const g = GENERATORS.find((x) => x.id === u.tier);
+      return `${g ? g.name : u.tier} output x${u.value}`;
+    }
+    case 'cacheRate':
+      return `+${Math.round(u.value * 100)}% tokens from the prompt cache`;
+    default:
+      return `+${Math.round(u.value * 100)}% production`;
+  }
+}
+
+// Weight upgrades (prestige tab): one plain-English line per kind, built
+// from the kind and value.
+export function weightUpgradeEffect(u) {
+  switch (u.kind) {
+    case 'startTokens':
+      return `Start every run with ${u.value.toLocaleString('en-US')} tokens`;
+    case 'offlineRate':
+      return `Earn ${Math.round(u.value * 100)}% of your rate while away`;
+    case 'cacheRate':
+      return `+${Math.round(u.value * 100)}% tokens from the prompt cache`;
+    case 'buyAll':
+      return 'Unlocks the Buy all button';
+    case 'offlineCap':
+      return `Earn offline for up to ${u.value} hours`;
+    case 'standingOrders':
+      return 'Start every run with the Cron Job manager hired';
+    case 'weightBonus':
+      return `Each Weight gives +${Math.round(u.value * 100)}% production instead of +${Math.round(WEIGHT_BONUS_PER_WEIGHT * 100)}%`;
+    default:
+      return `+${Math.round(u.value * 100)}% production`;
+  }
+}
