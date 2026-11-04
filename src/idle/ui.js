@@ -1856,7 +1856,8 @@ export function createUI(state, io) {
 
   function update() {
     view.lastNow = Date.now();
-    const tokenText = fmt(state.tokens);
+    // Whole tokens under 1,000 ("94 tokens", not "94.8"); fmt's K/M/B above.
+    const tokenText = fmt(state.tokens < 1000 ? Math.floor(state.tokens) : state.tokens);
     els.tokens.textContent = tokenText;
     // Step the font down once the text is 8+ chars so long values
     // ("1.23e15", "999.9T") stay on one line at 360 px.
@@ -1871,7 +1872,7 @@ export function createUI(state, io) {
     }
     if (running === 0) {
       els.tps.textContent = '0';
-      els.rateUnit.textContent = ' per sec · nothing running yet';
+      els.rateUnit.textContent = (state.stats.taps || 0) === 0 ? ' per sec · nothing running yet' : ' per sec · tap a machine to run it';
     } else if ((state.managers || []).length === 0) {
       els.tps.textContent = `${running} machine${running === 1 ? '' : 's'}`;
       els.rateUnit.textContent = ' running';
