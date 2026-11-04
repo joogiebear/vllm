@@ -51,6 +51,9 @@ import {
   PORTRAIT_V,
   TIER_ART,
   TIER_ART_V,
+  REGION_NAMES,
+  BACKGROUNDS,
+  BG_V,
 } from '../src/idle/data.js';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1877,5 +1880,20 @@ test('TIER_ART: all 12 tier ids in tier order, and every listed file exists on d
   const onDisk = readdirSync(dir);
   for (const id of TIER_ART) {
     assert.ok(onDisk.includes(`${id}.webp`), `icons/tiers/${id}.webp missing`);
+  }
+});
+
+// Region backgrounds (docs/ART-BACKGROUNDS.md)
+
+test('BACKGROUNDS: parallel to REGION_NAMES, and every non-null key has a file on disk', () => {
+  assert.equal(BG_V, 1);
+  assert.equal(BACKGROUNDS.length, REGION_NAMES.length);
+  assert.equal(BACKGROUNDS[0], 'homelab');
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons', 'bg');
+  const onDisk = readdirSync(dir);
+  for (const key of BACKGROUNDS) {
+    if (key !== null) {
+      assert.ok(onDisk.includes(`${key}.webp`), `icons/bg/${key}.webp missing`);
+    }
   }
 });

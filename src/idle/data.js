@@ -185,6 +185,15 @@ export const REGION_NAMES = [
   'Lunar Base',
   'Mars Relay',
 ];
+// Region backgrounds (docs/ART-BACKGROUNDS.md): the file key for each
+// Region's scene in icons/bg/<key>.webp, in REGION_NAMES order. A Region
+// without a scene (null) shows the last earlier Region that has one, else
+// Home Lab. BG_V is bumped whenever any background file changes.
+export const BACKGROUNDS = [
+  'homelab',
+  null, null, null, null, null, null, null, null, null,
+];
+export const BG_V = 1;
 // Tiers 9-12 unlock through Regions (docs/LATE-GAME-DESIGN.md, section 1);
 // tiers 1-8 work as now. A tier becomes available once the player has
 // earned `regions` Regions.
