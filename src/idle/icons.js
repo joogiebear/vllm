@@ -138,8 +138,8 @@ export function icon(id, size = 24) {
 // silhouette in the row's tier colour, with the tier icon as a small badge
 // (10 px) on a dark disc at the lower right. A manager with a portrait
 // (docs/ART-PORTRAITS.md) gets a `span.portrait` instead: a `size` px
-// circle, #151c2b background, no ring, holding the
-// WebP portrait (relative path: the game is served under /vllm/).
+// sticker — no ring, no background, nothing clipped (objectFit contain) —
+// holding the WebP portrait (relative path: the game is served under /vllm/).
 export function managerIcon(genId, size = 32) {
   if (PORTRAITS.includes(genId)) {
     const span = document.createElement('span');
@@ -148,9 +148,6 @@ export function managerIcon(genId, size = 32) {
       width: size + 'px',
       height: size + 'px',
       boxSizing: 'border-box',
-      borderRadius: '50%',
-      overflow: 'hidden',
-      background: '#151c2b',
       flexShrink: '0',
     });
     const img = document.createElement('img');
@@ -161,7 +158,7 @@ export function managerIcon(genId, size = 32) {
       display: 'block',
       width: '100%',
       height: '100%',
-      objectFit: 'cover',
+      objectFit: 'contain',
     });
     span.appendChild(img);
     return span;
