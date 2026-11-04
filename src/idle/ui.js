@@ -6,7 +6,7 @@ import {
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   regionsLockedText, regionsUnlockProgress, regionsHintLine,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, nextBuyCount, regionTarget, globalMilestone,
-} from './core.js?v=20261104203928';
+} from './core.js?v=20261104204603';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
@@ -14,19 +14,19 @@ import {
   REGION_PERKS,
   TIER_GATES, GLOBAL_MILESTONES,
   upgradeEffect, weightUpgradeEffect,
-} from './data.js?v=20261104203928';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261104203928';
-import { play } from './feedback.js?v=20261104203928';
-import { applyBackground } from './bg.js?v=20261104203928';
-import { mountAchievements } from './achievements-ui.js?v=20261104203928';
-import { mountStats } from './stats-ui.js?v=20261104203928';
-import { mountEvents } from './events-ui.js?v=20261104203928';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104203928';
-import { nextGoal } from './advice.js?v=20261104203928';
+} from './data.js?v=20261104204603';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261104204603';
+import { play } from './feedback.js?v=20261104204603';
+import { applyBackground } from './bg.js?v=20261104204603';
+import { mountAchievements } from './achievements-ui.js?v=20261104204603';
+import { mountStats } from './stats-ui.js?v=20261104204603';
+import { mountEvents } from './events-ui.js?v=20261104204603';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104204603';
+import { nextGoal } from './advice.js?v=20261104204603';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104203928';
-import { fmt } from './fmt.js?v=20261104203928';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104204603';
+import { fmt } from './fmt.js?v=20261104204603';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
