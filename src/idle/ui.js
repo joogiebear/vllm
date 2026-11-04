@@ -88,6 +88,16 @@ function setLines(r, line1, line2) {
   r.l2.hidden = !line2;
 }
 
+// Next buy mode (docs/UX-PLAN.md, section 3.3): heads for the row's next
+// milestone, buying as many of those as the player can afford now (at
+// least 1, so a new player can always buy one Pi). The row's milestone
+// line shows how far the milestone still is.
+function nextAffordable(state, id) {
+  const toMilestone = nextBuyCount(state, id);
+  const { count } = maxBuyable(state, id);
+  return Math.max(1, Math.min(toMilestone, count));
+}
+
 export function createUI(state, io) {
   const view = {
     buyMode: 'next',
@@ -276,7 +286,7 @@ export function createUI(state, io) {
     buyBtn.addEventListener('click', () => {
       let mode;
       if (view.buyMode === 'max') mode = 'max';
-      else if (view.buyMode === 'next') mode = nextBuyCount(state, g.id);
+      else if (view.buyMode === 'next') mode = nextAffordable(state, g.id);
       else mode = Number(view.buyMode);
       const bought = buy(state, g.id, mode);
       if (bought > 0) {
@@ -601,25 +611,12 @@ export function createUI(state, io) {
   // Help cards (docs/UX-PLAN.md, principle 2): every panel head has a "?"
   // that opens one short card. One overlay, built once.
   const HELP = {
-    servers: ['Servers', 'Each machine runs a cycle and pays tokens when the bar fills.
-Tap a machine to run it yourself, or hire its manager so it runs by itself.
-Buy more of a machine to earn more per cycle. At 25, 50, 100, 200 and 400 owned it runs twice as fast; at 300, 500, 750 and 1,000 it pays more.
-The Next button buys exactly enough to reach the next boost.'],
-    managers: ['Managers', 'One manager per machine. A hired manager runs that machine forever, even while the game is closed.
-You need to own the machine first.
-Managers reset when you prestige.'],
-    upgrades: ['Upgrades', 'One-time boosts paid with tokens. Some boost one machine, some boost everything.
-They reset when you prestige, so you buy them again each run.
-Buy all buys every one you can afford, cheapest first.'],
-    prestige: ['Prestige', 'When your lifetime tokens are high enough you can prestige: the run starts over and you earn Weights.
-Each Weight adds +10% to all production, in every later run.
-Weight upgrades are paid in Weights and survive prestige.'],
-    regions: ['Regions', 'Regions are the bigger reset above Prestige.
-They unlock once you have earned 2,000 Weights in total.
-Expanding resets Weights too, but doubles all production for good, moves your server room somewhere new and unlocks bigger machines.'],
-    more: ['More', 'Achievements each add +1% production.
-Stats show your totals for this run and all time.
-Settings has sound, haptics, backups and "Show tips again".'],
+    servers: ['Servers', 'Each machine runs a cycle and pays tokens when the bar fills.\nTap a machine to run it yourself, or hire its manager so it runs by itself.\nBuy more of a machine to earn more per cycle. At 25, 50, 100, 200 and 400 owned it runs twice as fast; at 300, 500, 750 and 1,000 it pays more.\nThe Next button buys exactly enough to reach the next boost.'],
+    managers: ['Managers', 'One manager per machine. A hired manager runs that machine forever, even while the game is closed.\nYou need to own the machine first.\nManagers reset when you prestige.'],
+    upgrades: ['Upgrades', 'One-time boosts paid with tokens. Some boost one machine, some boost everything.\nThey reset when you prestige, so you buy them again each run.\nBuy all buys every one you can afford, cheapest first.'],
+    prestige: ['Prestige', 'When your lifetime tokens are high enough you can prestige: the run starts over and you earn Weights.\nEach Weight adds +10% to all production, in every later run.\nWeight upgrades are paid in Weights and survive prestige.'],
+    regions: ['Regions', 'Regions are the bigger reset above Prestige.\nThey unlock once you have earned 2,000 Weights in total.\nExpanding resets Weights too, but doubles all production for good, moves your server room somewhere new and unlocks bigger machines.'],
+    more: ['More', 'Achievements each add +1% production.\nStats show your totals for this run and all time.\nSettings has sound, haptics, backups and "Show tips again".'],
   };
   const helpOverlay = document.createElement('div');
   helpOverlay.className = 'help-overlay';
@@ -1095,11 +1092,10 @@ Settings has sound, haptics, backups and "Show tips again".'],
         disabled = m.count === 0;
         setLines(r, `Buy ${fmt(m.count > 0 ? m.count : 1)}`, `${fmtCost(c)} tokens`);
       } else if (view.buyMode === 'next') {
-        const n = nextBuyCount(state, g.id);
+        const n = nextAffordable(state, g.id);
         const c = cost(state, g.id, n);
         disabled = c > state.tokens;
-        const nm = nextMilestone(state, g.id);
-        setLines(r, nm === null ? 'Buy 1' : `Buy ${fmt(n)} → ${fmt(nm.owned)}`, `${fmtCost(c)} tokens`);
+        setLines(r, `Buy ${fmt(n)} → ${fmt(owned + n)}`, `${fmtCost(c)} tokens`);
       } else {
         const n = Number(view.buyMode);
         const c = cost(state, g.id, n);

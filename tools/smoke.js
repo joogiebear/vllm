@@ -646,7 +646,7 @@ async function runChecks(cdp, sessionId, url) {
           next.click();
           await new Promise((r) => setTimeout(r, 50));
           const btn = document.querySelector('#gen-cards .gen-card .gen-buy');
-          return !!btn && /Buy [0-9,.KMBT]+ → [0-9,.KMBT]+/.test(btn.textContent);
+          return !!btn && /Buy [0-9,.KMBT]+ → [0-9,.KMBT]+/.test(btn.textContent) && !btn.disabled;
         })()`
       )
   );
