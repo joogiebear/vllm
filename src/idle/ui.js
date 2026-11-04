@@ -111,6 +111,7 @@ function nextAffordable(state, id) {
 export function createUI(state, io) {
   const view = {
     buyMode: 'next',
+    tab: 'game',
     onServers: true,
     goalAt: 0,
     goal: null,
@@ -168,7 +169,9 @@ export function createUI(state, io) {
     regionDot: document.querySelector('#prestige-seg [data-seg="regions"] .seg-dot'),
     regionName: document.getElementById('region-name'),
     goalStrip: document.getElementById('goal-strip'),
-    goalText: document.getElementById('goal-text'),
+    goalLabel: document.getElementById('goal-label'),
+    goalHelp: document.getElementById('goal-help'),
+    buyRow: document.getElementById('buy-row'),
     goalNum: document.getElementById('goal-num'),
     goalFill: document.getElementById('goal-fill'),
     tierFooter: document.getElementById('tier-footer'),
@@ -622,9 +625,10 @@ export function createUI(state, io) {
         s.hidden = k !== tab;
       });
       // The buy-amount row (header row 2) is Game-tab only.
-      buySel.hidden = tab !== 'game';
+      view.tab = tab;
       view.onServers = tab === 'game';
       view.goalAt = 0;
+    view.goalTab = null;
       tabs.forEach((x) => {
         if (x === t) x.setAttribute('aria-current', 'page');
         else x.removeAttribute('aria-current');
@@ -633,6 +637,12 @@ export function createUI(state, io) {
       // Opening Managers dismisses the manager hint (docs/ART-DESIGN.md §1).
       if (tab === 'managers') naturalDismiss('manager', state);
     });
+  });
+
+  // The pill opens Progress.
+  els.weightsChip.addEventListener('click', () => {
+    const t = document.querySelector('#tabs [data-tab="prestige"]');
+    if (t) t.click();
   });
 
   // Goal strip tap: open the tab that holds the goal.
@@ -1196,22 +1206,54 @@ export function createUI(state, io) {
     els.tierFooter.hidden = text === '';
   }
 
-  // The goal strip, recomputed at most twice a second (nextGoal tries
-  // every candidate buy) and only while Servers is open.
+  // The goal line (docs/UX-OVERHAUL-PLAN.md, batch B). On Servers it
+  // names the next goal (recomputed at most twice a second, since
+  // nextGoal tries every candidate buy); on the other tabs it says what
+  // the tab is for. The "?" beside it opens that screen's help card.
+  const TAB_PURPOSE = {
+    managers: ['Managers', ' run a machine for you, even offline'],
+    upgrades: ['Upgrades', ': one-time boosts. They reset on Prestige.'],
+    prestige: ['Progress', ': the two resets and what each keeps'],
+    more: ['More', ': achievements, stats and settings'],
+  };
+  function setGoalLabel(before, bold, after) {
+    const b = document.createElement('b');
+    b.textContent = bold;
+    els.goalLabel.replaceChildren(before, b, after);
+  }
   function updateGoal() {
-    if (!view.onServers) {
-      els.goalStrip.hidden = true;
+    const tab = view.tab || 'game';
+    let help = tab === 'game' ? 'servers' : tab;
+    if (tab === 'prestige' && view.prestigeSeg === 'regions') help = 'regions';
+    els.goalHelp.dataset.help = help;
+    if (tab !== 'game') {
+      if (view.goalTab === tab) return;
+      view.goalTab = tab;
+      view.goal = null;
+      const [bold, rest] = TAB_PURPOSE[tab] || [tab, ''];
+      setGoalLabel('', bold, rest);
+      els.goalNum.textContent = '';
+      els.goalNum.classList.remove('ready');
+      els.goalFill.style.width = '0%';
       return;
     }
-    if (view.lastNow - view.goalAt < 500) return;
+    if (view.goalTab === 'game' && view.lastNow - view.goalAt < 500) return;
+    view.goalTab = 'game';
     view.goalAt = view.lastNow;
     const g = nextGoal(state);
     view.goal = g;
-    els.goalStrip.hidden = g === null;
-    if (g === null) return;
-    els.goalText.textContent = g.text;
+    if (g === null) {
+      setGoalLabel('Next: ', 'claim the event below', '');
+      els.goalNum.textContent = '';
+      els.goalNum.classList.remove('ready');
+      els.goalFill.style.width = '0%';
+      return;
+    }
+    setGoalLabel('Next: ', g.text, '');
     const frac = g.need > 0 ? Math.min(1, Math.max(0, g.have / g.need)) : 1;
-    els.goalNum.textContent = frac >= 1 ? 'Open' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
+    const ready = frac >= 1;
+    els.goalNum.textContent = ready ? 'Ready ›' : `${fmt(Math.floor(g.have))} / ${fmtCost(g.need)}`;
+    els.goalNum.classList.toggle('ready', ready);
     els.goalFill.style.width = `${Math.round(frac * 100)}%`;
   }
 
@@ -1457,20 +1499,21 @@ export function createUI(state, io) {
 
     const earnedRegions = state.regionsEarned || 0;
     const hasWeights = state.weights > 0 || (state.weightsEarnedThisCycle || 0) > 0;
-    els.weightsChip.hidden = !hasWeights;
-    if (hasWeights) {
+    const pillOn = hasWeights || earnedRegions >= 1;
+    els.weightsChip.hidden = !pillOn || !!state.eventActive;
+    if (pillOn) {
       const wu = WEIGHT_UPGRADES.find((u) => u.kind === 'weightBonus' && state.weightUpgrades.includes(u.id));
       const perWeight = wu ? wu.value : WEIGHT_BONUS_PER_WEIGHT;
       const bonus = Math.round(perWeight * (state.weights || 0) * 100);
       els.weightsChip.textContent = earnedRegions >= 1
-        ? `Weights +${bonus}% · x${fmt(Math.pow(2, earnedRegions))}`
-        : `Weights +${bonus}%`;
+        ? `◆ +${bonus}% · x${fmt(Math.pow(2, earnedRegions))} ${regionName(state)}`
+        : `◆ Weights +${bonus}%`;
     }
 
     // Region name on the rate line ("1.6K per sec · Oregon"), once any
     // Region is earned.
-    els.regionName.hidden = earnedRegions < 1;
-    if (earnedRegions >= 1) els.regionName.textContent = `· ${regionName(state)}`;
+    // The Region name now lives in the pill, not on the rate line.
+    els.regionName.hidden = true;
 
     // Cosmetic tint per region: 12° hue-rotate per region on the card ring
     // colours only (the generator icon borders), capped at 120°.
@@ -1484,6 +1527,10 @@ export function createUI(state, io) {
     }
 
     updateGenCards();
+    // The buy-amount row shows once there is a choice to make: 2 machines.
+    let ownedTotal = 0;
+    for (const g of GENERATORS) ownedTotal += state.generators[g.id] || 0;
+    els.buyRow.hidden = ownedTotal < 2;
     updateTierFooter();
     updateGoal();
     updateUpgrades();

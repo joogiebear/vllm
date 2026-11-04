@@ -58,8 +58,10 @@
     }
     #hud-row1 {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; height: 56px; padding: 0 12px; flex-shrink: 0;
+      gap: 8px; height: 54px; padding: 0 16px; flex-shrink: 0;
     }
+    #tokens-line { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+    #tokens-line small { font-size: 13px; font-weight: 600; color: var(--dim); }
     #hud-left { display: flex; flex-direction: column; min-width: 0; }
     #tokens {
       font-size: 30px; font-weight: 800; line-height: 1.1;
@@ -81,18 +83,18 @@
       gap: 4px; min-width: 0; max-width: 45%;
     }
     .chip {
-      display: block; max-height: 22px; padding: 0 10px; border-radius: 999px;
+      display: block; height: 28px; padding: 0 10px; border-radius: 14px;
       border: 1px solid var(--border); background: var(--bg);
-      color: var(--text); font-size: 11px; line-height: 20px;
+      color: var(--text); font-size: 12px; font-weight: 600; line-height: 26px;
       max-width: 100%; overflow: hidden; text-overflow: ellipsis;
       white-space: nowrap; text-decoration: none; text-align: center;
     }
-    #weights-chip { color: var(--affordable); }
+    #weights-chip { color: var(--affordable); cursor: pointer; }
     /* The event chip (events-ui.js) is 44 px in its own stylesheet;
        shrink it into the 22 px chip column. */
     #hud-right .event-chip {
-      display: block; min-height: 0; max-height: 22px; padding: 0 10px;
-      font-size: 11px; line-height: 20px;
+      display: block; min-height: 0; height: 28px; padding: 0 10px; border-radius: 14px;
+      font-size: 12px; font-weight: 600; line-height: 26px;
       max-width: 100%; overflow: hidden; text-overflow: ellipsis;
       white-space: nowrap; text-align: center;
     }
@@ -136,17 +138,16 @@
     }
     #tabs button {
       position: relative; flex: 1 1 0; min-width: 0;
-      min-height: 44px; padding: 0 4px;
+      min-height: 49px; padding: 4px 2px 2px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
       border: none; border-radius: 0;
-      background: transparent; color: var(--dim);
-      font-size: 13px; cursor: pointer; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
+      background: transparent; color: #5f6f86;
+      font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap;
     }
-    #tabs button[aria-current="page"] {
-      background: var(--bg); color: var(--text); font-weight: 700;
-    }
+    #tabs button svg { width: 24px; height: 24px; flex-shrink: 0; }
+    #tabs button[aria-current="page"] { color: var(--affordable); }
     .tab-dot {
-      position: absolute; top: 8px; right: 8px;
+      position: absolute; top: 4px; right: calc(50% - 18px);
       width: 8px; height: 8px; border-radius: 50%;
       background: var(--affordable);
     }
@@ -434,23 +435,38 @@
       min-height: 44px; border-radius: 12px; border: 0; cursor: pointer;
       background: var(--affordable); color: #1a1204; font-size: 15px; font-weight: 700;
     }
-    /* Goal strip (docs/UX-PLAN.md, section 3.2): one next goal, Servers
-       tab only, under the buy-amount row. Tapping opens where it is. */
+    /* Goal line (docs/UX-OVERHAUL-PLAN.md, batch B): 36 px under the
+       balance. On Servers it names the next goal; on other tabs it says
+       what the tab is for. The "?" opens that screen's help card. */
+    #goal-line {
+      position: relative; display: flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 12px 0 16px;
+    }
     #goal-strip {
-      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px;
-      align-items: center; margin: 0 12px 8px; padding: 6px 10px;
-      background: var(--bg); color: var(--text); font: inherit; text-align: left;
-      border: 1px solid rgba(255, 181, 71, 0.45); border-radius: 10px; cursor: pointer;
+      flex: 1 1 auto; min-width: 0; height: 36px; display: flex; align-items: center; gap: 8px;
+      padding: 0; border: 0; background: transparent; color: var(--dim);
+      font: inherit; font-size: 13px; text-align: left; cursor: pointer;
     }
-    #goal-strip[hidden] { display: none; }
-    #goal-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #goal-label b { color: var(--affordable); }
-    #goal-num { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    #goal-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #goal-label b { color: var(--text); font-weight: 600; }
+    #goal-num { margin-left: auto; color: #5f6f86; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #goal-num.ready { color: var(--affordable); font-weight: 700; }
     .goal-bar {
-      grid-column: 1 / -1; display: block; height: 6px; border-radius: 99px;
-      background: rgba(255, 255, 255, 0.12); overflow: hidden;
+      position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+      background: var(--border); overflow: hidden;
     }
-    #goal-fill { display: block; height: 100%; width: 0; background: var(--affordable); border-radius: 99px; }
+    #goal-fill { display: block; height: 100%; width: 0; background: var(--affordable); }
+    #goal-help { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 16px; font-size: 15px; }
+    /* Buy-amount row: sticky inside the Servers list, from 2 machines owned. */
+    #buy-row {
+      position: sticky; top: -12px; z-index: 5; display: flex; align-items: center; gap: 8px;
+      margin: -12px -12px 8px; padding: 10px 12px 8px;
+      background: linear-gradient(var(--bg) 70%, transparent);
+    }
+    #buy-row[hidden] { display: none; }
+    .buy-lbl { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    #buy-row .buy-sel { flex: 1 1 auto; height: 36px; padding: 2px; margin: 0; }
+    #buy-row .buy-sel button { height: 30px; }
     .gen-status { margin-left: auto; font-size: 12px; color: var(--dim); white-space: nowrap; }
     .gen-status.idle { color: var(--affordable); font-weight: 700; }
     #tier-footer {
@@ -472,51 +488,45 @@
     <header id="hud">
       <div id="hud-row1">
         <div id="hud-left">
-          <div id="tokens" class="value">0</div>
+          <div id="tokens-line"><span id="tokens" class="value">0</span><small>tokens</small></div>
           <div id="rate"><span id="tps">0</span> per sec <span id="region-name" hidden></span></div>
         </div>
         <div id="hud-right">
           <div id="weights-chip" class="chip" hidden>Weights +0%</div>
         </div>
       </div>
-      <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
-        <button type="button" data-mode="1">x1</button>
-        <button type="button" data-mode="10">x10</button>
-        <button type="button" data-mode="100">x100</button>
-        <button type="button" data-mode="next" class="active">Next</button>
-        <button type="button" data-mode="max">Max</button>
+      <div id="goal-line">
+        <button type="button" id="goal-strip">
+          <span id="goal-label"></span>
+          <span id="goal-num"></span>
+          <span class="goal-bar"><span id="goal-fill"></span></span>
+        </button>
+        <button type="button" class="help-btn" id="goal-help" data-help="servers" aria-label="How this screen works">?</button>
       </div>
-      <button type="button" id="goal-strip" hidden>
-        <span id="goal-label"><b>Next goal:</b> <span id="goal-text"></span></span>
-        <span id="goal-num"></span>
-        <span class="goal-bar"><span id="goal-fill"></span></span>
-      </button>
     </header>
 
     <main id="tab-scroll">
       <section id="tab-game" aria-label="Servers">
         <div id="banner" hidden></div>
-        <div class="panel-head">
-          <div><h2>Servers</h2><p>Your machines earn tokens. Buy more to earn more.</p></div>
-          <button type="button" class="help-btn" data-help="servers" aria-label="How Servers work">?</button>
+        <div id="buy-row" hidden>
+          <span class="buy-lbl">Buy</span>
+        <div id="buy-sel" class="buy-sel" role="group" aria-label="Buy amount">
+          <button type="button" data-mode="1">x1</button>
+          <button type="button" data-mode="10">x10</button>
+          <button type="button" data-mode="100">x100</button>
+          <button type="button" data-mode="next" class="active">Next</button>
+          <button type="button" data-mode="max">Max</button>
+        </div>
         </div>
         <div id="gen-cards"></div>
         <div id="tier-footer"></div>
       </section>
 
       <section id="tab-managers" aria-label="Managers" hidden>
-        <div class="panel-head">
-          <div><h2>Managers</h2><p>Hire one per tier. It runs that tier for you, even while you&#39;re away.</p></div>
-          <button type="button" class="help-btn" data-help="managers" aria-label="How Managers work">?</button>
-        </div>
         <div id="man-grid"></div>
       </section>
 
       <section id="tab-upgrades" aria-label="Upgrades" hidden>
-        <div class="panel-head">
-          <div><h2>Upgrades</h2><p>One-time boosts bought with tokens. They reset when you prestige.</p></div>
-          <button type="button" class="help-btn" data-help="upgrades" aria-label="How Upgrades work">?</button>
-        </div>
         <div id="up-grid"></div>
       </section>
 
@@ -526,10 +536,6 @@
           <button type="button" data-seg="regions">Regions<span id="regions-seg-lock"> · Locked</span><span class="seg-dot" hidden></span></button>
         </div>
         <div id="prestige-weights">
-          <div class="panel-head">
-          <div><h2>Prestige</h2><p>Reset this run to earn Weights. Each Weight gives +10% production forever.</p></div>
-          <button type="button" class="help-btn" data-help="prestige" aria-label="How Prestige work">?</button>
-        </div>
           <div id="prestige-hint">
             <div class="hint-bar"><div id="prestige-hint-fill"></div></div>
             <div id="prestige-hint-text">…</div>
@@ -552,10 +558,6 @@
           <div id="regions-hint-line"></div>
         </div>
         <div id="prestige-regions" hidden>
-          <div class="panel-head">
-          <div><h2>Regions</h2><p>Open a new datacenter region. Everything resets, and all production doubles for good.</p></div>
-          <button type="button" class="help-btn" data-help="regions" aria-label="How Regions work">?</button>
-        </div>
           <div id="region-locked">
             <div class="hint-bar"><div id="region-locked-fill"></div></div>
             <div id="region-locked-text">…</div>
@@ -581,10 +583,6 @@
       </section>
 
       <section id="tab-more" aria-label="More" hidden>
-        <div class="panel-head">
-          <div><h2>More</h2><p>Achievements, stats and settings.</p></div>
-          <button type="button" class="help-btn" data-help="more" aria-label="How More work">?</button>
-        </div>
         <div id="more-seg" role="tablist" aria-label="More section">
           <button type="button" data-seg="achievements">Achievements</button>
           <button type="button" data-seg="stats">Stats</button>
@@ -613,11 +611,11 @@
     </main>
 
     <nav id="tabs" aria-label="Sections">
-      <button type="button" data-tab="game" aria-current="page">Servers</button>
-      <button type="button" data-tab="managers">Managers<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="upgrades">Upgrades<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="prestige">Prestige<span class="tab-dot" hidden></span></button>
-      <button type="button" data-tab="more">More<span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="game" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><circle cx="7" cy="7.5" r="1" fill="currentColor"/><circle cx="7" cy="16.5" r="1" fill="currentColor"/></svg><span class="tab-label">Servers</span></button>
+      <button type="button" data-tab="managers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span class="tab-label">Managers</span><span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="upgrades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span class="tab-label">Upgrades</span><span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="prestige"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5zM3 13l9 5 9-5"/></svg><span class="tab-label">Progress</span><span class="tab-dot" hidden></span></button>
+      <button type="button" data-tab="more"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span class="tab-label">More</span><span class="tab-dot" hidden></span></button>
     </nav>
   </div>
   <script type="module" src="src/idle/app.js?v=20261104200620"></script>

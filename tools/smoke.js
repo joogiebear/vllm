@@ -509,7 +509,7 @@ async function runChecks(cdp, sessionId, url) {
             await new Promise((r) => setTimeout(r, 100));
             strip = document.getElementById('goal-strip');
           }
-          if (!strip || strip.hidden || !document.getElementById('goal-text').textContent) return false;
+          if (!strip || strip.hidden || !/^Next: ./.test(document.getElementById('goal-label').textContent)) return false;
           const st = document.querySelector('#gen-cards .gen-card .gen-status');
           if (!st || st.textContent !== 'Tap to run') return false;
           const f = document.getElementById('tier-footer');
@@ -665,12 +665,12 @@ async function runChecks(cdp, sessionId, url) {
   // Rush; Next is the default buy mode and its button reads "Buy n → m";
   // every "?" opens a help card that closes again.
   await check(
-    'layout: tabs are Servers, Managers, Upgrades, Prestige, More; no Shop or Rush',
+    'layout: tabs are Servers, Managers, Upgrades, Progress, More; no Shop or Rush',
     () =>
       evalIn(
         `(() => {
-          const labels = [...document.querySelectorAll('#tabs button')].map((b) => b.childNodes[0].textContent.trim());
-          return JSON.stringify(labels) === JSON.stringify(['Servers', 'Managers', 'Upgrades', 'Prestige', 'More'])
+          const labels = [...document.querySelectorAll('#tabs .tab-label')].map((b) => b.textContent.trim());
+          return JSON.stringify(labels) === JSON.stringify(['Servers', 'Managers', 'Upgrades', 'Progress', 'More'])
             && !document.getElementById('tab-shop') && !document.getElementById('rush');
         })()`
       )
@@ -692,23 +692,27 @@ async function runChecks(cdp, sessionId, url) {
       )
   );
   await check(
-    'layout: every "?" opens a help card and Got it closes it',
+    'layout: on every tab the goal line\'s "?" opens that screen\'s help card',
     () =>
       evalIn(
         `(async () => {
-          const btns = [...document.querySelectorAll('.help-btn')];
-          if (btns.length < 6) return false;
           const ov = document.querySelector('.help-overlay');
-          for (const b of btns) {
-            b.click();
+          const seen = new Set();
+          for (const t of ['game', 'managers', 'upgrades', 'prestige', 'more']) {
+            document.querySelector('#tabs [data-tab="' + t + '"]').click();
+            await new Promise((r) => setTimeout(r, 150));
+            document.getElementById('goal-help').click();
             if (!ov || ov.hidden || !ov.querySelector('p').textContent) return false;
+            seen.add(ov.querySelector('h3').textContent);
             ov.querySelector('button').click();
             if (!ov.hidden) return false;
           }
-          return true;
+          document.querySelector('#tabs [data-tab="game"]').click();
+          return seen.size === 5 && !document.querySelector('.panel-head');
         })()`
       )
   );
+
 
   // Batch 3 (docs/UX-PLAN.md): Settings uses plain wording, How to play
   // walks the help cards in order, Expand names its Region, and its
