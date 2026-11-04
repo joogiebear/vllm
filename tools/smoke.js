@@ -245,6 +245,7 @@ async function runChecks(cdp, sessionId, url) {
   const exceptions = [];
   const consoleErrors = [];
   const notFound = [];
+  let bgStatus = null;
   cdp.on(
     'Runtime.exceptionThrown',
     (p) => {
@@ -273,7 +274,11 @@ async function runChecks(cdp, sessionId, url) {
   cdp.on(
     'Network.responseReceived',
     (p) => {
-      if (p.response && p.response.status === 404) notFound.push(p.response.url);
+      if (!p.response) return;
+      if (p.response.status === 404) notFound.push(p.response.url);
+      if (p.response.url.indexOf('icons/bg/homelab.webp') !== -1) {
+        bgStatus = p.response.status;
+      }
     },
     sessionId
   );
@@ -414,6 +419,34 @@ async function runChecks(cdp, sessionId, url) {
         })()`
       )
   );
+  // The body's background is the Home Lab scene (docs/ART-BACKGROUNDS.md,
+  // task 5): the computed background-image contains homelab.webp and the
+  // image request returned 200.
+  let bgOk = false;
+  let bgDetail = '';
+  let bgValue = '';
+  try {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 5000) {
+      const r = await evalIn('getComputedStyle(document.body).backgroundImage');
+      bgValue = (r.result && r.result.value) || '';
+      if (bgValue.indexOf('homelab.webp') !== -1 && bgStatus === 200) {
+        bgOk = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  } catch (err) {
+    bgDetail = err.message;
+  }
+  if (!bgOk && !bgDetail) {
+    bgDetail = `backgroundImage=${bgValue || 'empty'}, status=${bgStatus}`;
+  }
+  results.push({
+    name: 'fresh game: body background is homelab.webp and the image request returned 200',
+    pass: bgOk,
+    detail: bgDetail,
+  });
   // Tap the Pi's run button (the round icon on the first card) and watch
   // the payout bar's scaleX move off zero within 1 s.
   await evalIn(
