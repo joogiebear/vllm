@@ -290,11 +290,17 @@
     #prestige-seg button.active .seg-dot { background: #0b0f17; }
     #tab-prestige h2 { font-size: 18px; color: var(--text); margin: 0; }
     #tab-prestige p { font-size: 13px; color: var(--dim); margin: 4px 0 0; }
-    #prestige-hint { margin-bottom: 12px; }
+    #prestige-hint,
+    #region-head,
+    #global-milestone {
+      background: rgba(17, 24, 39, 0.80); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; margin-bottom: 12px;
+    }
     .hint-bar {
       height: 8px; border-radius: 4px;
-      background: var(--bg); border: 1px solid var(--border); overflow: hidden;
+      background: rgba(255, 255, 255, 0.12); overflow: hidden;
     }
+    #region-hint-note { font-size: 12px; color: var(--dim); margin-top: 2px; }
     #prestige-hint-fill { height: 100%; width: 0; background: var(--affordable); }
     #prestige-hint-text { font-size: 13px; color: var(--dim); margin-top: 6px; }
     #prestige-hint-bonus { font-size: 12px; color: var(--dim); margin-top: 2px; }
@@ -464,11 +470,14 @@
           </section>
         </div>
         <div id="prestige-regions" hidden>
-          <div id="region-hint">
-            <div class="hint-bar"><div id="region-hint-fill"></div></div>
-            <div id="region-hint-text">…</div>
+          <div id="region-head">
+            <div id="region-hint">
+              <div class="hint-bar"><div id="region-hint-fill"></div></div>
+              <div id="region-hint-text">…</div>
+              <div id="region-hint-note" hidden>Weights from every Prestige count toward it. Regions come one at a time.</div>
+            </div>
+            <div id="region-mult"></div>
           </div>
-          <div id="region-mult"></div>
           <section id="region-expand">
             <button type="button" id="expand-btn" disabled>EXPAND</button>
             <div id="expand-note" hidden>

@@ -142,6 +142,7 @@ export function createUI(state, io) {
     prestigeRegions: document.getElementById('prestige-regions'),
     regionHintFill: document.getElementById('region-hint-fill'),
     regionHintText: document.getElementById('region-hint-text'),
+    regionHintNote: document.getElementById('region-hint-note'),
     regionMult: document.getElementById('region-mult'),
     expandBtn: document.getElementById('expand-btn'),
     expandNote: document.getElementById('expand-note'),
@@ -327,10 +328,11 @@ export function createUI(state, io) {
   const mileLine = document.createElement('div');
   mileLine.id = 'global-milestone';
   Object.assign(mileLine.style, {
-    background: 'var(--card)',
+    background: 'rgba(17, 24, 39, 0.80)',
     border: '1px solid var(--border)',
-    borderRadius: '10px',
-    padding: '6px 12px',
+    borderRadius: '12px',
+    padding: '12px',
+    marginBottom: '12px',
     fontSize: '12px',
     color: 'var(--dim)',
   });
@@ -1181,13 +1183,14 @@ export function createUI(state, io) {
     let text;
     if (avail >= 1) {
       pct = 100;
-      text = 'Ready: 1 Region available';
+      text = 'Ready: expand to your next Region below';
     } else {
       pct = Math.min(100, Math.round((progress / target) * 100));
-      text = `You're ${pct}% of the way to your ${earned === 0 ? 'first' : 'next'} Region (${fmtExact(progress)} / ${fmtExact(target)} Weights)`;
+      text = `Next Region: earn ${fmtExact(target)} Weights by prestiging (${fmtExact(progress)} so far, ${pct}%)`;
     }
     els.regionHintFill.style.width = `${pct}%`;
     els.regionHintText.textContent = text;
+    els.regionHintNote.hidden = avail >= 1;
     els.regionMult.textContent = `Current multiplier x${fmt(Math.pow(2, earned))} — each Region doubles all production`;
     els.expandBtn.disabled = avail < 1;
     for (const r of perkRefs) {
