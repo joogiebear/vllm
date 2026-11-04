@@ -1,14 +1,14 @@
 // Main loop and wiring. The only file that reads the clock (Date.now()).
-import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261104142408';
-import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261104142408';
-import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261104142408';
-import { get } from './settings.js?v=20261104142408';
-import { createUI } from './ui.js?v=20261104142408';
-import { applyBackground } from './bg.js?v=20261104142408';
-import { fmt } from './fmt.js?v=20261104142408';
-import { showWelcome } from './welcome.js?v=20261104142408';
-import { toast } from './toast.js?v=20261104142408';
-import { initFeedback } from './feedback.js?v=20261104142408';
+import { tick, applyOffline, applyRush, autoProcureDue, buyAllUpgrades } from './core.js?v=20261104142708';
+import { AUTOSAVE_SECONDS, RUSH_RESULT_KEY, ACHIEVEMENTS, OFFLINE_CAP_HOURS, WEIGHT_UPGRADES } from './data.js?v=20261104142708';
+import { load, save, exportSave, importSave, hardReset, backupNow, listBackups, restoreBackup, BACKUP_GAP_MS } from './save.js?v=20261104142708';
+import { get } from './settings.js?v=20261104142708';
+import { createUI } from './ui.js?v=20261104142708';
+import { applyBackground } from './bg.js?v=20261104142708';
+import { fmt } from './fmt.js?v=20261104142708';
+import { showWelcome } from './welcome.js?v=20261104142708';
+import { toast } from './toast.js?v=20261104142708';
+import { initFeedback } from './feedback.js?v=20261104142708';
 
 const { state, savedAt, restoredFrom } = load();
 initFeedback();

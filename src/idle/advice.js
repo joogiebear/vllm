@@ -2,8 +2,8 @@
 // No DOM, no mutation of the passed state, no side effects — the UI layer
 // renders the result.
 
-import { GENERATORS, UPGRADES } from './data.js?v=20261104142408';
-import { tokensPerSecond, cost } from './core.js?v=20261104142408';
+import { GENERATORS, UPGRADES } from './data.js?v=20261104142708';
+import { tokensPerSecond, cost } from './core.js?v=20261104142708';
 
 // A clone of state with one candidate purchase applied.
 function withPurchase(state, kind, id) {

@@ -6,7 +6,7 @@
 // coordinates are converted to the 960x600 logical space from the canvas
 // bounding box (the canvas is letterboxed, so the box is the game area).
 
-import { layout, hitRect } from './render.js?v=20261104142408';
+import { layout, hitRect } from './render.js?v=20261104142708';
 
 const W = 960;
 const H = 600;
