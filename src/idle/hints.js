@@ -11,9 +11,9 @@
 // ('run' | 'buy' | 'manager') or null. The DOM callout (mountHint) polls
 // it and shows the bubble when the target is on screen, waiting while the
 // welcome-back card or an achievement toast is up.
-import { cost } from './core.js?v=20261104200620';
-import { isWelcomeOpen } from './welcome.js?v=20261104200620';
-import { isToastVisible } from './toast.js?v=20261104200620';
+import { cost } from './core.js?v=20261104201139';
+import { isWelcomeOpen } from './welcome.js?v=20261104201139';
+import { isToastVisible } from './toast.js?v=20261104201139';
 
 export const HINT_TEXTS = {
   run: 'Tap the Pi to run it. When the bar fills, you get tokens.',
