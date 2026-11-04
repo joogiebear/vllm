@@ -48,6 +48,8 @@ import {
   X5_UPGRADES,
   PORTRAITS,
   PORTRAIT_V,
+  TIER_ART,
+  TIER_ART_V,
 } from '../src/idle/data.js';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1843,5 +1845,19 @@ test('PORTRAITS: all 12 tier ids in tier order, and every listed file exists on 
   const onDisk = readdirSync(dir);
   for (const id of PORTRAITS) {
     assert.ok(onDisk.includes(`${id}.webp`), `icons/managers/${id}.webp missing`);
+  }
+});
+
+// Machine icons (docs/ART-TIERS.md)
+
+test('TIER_ART: all 12 tier ids in tier order, and every listed file exists on disk', () => {
+  assert.equal(TIER_ART_V, 1);
+  assert.equal(TIER_ART.length, 12);
+  // every id is a tier id, in the same order as GENERATORS
+  assert.deepEqual(TIER_ART, GENERATORS.map((g) => g.id));
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons', 'tiers');
+  const onDisk = readdirSync(dir);
+  for (const id of TIER_ART) {
+    assert.ok(onDisk.includes(`${id}.webp`), `icons/tiers/${id}.webp missing`);
   }
 });

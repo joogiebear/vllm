@@ -68,6 +68,15 @@ export const PORTRAITS = [
 ];
 export const PORTRAIT_V = 1;
 
+// Machine icons (docs/ART-TIERS.md): the tier ids that have a file in
+// icons/tiers/<id>.webp, in tier order. A tier without an entry keeps the
+// SVG icon. TIER_ART_V is bumped whenever any icon file changes.
+export const TIER_ART = [
+  'pi', 'gamer', 'workstation', 'rack', 'cluster', 'datacenter',
+  'campus', 'swarm', 'orbital', 'lunar', 'matrioshka', 'singularity',
+];
+export const TIER_ART_V = 1;
+
 // kind: 'production' multiplies every row's output; 'productionTier'
 // multiplies one tier's output; 'cacheRate' adds to the rate multiplier.
 export const UPGRADES = [
