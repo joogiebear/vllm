@@ -2,8 +2,8 @@
 // localStorage only, every access wrapped in try/catch. Timestamps are
 // supplied by app.js (the only file that reads the clock); this module
 // never reads the clock itself.
-import { SAVE_VERSION, SAVE_KEY, SAVE_CORRUPT_KEY } from './data.js?v=20261104205122';
-import { createState, migrate, ensureStarter } from './core.js?v=20261104205122';
+import { SAVE_VERSION, SAVE_KEY, SAVE_CORRUPT_KEY } from './data.js?v=20261104205653';
+import { createState, migrate, ensureStarter } from './core.js?v=20261104205653';
 
 function safeGet(key) {
   try {

@@ -6,7 +6,7 @@ import {
   expandRegion, regionsAvailable, regionName, buyRegionPerk, regionsUnlocked,
   regionsLockedText, regionsUnlockProgress, regionsHintLine,
   maxBuyable, isTierUnlocked, showLockedTier, nextMilestone, nextBuyCount, regionTarget, globalMilestone,
-} from './core.js?v=20261104205122';
+} from './core.js?v=20261104205653';
 import {
   GENERATORS, UPGRADES, X5_UPGRADES, WEIGHT_UPGRADES,
   PRESTIGE_DIVISOR, WEIGHT_BONUS_PER_WEIGHT, COST_GROWTH,
@@ -14,19 +14,19 @@ import {
   REGION_PERKS, ACHIEVEMENTS,
   TIER_GATES, GLOBAL_MILESTONES,
   upgradeEffect, weightUpgradeEffect,
-} from './data.js?v=20261104205122';
-import { get as getSetting, set as setSetting } from './settings.js?v=20261104205122';
-import { play } from './feedback.js?v=20261104205122';
-import { applyBackground } from './bg.js?v=20261104205122';
-import { mountAchievements } from './achievements-ui.js?v=20261104205122';
-import { mountStats } from './stats-ui.js?v=20261104205122';
-import { mountEvents } from './events-ui.js?v=20261104205122';
-import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104205122';
-import { nextGoal } from './advice.js?v=20261104205122';
+} from './data.js?v=20261104205653';
+import { get as getSetting, set as setSetting } from './settings.js?v=20261104205653';
+import { play } from './feedback.js?v=20261104205653';
+import { applyBackground } from './bg.js?v=20261104205653';
+import { mountAchievements } from './achievements-ui.js?v=20261104205653';
+import { mountStats } from './stats-ui.js?v=20261104205653';
+import { mountEvents } from './events-ui.js?v=20261104205653';
+import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104205653';
+import { nextGoal } from './advice.js?v=20261104205653';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104205122';
-import { fmt } from './fmt.js?v=20261104205122';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104205653';
+import { fmt } from './fmt.js?v=20261104205653';
 
 function fmtExact(n) {
   if (!Number.isFinite(n)) return '∞';
