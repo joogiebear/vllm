@@ -1,4 +1,4 @@
-import { PORTRAITS, PORTRAIT_V, TIER_ART, TIER_ART_V } from './data.js?v=20261104204603';
+import { PORTRAITS, PORTRAIT_V, TIER_ART, TIER_ART_V } from './data.js?v=20261104205122';
 
 // Tier colours and generator icons.
 // Style rules (docs/ART-DESIGN.md): 24x24 viewBox, stroke only at width 1.8,
