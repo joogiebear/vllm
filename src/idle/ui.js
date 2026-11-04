@@ -21,7 +21,7 @@ import { mountEvents } from './events-ui.js?v=20261104000300';
 import { mountHint, naturalDismiss, showHintsAgain } from './hints.js?v=20261104000300';
 
 // Tier colours live in icons.js (one source); imported back here.
-import { TIER_COLORS, icon as tierIcon, managerIcon } from './icons.js?v=20261104000300';
+import { TIER_COLORS, icon as tierIcon, managerIcon, tierArt } from './icons.js?v=20261104000300';
 import { fmt } from './fmt.js?v=20261104000300';
 
 function fmtExact(n) {
@@ -178,7 +178,7 @@ export function createUI(state, io) {
     icon.type = 'button';
     icon.className = 'gen-icon';
     icon.style.setProperty('--tier-color', TIER_COLORS[g.id]);
-    const tier = tierIcon(g.id, 24);
+    const tier = tierArt(g.id, 44);
     tier.style.color = TIER_COLORS[g.id];
     tier.style.position = 'absolute';
     tier.style.inset = '0';
