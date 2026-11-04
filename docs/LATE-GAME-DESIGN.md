@@ -137,3 +137,31 @@ One small task, `ui.js` visibility rule only (around `nextLocked`): a
 Region-locked row is visible only when the tier just before it in
 `GENERATORS` is owned (owned > 0). Everything else stays as is. Test with
 the smoke test's fresh game (no Orbital row) and late save (unchanged).
+
+## Fix 2 (2026-11-04): the way to Regions must always be visible
+
+Owner's phone screenshot (14:22 UTC, 1.0Q tokens, +5317% Weights bonus):
+the Prestige tab shows only the "Weights" segment, so there is no sign of
+Regions at all, and the Weight upgrades read "×1000", "×0.75", "×true".
+Separate from the readability fix (solid panels behind progress text),
+which is already being built.
+
+Two small tasks, one at a time:
+
+1. `ui.js` `updatePrestigeSeg`: the Regions segment shows when
+   `regionsEarned > 0` **or** `weightsEverEarned >= REGION_UNLOCK_WEIGHTS`.
+   Before that, the Weights view gets one line under the prestige hint:
+   "Regions unlock at 2,000 Weights earned in total (you have 1,240)."
+   Test: a state with `regionsEarned: 1, weightsEverEarned: 0` shows the
+   segment; a fresh state shows the line instead.
+2. `ui.js` `WU_WORDS`: plain words for every Weight upgrade, keyed by the
+   real ids in `WEIGHT_UPGRADES`, and never fall back to `×${value}`
+   (fall back to the upgrade name instead):
+   - seed: "Start each run with 1,000 tokens"
+   - night: "Earn 75% while away (was 50%)" (check the real base rate)
+   - warm: "+25% cache rate"
+   - procure: "Adds the Buy All button"
+   - long: "Offline earnings cap 24 h"
+   - auto: "Start each run with the Cron Job hired"
+   - distill: "+13% bonus per Weight"
+   Test: every `WEIGHT_UPGRADES` id has an entry.
